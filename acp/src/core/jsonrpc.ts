@@ -54,6 +54,20 @@ export class JsonRpcStdio {
       this.stderrTail.push(d.toString().trim());
       if (this.stderrTail.length > 200) this.stderrTail.shift();
     });
+    this.child.on('error', (e: NodeJS.ErrnoException) => {
+      // FIX (P0): a failed spawn (ENOENT for a missing binary OR a missing cwd) emits 'error'
+      // on the ChildProcess. Without a listener Node rethrows it as an unhandled 'error' event
+      // and kills the host process — i.e. one bad job took down the whole control plane.
+      // Surface it as failed pending requests instead.
+      this.exited = true;
+      this.exitCode = null;
+      const detail = `${this.label}: spawn failed (${e.code ?? 'error'}): ${e.message}`;
+      for (const [, p] of this.pending) {
+        clearTimeout(p.timer);
+        p.reject(new Error(detail));
+      }
+      this.pending.clear();
+    });
     this.child.on('exit', (code) => {
       this.exited = true;
       this.exitCode = code;

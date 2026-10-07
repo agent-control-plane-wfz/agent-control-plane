@@ -1,0 +1,11 @@
+{
+  "name": "agent-control-plane",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Agent Control Plane: route tasks to coding-agent harnesses (opencode/claude/codex/dsh) with model+effort control. Zero runtime deps, Node 22 type-stripping.",
+  "scripts": {
+    "mcp": "node --experimental-strip-types src/mcp/server.ts",
+    "e2e": "node --experimental-strip-types tests/e2e-opencode.ts"
+  }
+}

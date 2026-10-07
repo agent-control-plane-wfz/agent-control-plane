@@ -1,0 +1,150 @@
+{
+  "opencode": {
+    "probes": [
+      {
+        "option": "model",
+        "from": "opencode/exo-free",
+        "to": "opencode/big-pickle",
+        "attempts": [
+          {
+            "shape": "set_config_option.configId",
+            "ok": true,
+            "response": "{\"configOptions\":[{\"id\":\"model\",\"name\":\"Model\",\"category\":\"model\",\"type\":\"select\",\"currentValue\":\"opencode/big-pickle\",\"options\":[{\"value\":\"opencode/big-pickle\",\"name\":\"opencode/Big Pickle\"},{\"value\":\"opencode/exo-free\",\"name\":\"opencode/Exo Free\"},{\"value\":\"opencode/fledge-alpha-free\",\"name\":\"openco"
+          }
+        ],
+        "worked": {
+          "label": "set_config_option.configId",
+          "method": "session/set_config_option"
+        },
+        "restored": true
+      },
+      {
+        "option": "effort",
+        "from": "default",
+        "to": "high",
+        "attempts": [
+          {
+            "shape": "set_config_option.configId",
+            "ok": true,
+            "response": "{\"configOptions\":[{\"id\":\"model\",\"name\":\"Model\",\"category\":\"model\",\"type\":\"select\",\"currentValue\":\"opencode/exo-free\",\"options\":[{\"value\":\"opencode/big-pickle\",\"name\":\"opencode/Big Pickle\"},{\"value\":\"opencode/exo-free\",\"name\":\"opencode/Exo Free\"},{\"value\":\"opencode/fledge-alpha-free\",\"name\":\"opencode"
+          }
+        ],
+        "worked": {
+          "label": "set_config_option.configId",
+          "method": "session/set_config_option"
+        },
+        "restored": true
+      },
+      {
+        "option": "mode",
+        "from": "build",
+        "to": "plan",
+        "attempts": [
+          {
+            "shape": "set_config_option.configId",
+            "ok": true,
+            "response": "{\"configOptions\":[{\"id\":\"model\",\"name\":\"Model\",\"category\":\"model\",\"type\":\"select\",\"currentValue\":\"opencode/exo-free\",\"options\":[{\"value\":\"opencode/big-pickle\",\"name\":\"opencode/Big Pickle\"},{\"value\":\"opencode/exo-free\",\"name\":\"opencode/Exo Free\"},{\"value\":\"opencode/fledge-alpha-free\",\"name\":\"opencode"
+          }
+        ],
+        "worked": {
+          "label": "set_config_option.configId",
+          "method": "session/set_config_option"
+        },
+        "restored": true
+      }
+    ]
+  },
+  "claude": {
+    "probes": [
+      {
+        "option": "model",
+        "from": "sonnet",
+        "to": "default",
+        "attempts": [
+          {
+            "shape": "set_config_option.configId",
+            "ok": true,
+            "response": "{\"configOptions\":[{\"id\":\"mode\",\"name\":\"Mode\",\"description\":\"Session permission mode\",\"category\":\"mode\",\"type\":\"select\",\"currentValue\":\"default\",\"options\":[{\"value\":\"default\",\"name\":\"Manual\",\"description\":\"Always ask before making changes\"},{\"value\":\"acceptEdits\",\"name\":\"Accept edits\",\"description\":\""
+          }
+        ],
+        "worked": {
+          "label": "set_config_option.configId",
+          "method": "session/set_config_option"
+        },
+        "restored": true
+      },
+      {
+        "option": "effort",
+        "from": "xhigh",
+        "to": "default",
+        "attempts": [
+          {
+            "shape": "set_config_option.configId",
+            "ok": true,
+            "response": "{\"configOptions\":[{\"id\":\"mode\",\"name\":\"Mode\",\"description\":\"Session permission mode\",\"category\":\"mode\",\"type\":\"select\",\"currentValue\":\"default\",\"options\":[{\"value\":\"default\",\"name\":\"Manual\",\"description\":\"Always ask before making changes\"},{\"value\":\"acceptEdits\",\"name\":\"Accept edits\",\"description\":\""
+          }
+        ],
+        "worked": {
+          "label": "set_config_option.configId",
+          "method": "session/set_config_option"
+        },
+        "restored": true
+      },
+      {
+        "option": "mode",
+        "from": "default",
+        "to": "acceptEdits",
+        "attempts": [
+          {
+            "shape": "set_config_option.configId",
+            "ok": true,
+            "response": "{\"configOptions\":[{\"id\":\"mode\",\"name\":\"Mode\",\"description\":\"Session permission mode\",\"category\":\"mode\",\"type\":\"select\",\"currentValue\":\"acceptEdits\",\"options\":[{\"value\":\"default\",\"name\":\"Manual\",\"description\":\"Always ask before making changes\"},{\"value\":\"acceptEdits\",\"name\":\"Accept edits\",\"descriptio"
+          }
+        ],
+        "worked": {
+          "label": "set_config_option.configId",
+          "method": "session/set_config_option"
+        },
+        "restored": true
+      }
+    ]
+  },
+  "codex": {
+    "probes": [
+      {
+        "option": "model",
+        "from": "gpt-6.1-sol",
+        "to": "gpt-6-astra",
+        "attempts": [
+          {
+            "shape": "set_config_option.configId",
+            "ok": true,
+            "response": "{\"configOptions\":[{\"id\":\"mode\",\"name\":\"Mode\",\"description\":\"Approval and sandboxing preset for the session\",\"category\":\"mode\",\"type\":\"select\",\"currentValue\":\"agent\",\"options\":[{\"value\":\"read-only\",\"name\":\"Read-only\",\"description\":\"Requires approval to edit files and access the internet.\"},{\"value\":\""
+          }
+        ],
+        "worked": {
+          "label": "set_config_option.configId",
+          "method": "session/set_config_option"
+        },
+        "restored": true
+      },
+      {
+        "option": "mode",
+        "from": "agent",
+        "to": "read-only",
+        "attempts": [
+          {
+            "shape": "set_config_option.configId",
+            "ok": true,
+            "response": "{\"configOptions\":[{\"id\":\"mode\",\"name\":\"Mode\",\"description\":\"Approval and sandboxing preset for the session\",\"category\":\"mode\",\"type\":\"select\",\"currentValue\":\"read-only\",\"options\":[{\"value\":\"read-only\",\"name\":\"Read-only\",\"description\":\"Requires approval to edit files and access the internet.\"},{\"valu"
+          }
+        ],
+        "worked": {
+          "label": "set_config_option.configId",
+          "method": "session/set_config_option"
+        },
+        "restored": true
+      }
+    ]
+  }
+}

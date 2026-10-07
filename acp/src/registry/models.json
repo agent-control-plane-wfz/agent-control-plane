@@ -1,0 +1,38 @@
+{
+  "$comment": "Model table v0.1 — coarse tiers only (per plan v2.1 M2: no pseudo-precise scores). Key format: <via>/<model-option-value>. actual_vendor reflects what REALLY runs on this machine (Phase 0: claude adapter remaps to deepseek). Vendors marked 'unknown' are genuinely unidentified — do not guess.",
+  "models": {
+    "codex/gpt-6.1-sol":   { "vendor": "openai",   "tier": "strong",   "traits": ["coding", "reasoning"], "via": "codex" },
+    "codex/gpt-6-astra":   { "vendor": "openai",   "tier": "frontier", "traits": ["reasoning", "long-horizon"], "via": "codex" },
+    "codex/gpt-6-sol":     { "vendor": "openai",   "tier": "strong",   "traits": ["coding"], "via": "codex" },
+    "codex/gpt-6-luna":    { "vendor": "openai",   "tier": "fast",     "traits": ["coding"], "via": "codex" },
+    "codex/gpt-5.6-sol":   { "vendor": "openai",   "tier": "cheap",    "traits": ["coding"], "via": "codex" },
+    "codex/gpt-5.6-terra": { "vendor": "openai",   "tier": "cheap",    "traits": ["general"], "via": "codex" },
+    "codex/gpt-5.6-luna":  { "vendor": "openai",   "tier": "cheap",    "traits": ["general"], "via": "codex" },
+
+    "claude/claude-fable-5[1m]": { "vendor": "anthropic", "tier": "frontier", "traits": ["reasoning", "long-context"], "via": "claude" },
+    "claude/opus":               { "vendor": "deepseek",  "tier": "fast",     "traits": ["coding"], "via": "claude", "note": "remapped to deepseek-v4-flash on this machine" },
+    "claude/sonnet":             { "vendor": "deepseek",  "tier": "fast",     "traits": ["coding"], "via": "claude", "note": "remapped to deepseek-v4-flash on this machine" },
+    "claude/haiku":              { "vendor": "deepseek",  "tier": "fast",     "traits": ["general"], "via": "claude", "note": "remapped to deepseek-v4-flash on this machine" },
+
+    "dsh/deepseek-v4-pro":   { "vendor": "deepseek", "tier": "strong", "traits": ["coding", "reasoning"], "via": "dsh" },
+    "dsh/deepseek-v4-flash": { "vendor": "deepseek", "tier": "fast",   "traits": ["general"], "via": "dsh" },
+
+    "opencode/opencode/exo-free":                        { "vendor": "unknown",     "tier": "fast",   "traits": ["general"], "via": "opencode" },
+    "opencode/opencode/big-pickle":                      { "vendor": "unknown",     "tier": "fast",   "traits": ["general"], "via": "opencode" },
+    "opencode/opencode/fledge-alpha-free":               { "vendor": "unknown",     "tier": "fast",   "traits": ["general"], "via": "opencode" },
+    "opencode/opencode/ling-3.0-flash-fin-free":         { "vendor": "inclusionai", "tier": "fast",   "traits": ["general"], "via": "opencode" },
+    "opencode/opencode/ling-3.1-flash-free":             { "vendor": "inclusionai", "tier": "fast",   "traits": ["general"], "via": "opencode" },
+    "opencode/opencode/longcat-2.5-preview-free":        { "vendor": "meituan",     "tier": "fast",   "traits": ["general"], "via": "opencode" },
+    "opencode/opencode/mimo-v2.6-flash-free":            { "vendor": "xiaomi",      "tier": "fast",   "traits": ["general"], "via": "opencode" },
+    "opencode/opencode/muse-spark-1.3-contributor-free": { "vendor": "unknown",     "tier": "fast",   "traits": ["general"], "via": "opencode" },
+    "opencode/opencode/nemotron-3-ultra-free":           { "vendor": "nvidia",      "tier": "strong", "traits": ["reasoning"], "via": "opencode" },
+    "opencode/opencode/nemotron-3.5-lightning-free":     { "vendor": "nvidia",      "tier": "fast",   "traits": ["general"], "via": "opencode" },
+    "opencode/opencode/space-bunny-free":                { "vendor": "unknown",     "tier": "fast",   "traits": ["general"], "via": "opencode" }
+  },
+  "agentDefaults": {
+    "opencode": { "model": "opencode/exo-free", "effort": "default" },
+    "claude":   { "model": "sonnet",            "effort": "high" },
+    "codex":    { "model": "gpt-6.1-sol",       "effort": "medium" },
+    "dsh":      { "model": "deepseek-v4-flash", "effort": null }
+  }
+}

@@ -1,0 +1,14 @@
+# secrets & local state — never commit
+state/
+acp/state/
+*.env
+
+# logs & scratch
+phase0/*-log.txt
+phase0/*-out.txt
+phase0/npm-*.txt
+phase0/gh-*
+tests/.wt-scratch-repo/
+node_modules/
+*.log
+acp/tests/*-out.txt

@@ -12,3 +12,4 @@ tests/.wt-scratch-repo/
 node_modules/
 *.log
 acp/tests/*-out.txt
+acp/tests/.p4-scratch-repo/

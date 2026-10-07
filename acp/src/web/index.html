@@ -128,6 +128,28 @@ details.raw pre{margin-top:6px}
 pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;padding:11px;font:11.5px var(--mono);white-space:pre-wrap;word-break:break-all;max-height:320px;overflow-y:auto;color:#9aa6c4}
 .btn-copy{background:var(--surface3);border:1px solid var(--border);color:var(--dim);border-radius:7px;padding:3px 10px;font-size:11px;cursor:pointer;margin-top:8px}
 .btn-copy:hover{color:var(--text)}
+.pathrow{display:flex;gap:8px;align-items:center}
+.pathrow input{flex:1;min-width:0}
+.pathrow .ghost{width:auto;margin:0;white-space:nowrap;flex:0 0 auto}
+.dpov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:22px}
+.dp{background:var(--surface);border:1px solid var(--border2);border-radius:14px;width:min(580px,100%);max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+.dp-head{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:5px}
+.dp-head b{font-size:13.5px}
+.dp-cur{font:12px var(--mono);color:var(--dim);word-break:break-all}
+.dpsec{padding:9px 14px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.dplab{font-size:11.5px;color:var(--faint)}
+.dpchip{background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:99px;padding:3px 10px;font:11.5px var(--mono);cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dpchip:hover{color:var(--text);border-color:var(--border2)}
+.dplist{flex:1;overflow:auto;padding:8px 10px;min-height:190px}
+.dprow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:0;color:var(--text);padding:7px 11px;border-radius:7px;cursor:pointer;font-size:13px;font-family:inherit}
+.dprow:hover{background:var(--surface3)}
+.dpico{color:var(--faint);font-size:11px;width:12px;flex:0 0 12px}
+.dpup{color:var(--dim)}
+.dpfoot{display:flex;align-items:center;gap:8px;padding:11px 16px;border-top:1px solid var(--border)}
+.dperr{color:var(--err);font-size:12px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dpfoot .ghost{width:auto;margin:0}
+.dpfoot #dp-ok{width:auto;margin:0;padding:7px 16px;border:0;border-radius:8px;background:linear-gradient(135deg,var(--acc1),var(--acc2));color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s}
+.dpfoot #dp-ok:hover{filter:brightness(1.08)}
 .subchips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
 .schip{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:4px 11px;font-size:12px;color:var(--dim);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .schip.ok{border-color:rgba(52,211,153,.4)}
@@ -301,7 +323,10 @@ button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
     </div>
 
     <label>工作目录 cwd</label>
-    <input id="f-cwd" list="cwd-list" placeholder="绝对路径，例如 D:\projects\my-repo（派发后自动记入常用列表）">
+    <div class="pathrow">
+      <input id="f-cwd" list="cwd-list" placeholder="绝对路径，例如 D:\projects\my-repo（派发后自动记入常用列表）">
+      <button type="button" class="ghost" onclick="openDirPicker('f-cwd')">📁 浏览…</button>
+    </div>
     <datalist id="cwd-list"></datalist>
 
     <div class="grid3">
@@ -351,6 +376,20 @@ button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
     </div>
   </div>
 </main>
+
+<div id="dirpicker" class="dpov" style="display:none">
+  <div class="dp">
+    <div class="dp-head"><b>选择目录</b><span class="dp-cur" id="dp-cur">—</span></div>
+    <div class="dpsec" id="dp-roots"></div>
+    <div class="dpsec"><span class="dplab">常用</span><span id="dp-recent" style="display:flex;flex-wrap:wrap;gap:6px;min-width:0"></span></div>
+    <div class="dplist" id="dp-list"></div>
+    <div class="dpfoot">
+      <span class="dperr" id="dp-err"></span>
+      <button type="button" class="ghost" onclick="closeDirPicker()">取消</button>
+      <button type="button" id="dp-ok" onclick="pickDir()">选定此目录</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -425,6 +464,49 @@ function setMode(m){
 $('tab-ask').onclick=()=>setMode('ask');$('tab-batch').onclick=()=>setMode('batch');
 $('presets').innerHTML=PRESETS.map((p,i)=>`<button data-i="${i}" title="${esc(p[1].slice(0,60))}…">${p[0]}</button>`).join('');
 $('presets').onclick=e=>{const b=e.target.closest('button');if(!b)return;$('f-task').value=PRESETS[+b.dataset.i][1];$('f-task').focus()};
+
+/* ---------- directory picker ---------- */
+// Why the list comes from the server: no browser API returns an absolute path. So the popup only
+// navigates a listing served by the local control plane (GET /api/fs/dirs). Picking writes the
+// path back into the target input — manual typing still works; this is additive, not a replacement.
+let DP_TARGET=null,DP_CUR='';
+function openDirPicker(targetId){
+  const el=$(targetId);if(!el)return;
+  DP_TARGET=targetId;
+  $('dirpicker').style.display='flex';
+  navDir(el.value.trim());
+}
+function closeDirPicker(){$('dirpicker').style.display='none';DP_TARGET=null}
+async function navDir(path){
+  $('dp-err').textContent='';
+  try{
+    const r=await api('/api/fs/dirs'+(path?'?path='+encodeURIComponent(path):''));
+    DP_CUR=r.path||'';
+    $('dp-cur').textContent=DP_CUR||'—';
+    $('dp-roots').innerHTML=(r.roots||[]).map(x=>`<button type="button" class="dpchip" data-p="${esc(x.path)}">${esc(x.name)}</button>`).join('');
+    const cwds=(SETTINGS?.merged?.workspace?.recentCwds||[]).filter(c=>c!==DP_CUR);
+    $('dp-recent').innerHTML=cwds.length
+      ?cwds.map(c=>`<button type="button" class="dpchip" data-p="${esc(c)}">${esc(c)}</button>`).join('')
+      :'<span class="dplab">暂无记录</span>';
+    const up=r.parent?`<button type="button" class="dprow dpup" data-p="${esc(r.parent)}"><span class="dpico">↑</span>上级目录</button>`:'';
+    const rows=(r.entries||[]).map(e=>`<button type="button" class="dprow" data-p="${esc(e.path)}"><span class="dpico">▸</span>${esc(e.name)}</button>`).join('');
+    $('dp-list').innerHTML=up+(rows||'<div class="empty">此目录下没有子目录</div>')
+      +(r.truncated?`<div class="empty">仅显示前 ${(r.entries||[]).length} 个</div>`:'');
+  }catch(e){
+    $('dp-list').innerHTML='';
+    $('dp-err').textContent=String(e.message??e);
+  }
+}
+function pickDir(){
+  if(!DP_TARGET)return;
+  const el=$(DP_TARGET);
+  if(el){el.value=DP_CUR;el.dispatchEvent(new Event('input',{bubbles:true}))}
+  closeDirPicker();
+}
+for(const dpId of ['dp-list','dp-roots','dp-recent'])
+  $(dpId).onclick=e=>{const b=e.target.closest('[data-p]');if(b)navDir(b.dataset.p)};
+$('dirpicker').addEventListener('click',e=>{if(e.target===$('dirpicker'))closeDirPicker()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('dirpicker').style.display==='flex')closeDirPicker()});
 
 function collectForm(){
   return{cwd:$('f-cwd').value.trim(),agent:$('f-agent').value||undefined,model:$('f-model').value.trim()||undefined,
@@ -667,7 +749,7 @@ function renderWorkspace(){
   return`<div class="card"><h2 class="ct">常用 cwd（派任务时下拉可选）</h2><div>${chips}</div>
     <h2 class="ct" style="margin-top:16px">worktree 基目录</h2>
     <label>隔离 worktree 的创建位置（不要放在含 package.json 的目录树内）</label>
-    <input id="ws-basedir" value="${esc(w.worktreeBaseDir||'')}" placeholder="默认：<repo>/../.acp-worktrees">
+    <div class="pathrow"><input id="ws-basedir" value="${esc(w.worktreeBaseDir||'')}" placeholder="默认：<repo>/../.acp-worktrees"><button type="button" class="ghost" onclick="openDirPicker('ws-basedir')">📁 浏览…</button></div>
     <button id="btn-go" style="margin-top:12px" onclick="saveWorkspace()">保存</button><div class="form-err" id="ws-err"></div></div>`;
 }
 function rmCwd(c){

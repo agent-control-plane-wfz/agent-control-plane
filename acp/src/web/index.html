@@ -591,8 +591,53 @@ function copyRaw(btn){
 function renderAgents(){
   const creds=CREDENTIALS.map(c=>`<span class="credchip"><span class="dot ${c.configured?'ok':'err'}"></span>${esc(c.name)}<span style="color:var(--faint)">· ${c.configured?esc(c.source):'未配置'}</span></span>`).join('');
   const rows=AGENTS.map(a=>agentRowHtml(a)).join('');
-  return`<div class="card"><h2 class="ct">凭据（值只写不回显 · 环境变量优先，其次 secrets.env）</h2><div class="credstrip">${creds}</div>
-    <h2 class="ct" style="margin-top:6px">Agents · 点击行展开编辑（一次一张卡）</h2>${rows}</div>`;
+  const usable=AGENTS.some(a=>a.enabled&&a.authState==='ok');
+  const onboarding=usable?'':`<div class="verdict" style="margin-bottom:12px"><b>首次设置：</b>还没有任何可用的 agent 凭据。展开下面任意一个 agent，粘贴它的 API Key 并「探测能力」；或用「+ 添加自定义 Agent」接入你自己的 ACP 命令。值只写不回显。</div>`;
+  return`<div class="card">${onboarding}<h2 class="ct">凭据（值只写不回显 · 环境变量优先，其次 secrets.env）</h2><div class="credstrip">${creds}</div>
+    <h2 class="ct" style="margin-top:6px">Agents · 点击行展开编辑（一次一张卡）</h2>${rows}
+    <button class="ghost" style="width:auto;margin-top:6px" onclick="toggleCustom()">+ 添加自定义 Agent</button>
+    <div id="custom-card" style="display:none;margin-top:10px">${customCardHtml()}</div></div>`;
+}
+function customCardHtml(){
+  return`<div class="agentrow open" style="border-color:var(--acc1)"><div class="aedit" style="display:block;border-top:0">
+    <div class="grid3">
+      <div><label>Agent ID（唯一）</label><input id="cu-id" placeholder="如 gemini"></div>
+      <div><label>传输方式</label><select id="cu-transport"><option value="acp">ACP</option><option value="json-process">JSON-process</option></select></div>
+      <div><label>凭据引用名</label><input id="cu-cred" placeholder="如 GEMINI_API_KEY（可空）"></div>
+    </div>
+    <label>命令</label><input id="cu-command" placeholder="node 或可执行文件绝对路径">
+    <label>参数（每行一个）</label><textarea id="cu-args" style="min-height:52px" placeholder="例如 ACP 适配器：&#10;C:\\...\\gemini-cli-acp\\dist\\index.js"></textarea>
+    <div><label>凭据值（只写，可留空用原生登录态）</label><input type="password" id="cu-credval" autocomplete="new-password"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="ghost" style="flex:1;margin:0" onclick="toggleCustom()">取消</button>
+      <button id="btn-cu" style="flex:2;margin:0" onclick="addCustom()">保存并探测</button>
+    </div>
+    <div class="probebox" id="probe-custom" style="display:none"></div>
+  </div></div>`;
+}
+function toggleCustom(){const c=$('custom-card');c.style.display=c.style.display==='none'?'':'none'}
+async function addCustom(){
+  const id=($('cu-id').value||'').trim();
+  const btn=$('btn-cu');btn.disabled=true;
+  const box=$('probe-custom');box.style.display='';box.textContent='保存并探测中…';
+  try{
+    if(!id||/[\s/\\]/.test(id))throw new Error('Agent ID 不能为空且不能含空格/斜杠');
+    if(AGENTS.some(a=>a.id===id))throw new Error(`agent ${id} 已存在`);
+    const command=($('cu-command').value||'').trim();
+    if(!command)throw new Error('命令不能为空');
+    const args=$('cu-args').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    const credRef=($('cu-cred').value||'').trim()||null;
+    const patch={enabled:true,transport:$('cu-transport').value,command,args,credentialRef:credRef};
+    await api('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({agents:{[id]:patch}})});
+    const credVal=($('cu-credval').value||'').trim();
+    if(credRef&&credVal)await api(`/api/credentials/${credRef}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({value:credVal})});
+    const r=await api(`/api/agents/${id}/test`,{method:'POST'});
+    box.textContent=r.ok?`✓ ${id} 接入成功（${(r.durationMs/1000).toFixed(1)}s）——已可被路由。\n模型: ${(r.models||[]).slice(0,10).join(', ')||'(未上报)'}`
+      :`⚠ 已保存但探测失败：${r.error||r.detail||'未知原因'}\n命令或凭据可能有误，可在列表中展开修改后重新探测。`;
+    refreshStatus();
+    setTimeout(loadSettings,r.ok?400:1200);
+  }catch(e){box.textContent='✕ '+String(e.message??e)}
+  finally{btn.disabled=false}
 }
 function agentRowHtml(a){
   const open=OPENID[a.id]?'open':'';

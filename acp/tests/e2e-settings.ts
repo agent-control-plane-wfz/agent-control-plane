@@ -112,6 +112,17 @@ try {
   const st: any = await (await fetch(`${base}/api/status`)).json();
   check('budget: resetDay zeroes counters', (st.budget?.requests ?? 1) === 0, `requests=${st.budget?.requests}`);
   await fetch(`${base}/api/settings/reset`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: j({ section: 'routing' }) });
+
+  // 10) P3: custom agent onboarding (save -> appears -> probe -> remove)
+  const cuArgs = [join(process.env.WORKSPACE_DIR!, 'node_modules', '@agentclientprotocol', 'claude-agent-acp', 'dist', 'index.js')];
+  await fetch(`${base}/api/settings`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: j({ agents: { mycustom: { enabled: true, transport: 'acp', command: process.execPath, args: cuArgs, credentialRef: 'ANTHROPIC_API_KEY' } } }) });
+  const rows3: any = await (await fetch(`${base}/api/agents`)).json();
+  check('custom: mycustom appears in agents', rows3.agents.some((a: any) => a.id === 'mycustom'));
+  const cprobe: any = await (await fetch(`${base}/api/agents/mycustom/test`, { method: 'POST' })).json();
+  check('custom: probe mycustom handshake', cprobe.ok === true, `${(cprobe.durationMs / 1000).toFixed(1)}s, models=${(cprobe.models || []).length}`);
+  await fetch(`${base}/api/settings/reset`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: j({ section: 'agents', sub: 'mycustom' }) });
+  const rows4: any = await (await fetch(`${base}/api/agents`)).json();
+  check('custom: mycustom removed after reset', !rows4.agents.some((a: any) => a.id === 'mycustom'));
 } catch (e: any) {
   console.error('E2E error:', String(e?.message ?? e));
   failed = true;

@@ -4,6 +4,7 @@
 // Run: node --experimental-strip-types tests/e2e-phase4.ts
 import { execFile } from 'node:child_process';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ControlPlane } from '../src/control/plane.ts';
@@ -11,7 +12,8 @@ import { ControlPlane } from '../src/control/plane.ts';
 const here = dirname(fileURLToPath(import.meta.url));
 // IMPORTANT: keep the scratch repo OUTSIDE the acp project tree — Node walks up to the
 // nearest package.json and acp's "type":"module" would break the CommonJS calc.js.
-const tmpRoot = 'D:\\workb\\.p4-tmp';
+// Path is machine-agnostic (PR #1 follow-up): override with ACP_TEST_TMP if needed.
+const tmpRoot = process.env.ACP_TEST_TMP ?? join(tmpdir(), 'acp-p4-tmp');
 const repo = join(tmpRoot, 'repo');
 const plane = new ControlPlane();
 let failed = false;

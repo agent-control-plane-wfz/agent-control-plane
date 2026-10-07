@@ -4,7 +4,7 @@
 // and a real ACP capability probe (handshake only, no token cost).
 // Run: WORKSPACE_DIR=<ws> node --experimental-strip-types tests/e2e-settings.ts
 import { spawn } from 'node:child_process';
-import { rmSync, mkdirSync } from 'node:fs';
+import { rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -21,10 +21,16 @@ if (!process.env.WORKSPACE_DIR) {
 }
 rmSync(STATE, { recursive: true, force: true });
 mkdirSync(STATE, { recursive: true });
+// Probe observations must not pollute the checked-in matrix: give the child a scratch copy.
+const SCRATCH_MATRIX = join(STATE, 'capability-matrix.json');
+writeFileSync(SCRATCH_MATRIX, readFileSync(join(root, '..', 'registry', 'capability-matrix.json'), 'utf8'), 'utf8');
 
 const child = spawn(process.execPath, ['--experimental-strip-types', 'src/web/server.ts'], {
   cwd: root,
-  env: { ...process.env, ACP_WEB_PORT: PORT, ACP_STATE_DIR: STATE, DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY ?? 'sk-test-env-placeholder' },
+  env: {
+    ...process.env, ACP_WEB_PORT: PORT, ACP_STATE_DIR: STATE, ACP_MATRIX_FILE: SCRATCH_MATRIX,
+    DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY ?? 'sk-test-env-placeholder',
+  },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 child.stderr.on('data', (d) => process.stderr.write(`[server] ${d}`));

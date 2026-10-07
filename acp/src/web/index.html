@@ -301,7 +301,7 @@ button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
     </div>
 
     <label>工作目录 cwd</label>
-    <input id="f-cwd" list="cwd-list">
+    <input id="f-cwd" list="cwd-list" placeholder="绝对路径，例如 D:\projects\my-repo（派发后自动记入常用列表）">
     <datalist id="cwd-list"></datalist>
 
     <div class="grid3">
@@ -440,7 +440,6 @@ function restoreForm(){
     if(f.workspaceMode)$('f-wsmode').value=f.workspaceMode;if(f.verdict)$('f-verdict').checked=true;
     if(f.maxToolCalls)$('f-maxtools').value=f.maxToolCalls;
   }catch{}
-  if(!$('f-cwd').value)$('f-cwd').value='D:\\workb\\orchestrator';
 }
 $('btn-go').onclick=async()=>{
   $('form-err').textContent='';const btn=$('btn-go');btn.disabled=true;
@@ -584,6 +583,8 @@ async function loadSettings(){
 function fillCwdList(){
   const cwds=SETTINGS?.merged?.workspace?.recentCwds||[];
   $('cwd-list').innerHTML=cwds.map(c=>`<option value="${esc(c)}">`).join('');
+  // No hardcoded default path (PR #1 follow-up): prefill from the user's own recent list.
+  if(!$('f-cwd').value&&cwds.length)$('f-cwd').value=cwds[0];
 }
 function renderSettings(){
   if(SETSECTION==='agents'){$('settings-body').innerHTML=renderAgents();}

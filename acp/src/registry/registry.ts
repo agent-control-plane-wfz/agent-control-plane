@@ -32,7 +32,7 @@ export class Registry {
   private modelsPath: string;
 
   constructor(matrixPath?: string, modelsPath?: string) {
-    this.matrixPath = matrixPath ?? join(here, '..', '..', '..', 'registry', 'capability-matrix.json');
+    this.matrixPath = matrixPath ?? process.env.ACP_MATRIX_FILE ?? join(here, '..', '..', '..', 'registry', 'capability-matrix.json');
     this.modelsPath = modelsPath ?? join(here, 'models.json');
     this.matrix = JSON.parse(readFileSync(this.matrixPath, 'utf8'));
     this.models = JSON.parse(readFileSync(this.modelsPath, 'utf8'));

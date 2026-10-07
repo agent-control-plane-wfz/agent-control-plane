@@ -9,8 +9,7 @@
 //   {"type":"final","text":...}
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { getCredential } from '../config/secrets.ts';
 
 export interface DshRunOutcome {
@@ -22,17 +21,26 @@ export interface DshRunOutcome {
   stderr: string;
 }
 
-const here = dirname(fileURLToPath(import.meta.url));
-// Workspace dir may be on another drive — relative join cannot cross drives; use abs default.
-export const DSH_BIN = process.env.DSH_BIN
-  ?? join(process.env.WORKSPACE_DIR ?? 'C:\\Users\\wfz\\.workbuddy\\binaries\\node\\workspace',
-    'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js');
+// Workspace dir may be on another drive — relative join cannot cross drives. Resolved lazily
+// and FAIL-LOUD (PR #1 follow-up): no silent fallback to any developer's machine path.
+export function dshBinPath(): string {
+  const explicit = process.env.DSH_BIN;
+  if (explicit) return explicit;
+  const ws = process.env.WORKSPACE_DIR;
+  if (!ws) {
+    throw new Error(
+      'cannot locate DeepSeek Harness: set DSH_BIN (path to @deepseek-ai/dsh/lib/bin.js) '
+      + 'or WORKSPACE_DIR (the node workspace that has it under node_modules/)',
+    );
+  }
+  return join(ws, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js');
+}
 
 export function dshCommand(): string {
   return process.env.DSH_NODE ?? process.execPath;
 }
 export function dshArgs(): string[] {
-  return [DSH_BIN];
+  return [dshBinPath()];
 }
 
 export class DshDriver {

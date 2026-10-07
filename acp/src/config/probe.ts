@@ -11,7 +11,9 @@ import { DshDriver, dshCommand, dshArgs } from '../drivers/dsh-driver.ts';
 import { execFile } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const MATRIX_FILE = join(here, '..', '..', '..', 'registry', 'capability-matrix.json');
+// Override with ACP_MATRIX_FILE so tests can probe against a scratch copy instead of
+// writing observed facts into the checked-in matrix (PR #1 follow-up: test pollution).
+const MATRIX_FILE = process.env.ACP_MATRIX_FILE ?? join(here, '..', '..', '..', 'registry', 'capability-matrix.json');
 
 export interface ProbeResult {
   ok: boolean;

@@ -11,6 +11,7 @@ import { getMerged, saveSettings, resetSettings, loadUserConfig, type AppSetting
 import { describeCredential, setCredential, deleteCredential, storedNames } from '../config/secrets.ts';
 import { probeAgent } from '../config/probe.ts';
 import { homedir } from 'node:os';
+import { BUILTIN_RULES } from '../router/router.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.ACP_WEB_PORT ?? 7777);
@@ -130,6 +131,16 @@ function allCredentialNames(): string[] {
   return [...names];
 }
 
+function noteRecentCwd(cwd: string): void {
+  try {
+    const merged = getMerged();
+    const list = [cwd, ...(merged.workspace.recentCwds ?? [])].filter((x, i, arr) => x && arr.indexOf(x) === i).slice(0, 8);
+    if (JSON.stringify(list) !== JSON.stringify(merged.workspace.recentCwds ?? [])) {
+      saveSettings({ workspace: { recentCwds: list } });
+    }
+  } catch { /* best-effort */ }
+}
+
 function readBody(req: IncomingMessage): Promise<any> {
   return new Promise((resolve, reject) => {
     let size = 0;
@@ -173,7 +184,15 @@ const server = createServer(async (req, res) => {
     // --- v3 settings & agents -----------------------------------------------------------
     if (req.method === 'GET' && url.pathname === '/api/settings') {
       const { config, error } = loadUserConfig();
-      json(res, 200, { merged: getMerged(), user: config, userError: error });
+      const merged = getMerged();
+      const effectiveRouting: Record<string, { agent: string; effort?: string; source: 'default' | 'user' }> = {};
+      for (const t of Object.keys(BUILTIN_RULES)) {
+        const u = merged.routing.rules?.[t];
+        effectiveRouting[t] = u?.agent
+          ? { agent: u.agent, effort: u.effort, source: 'user' }
+          : { agent: (BUILTIN_RULES as any)[t].agent, effort: (BUILTIN_RULES as any)[t].effort, source: 'default' };
+      }
+      json(res, 200, { merged, user: config, userError: error, effectiveRouting });
       return;
     }
     if (req.method === 'PUT' && url.pathname === '/api/settings') {
@@ -241,10 +260,30 @@ const server = createServer(async (req, res) => {
       json(res, 200, j);
       return;
     }
+    if (req.method === 'POST' && url.pathname === '/api/budget/reset') {
+      plane.budget.resetDay();
+      json(res, 200, plane.budget.stats());
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/integrations') {
+      const ws = process.env.WORKSPACE_DIR ?? '<WORKSPACE_DIR>';
+      const mcpSnippet = JSON.stringify({
+        mcpServers: {
+          'agent-control-plane': {
+            command: 'node',
+            args: ['--experimental-strip-types', join(here, '..', 'mcp', 'server.ts')],
+            env: { WORKSPACE_DIR: ws },
+          },
+        },
+      }, null, 2);
+      json(res, 200, { mcpSnippet, webPort: PORT, bind: '127.0.0.1' });
+      return;
+    }
     if (req.method === 'POST' && (url.pathname === '/api/ask' || url.pathname === '/api/parallel')) {
       const body = await readBody(req);
       if (url.pathname === '/api/ask') {
         if (!body.task || !body.cwd) { json(res, 400, { error: 'task and cwd are required' }); return; }
+        noteRecentCwd(String(body.cwd));
         json(res, 200, submit('ask', body));
         return;
       }
@@ -252,6 +291,8 @@ const server = createServer(async (req, res) => {
         json(res, 400, { error: 'jobs must be a non-empty array' });
         return;
       }
+      const cwds = [...new Set(body.jobs.map((x: any) => String(x.cwd ?? '')))].filter(Boolean) as string[];
+      if (cwds.length === 1) noteRecentCwd(cwds[0]);
       json(res, 200, submit('parallel', body));
       return;
     }

@@ -157,6 +157,14 @@ pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;pad
 .switch span::after{content:'';position:absolute;width:13px;height:13px;border-radius:50%;background:var(--dim);top:2px;left:2px;transition:.2s}
 .switch input:checked+span{background:rgba(52,211,153,.25);border-color:var(--ok)}
 .switch input:checked+span::after{background:var(--ok);transform:translateX(15px)}
+.rule-row{display:flex;gap:10px;align-items:center;margin-bottom:9px}
+.rule-row b{width:80px;flex-shrink:0}
+.rule-row select{flex:1.4}
+.rule-row input{flex:1}
+.chip-x{background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:4px 8px 4px 12px;font:12px var(--mono);color:var(--dim);display:inline-flex;gap:6px;align-items:center;margin:0 6px 6px 0}
+.chip-x button{background:none;border:0;color:var(--err);cursor:pointer;font-size:12px;padding:0 2px}
+.usage-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--dim);padding:4px 0;border-bottom:1px dashed var(--border)}
+.usage-row b{color:var(--text);font-family:var(--mono)}
 </style>
 </head>
 <body>
@@ -443,7 +451,7 @@ $('f-agent-filter').onchange=e=>{FAGENT=e.target.value;renderJobs(JOBS)};
 $('f-search').oninput=e=>{FSEARCH=e.target.value.toLowerCase();renderJobs(JOBS)};
 
 /* ---------- settings view (v3) ---------- */
-let SETSECTION='agents',AGENTS=[],CREDENTIALS=[];
+let SETSECTION='agents',AGENTS=[],CREDENTIALS=[],SETTINGS=null;
 const DRAFT={};   // per-agent staged draft; discarded when the card closes without saving
 const OPENID={};  // which agent card stays expanded
 
@@ -462,17 +470,123 @@ function setSection(s){
 }
 async function loadSettings(){
   try{
-    const [a,c]=await Promise.all([api('/api/agents'),api('/api/credentials')]);
-    AGENTS=a.agents;CREDENTIALS=c.credentials;
+    const [a,c,s]=await Promise.all([api('/api/agents'),api('/api/credentials'),api('/api/settings')]);
+    AGENTS=a.agents;CREDENTIALS=c.credentials;SETTINGS=s;
     renderSettings();
+    fillCwdList();
   }catch(e){$('settings-body').innerHTML=`<div class="card"><div class="empty">加载失败：${esc(String(e.message??e))}</div></div>`}
+}
+function fillCwdList(){
+  const cwds=SETTINGS?.merged?.workspace?.recentCwds||[];
+  $('cwd-list').innerHTML=cwds.map(c=>`<option value="${esc(c)}">`).join('');
 }
 function renderSettings(){
   if(SETSECTION==='agents'){$('settings-body').innerHTML=renderAgents();}
-  else{
-    const labels={routing:'Routing（路由规则）',budget:'Budget（预算）',workspace:'Workspace（工作区）',integr:'集成（MCP 片段）'};
-    $('settings-body').innerHTML=`<div class="card"><h2 class="ct">${labels[SETSECTION]}</h2><div class="empty">P2 内容 —— 设计见 docs/WEB-V3-SETTINGS-PLAN.md</div></div>`;
+  else if(SETSECTION==='routing'){$('settings-body').innerHTML=renderRouting();}
+  else if(SETSECTION==='budget'){$('settings-body').innerHTML=renderBudget();}
+  else if(SETSECTION==='workspace'){$('settings-body').innerHTML=renderWorkspace();}
+  else{renderIntegr();}
+}
+
+/* --- routing --- */
+function renderRouting(){
+  const e=SETTINGS?.effectiveRouting||{};const u=SETTINGS?.user?.routing?.rules||{};
+  const types=['quick','code','reasoning','review'];
+  const rows=types.map(t=>{
+    const eff=e[t]||{};const ov=u[t];
+    return`<div class="rule-row"><b>${t}</b>
+      <select id="rt-agent-${t}">${['','opencode','claude','codex','dsh'].map(x=>`<option value="${x}"${(ov?.agent||eff.agent)===x?' selected':''}>${x||'(默认)'}</option>`).join('')}</select>
+      <input id="rt-effort-${t}" value="${esc(ov?.effort??eff.effort??'')}" placeholder="档位（空=agent 默认）">
+      <span class="jid">${ov?'已覆盖':'默认'}</span></div>`;
+  }).join('');
+  return`<div class="card"><h2 class="ct">路由规则（任务类型 → agent）</h2>${rows}
+    <label class="check"><input type="checkbox" id="rt-llm" ${SETTINGS?.merged?.routing?.llmRouter!==false?'checked':''}> LLM 路由兜底（规则未命中时用便宜模型分类任务类型，可用 0 关闭）</label>
+    <button id="btn-go" onclick="saveRouting()">保存路由设置</button><div class="form-err" id="rt-err"></div></div>`;
+}
+async function saveRouting(){
+  const rules={};
+  for(const t of ['quick','code','reasoning','review']){
+    const agent=$(`rt-agent-${t}`).value;
+    const effort=$(`rt-effort-${t}`).value.trim();
+    const eff=SETTINGS?.effectiveRouting?.[t]||{};
+    if(agent && (agent!==eff.agent || effort!==(eff.effort||''))) rules[t]={agent,effort:effort||undefined};
   }
+  try{
+    await api('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},
+      body:JSON.stringify({routing:{rules,llmRouter:$('rt-llm').checked}})});
+    $('rt-err').textContent='';
+    await loadSettings();
+  }catch(e){$('rt-err').textContent=String(e.message??e)}
+}
+
+/* --- budget --- */
+function renderBudget(){
+  const b=STATUS?.budget||{};const m=SETTINGS?.merged?.budget||{};
+  const pa=b.perAgent?Object.entries(b.perAgent).map(([k,v])=>`<span class="credchip">${esc(k)} × ${v}</span>`).join(''):'<span style="color:var(--faint)">（本日暂无分 agent 数据）</span>';
+  return`<div class="card"><h2 class="ct">今日用量</h2>
+    <div class="usage-row"><span>请求次数</span><b>${b.requests??0}${b.caps?.dailyRequests?` / ${b.caps.dailyRequests}`:''}</b></div>
+    <div class="usage-row"><span>tokens（入/出）</span><b>${fmtN(b.tokensIn??0)} / ${fmtN(b.tokensOut??0)}</b></div>
+    <div style="margin-top:8px">${pa}</div>
+    <h2 class="ct" style="margin-top:16px">每日上限（0 = 不限）</h2>
+    <div class="grid2">
+      <div><label>请求次数上限</label><input id="bd-req" type="number" value="${m.dailyRequests??0}"></div>
+      <div><label>token 上限</label><input id="bd-tok" type="number" value="${m.dailyTokens??0}"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="ghost" style="flex:1;margin:0" onclick="resetBudget()">重置今日计数</button>
+      <button id="btn-go" style="flex:1;margin:0" onclick="saveBudget()">保存上限</button>
+    </div><div class="form-err" id="bd-err"></div></div>`;
+}
+async function saveBudget(){
+  try{
+    await api('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},
+      body:JSON.stringify({budget:{dailyRequests:Number($('bd-req').value)||0,dailyTokens:Number($('bd-tok').value)||0}})});
+    $('bd-err').textContent='✓ 已保存';refreshStatus();
+  }catch(e){$('bd-err').textContent=String(e.message??e)}
+}
+async function resetBudget(){
+  await api('/api/budget/reset',{method:'POST'});
+  refreshStatus();renderSettings();
+}
+
+/* --- workspace --- */
+function renderWorkspace(){
+  const w=SETTINGS?.merged?.workspace||{};
+  const chips=(w.recentCwds||[]).map(c=>`<span class="chip-x">${esc(c)}<button onclick="rmCwd('${esc(c)}')">✕</button></span>`).join('')||'<span style="color:var(--faint)">暂无记录</span>';
+  return`<div class="card"><h2 class="ct">常用 cwd（派任务时下拉可选）</h2><div>${chips}</div>
+    <h2 class="ct" style="margin-top:16px">worktree 基目录</h2>
+    <label>隔离 worktree 的创建位置（不要放在含 package.json 的目录树内）</label>
+    <input id="ws-basedir" value="${esc(w.worktreeBaseDir||'')}" placeholder="默认：<repo>/../.acp-worktrees">
+    <button id="btn-go" style="margin-top:12px" onclick="saveWorkspace()">保存</button><div class="form-err" id="ws-err"></div></div>`;
+}
+function rmCwd(c){
+  const list=(SETTINGS?.merged?.workspace?.recentCwds||[]).filter(x=>x!==c);
+  api('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({workspace:{recentCwds:list}})}).then(loadSettings);
+}
+async function saveWorkspace(){
+  try{
+    await api('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},
+      body:JSON.stringify({workspace:{worktreeBaseDir:$('ws-basedir').value.trim()||null}})});
+    $('ws-err').textContent='✓ 已保存';await loadSettings();
+  }catch(e){$('ws-err').textContent=String(e.message??e)}
+}
+
+/* --- integrations --- */
+async function renderIntegr(){
+  $('settings-body').innerHTML='<div class="card"><h2 class="ct">集成</h2><div class="empty">加载中…</div></div>';
+  try{
+    const r=await api('/api/integrations');
+    $('settings-body').innerHTML=`<div class="card"><h2 class="ct">MCP 接入（给 Claude Code / Codex 的 .mcp.json）</h2>
+      <pre class="rawj">${esc(r.mcpSnippet)}</pre>
+      <button class="btn-copy" onclick="copyRaw(this)">复制配置</button>
+      <h2 class="ct" style="margin-top:16px">Web 控制台</h2>
+      <div class="usage-row"><span>监听地址</span><b>${r.bind}:${r.webPort}</b></div>
+      <div style="color:var(--faint);font-size:12px;margin-top:8px">仅绑定本机回环地址；不要暴露到局域网/公网。</div></div>`;
+  }catch(e){$('settings-body').innerHTML=`<div class="card"><div class="empty">${esc(String(e.message??e))}</div></div>`}
+}
+function copyRaw(btn){
+  const txt=btn.parentElement.querySelector('pre').textContent;
+  navigator.clipboard.writeText(txt).then(()=>{btn.textContent='已复制 ✓';setTimeout(()=>btn.textContent='复制配置',1200)});
 }
 function renderAgents(){
   const creds=CREDENTIALS.map(c=>`<span class="credchip"><span class="dot ${c.configured?'ok':'err'}"></span>${esc(c.name)}<span style="color:var(--faint)">· ${c.configured?esc(c.source):'未配置'}</span></span>`).join('');
@@ -613,6 +727,7 @@ async function refreshJobs(force){
   }catch{}
 }
 restoreForm();setMode('ask');refreshStatus();refreshJobs(true);
+api('/api/settings').then(s=>{SETTINGS=s;fillCwdList();}).catch(()=>{});
 setInterval(refreshStatus,5000);setInterval(refreshJobs,1200);
 </script>
 </body>

@@ -12,7 +12,7 @@ export interface BudgetOptions {
   dailyRequests?: number;  // request count cap per day; 0/undefined = unlimited
 }
 
-interface DayRecord { date: string; requests: number; tokensIn: number; tokensOut: number }
+interface DayRecord { date: string; requests: number; tokensIn: number; tokensOut: number; perAgent?: Record<string, number> }
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -31,11 +31,11 @@ export class Budget {
   }
 
   private load(): DayRecord {
-    const fallback: DayRecord = { date: today(), requests: 0, tokensIn: 0, tokensOut: 0 };
+    const fallback: DayRecord = { date: today(), requests: 0, tokensIn: 0, tokensOut: 0, perAgent: {} };
     try {
       if (existsSync(this.file)) {
         const r = JSON.parse(readFileSync(this.file, 'utf8')) as DayRecord;
-        if (r.date === today()) return r;
+        if (r.date === today()) return { perAgent: {}, ...r };
       }
     } catch { /* corrupt file -> fresh */ }
     return fallback;
@@ -59,12 +59,22 @@ export class Budget {
     }
   }
 
-  record(usage: TokenUsage | undefined): void {
+  record(usage: TokenUsage | undefined, agent?: string): void {
     this.rec.requests += 1;
+    if (agent) {
+      this.rec.perAgent = this.rec.perAgent ?? {};
+      this.rec.perAgent[agent] = (this.rec.perAgent[agent] ?? 0) + 1;
+    }
     if (usage) {
       this.rec.tokensIn += usage.input ?? 0;
       this.rec.tokensOut += usage.output ?? 0;
     }
+    this.persist();
+  }
+
+  /** Settings UI: wipe today's counters (kept requests history intact otherwise). */
+  resetDay(): void {
+    this.rec = { date: today(), requests: 0, tokensIn: 0, tokensOut: 0, perAgent: {} };
     this.persist();
   }
 

@@ -198,7 +198,12 @@ export function saveSettings(patch: Partial<AppSettings>): AppSettings {
   const cur = loadUserConfig().config;
   const next: Partial<AppSettings> = {
     agents: { ...(cur.agents ?? {}), ...(patch.agents ?? {}) },
-    routing: { ...(cur.routing ?? {}), ...(patch.routing ?? {}) },
+    routing: {
+      ...cur.routing,
+      ...(patch.routing ?? {}),
+      // rules use REPLACE semantics (removing a key = back to builtin default)
+      rules: patch.routing?.rules ?? cur.routing?.rules,
+    },
     budget: { ...(cur.budget ?? {}), ...(patch.budget ?? {}) },
     workspace: { ...(cur.workspace ?? {}), ...(patch.workspace ?? {}) },
   };

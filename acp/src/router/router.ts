@@ -19,11 +19,18 @@ const RULES: Record<NonNullable<TaskHints['taskType']>, { agent: AgentId; effort
   review:    { agent: 'claude',   effort: 'high',    note: 'reviewer defaults to claude adapter (vendor checked at runtime)' },
 };
 
-const FALLBACK: AgentId[] = ['codex', 'claude', 'opencode', 'dsh'];
+// v3: user rules from Settings override the builtins per task type.
+export const BUILTIN_RULES = RULES;
+export type RoutingRuleOverride = { agent?: string; effort?: string };
 
-export function route(reg: Registry, hints: TaskHints): RouteDecision {
+export function route(reg: Registry, hints: TaskHints, rulesOverride?: Record<string, RoutingRuleOverride>): RouteDecision {
   const chain: AgentId[] = [];
   const push = (d: Omit<RouteDecision, 'fallbackChain'>) => ({ ...d, fallbackChain: chain.slice() });
+  const ruleFor = (t: NonNullable<TaskHints['taskType']>) => {
+    const o = rulesOverride?.[t];
+    if (o?.agent) return { agent: o.agent as AgentId, effort: o.effort ?? RULES[t].effort, note: 'user rule (Settings)' };
+    return RULES[t];
+  };
 
   // 1. Explicit agent hint is a HARD constraint (B5, audit): if the user asked for a
   //    specific agent and it is unavailable, that is an error — never a silent swap.
@@ -46,9 +53,9 @@ export function route(reg: Registry, hints: TaskHints): RouteDecision {
   }
 
   // 2. Candidate chain from task-type rule, then generic fallback order.
-  const ordered: AgentId[] = hints.taskType && RULES[hints.taskType]
-    ? [RULES[hints.taskType].agent, ...FALLBACK]
-    : FALLBACK;
+  const FALLBACK: AgentId[] = ['codex', 'claude', 'opencode', 'dsh'];
+  const activeRule = hints.taskType ? ruleFor(hints.taskType) : undefined;
+  const ordered: AgentId[] = activeRule ? [activeRule.agent, ...FALLBACK] : FALLBACK;
   const candidates: AgentId[] = [];
   for (const a of ordered) if (!candidates.includes(a)) candidates.push(a);
 
@@ -78,7 +85,7 @@ export function route(reg: Registry, hints: TaskHints): RouteDecision {
 
   const chosen = pick;
   const model = hints.model ?? reg.defaultModel(chosen);
-  let reason = hints.taskType ? `rule:${hints.taskType} (${RULES[hints.taskType].note})` : 'fallback order';
+  let reason = hints.taskType ? `rule:${hints.taskType} (${activeRule?.note ?? 'default'})` : 'fallback order';
   if (excludeVendors.length) reason += ` + differentVendorFrom(${JSON.stringify(excludeVendors)}) [fail-closed]`;
 
   for (const a of viable.slice(1)) chain.push(a);

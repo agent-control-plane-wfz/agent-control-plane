@@ -5,6 +5,7 @@ import type { AgentId, AgentResult } from '../core/types.ts';
 import { prepareWorkspace, type PreparedWorkspace } from '../workspace/manager.ts';
 import { runVerification, type VerifyCommand, type VerifyResult } from './verify.ts';
 import type { ControlPlane } from '../control/plane.ts';
+import { getMerged } from '../config/settings.ts';
 
 export interface HeteroReviewOptions {
   task: string;
@@ -42,7 +43,7 @@ export async function heteroReview(plane: ControlPlane, opts: HeteroReviewOption
   let ws: PreparedWorkspace | undefined;
   let effCwd = opts.cwd;
   if (opts.workspaceMode === 'worktree') {
-    ws = await prepareWorkspace({ repoDir: opts.cwd, agent: implAgent, mode: 'worktree', baseDir: opts.worktreeBaseDir });
+    ws = await prepareWorkspace({ repoDir: opts.cwd, agent: implAgent, mode: 'worktree', baseDir: opts.worktreeBaseDir ?? getMerged().workspace.worktreeBaseDir ?? undefined });
     effCwd = ws.path;
   }
 

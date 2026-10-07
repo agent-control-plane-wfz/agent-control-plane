@@ -74,7 +74,8 @@ export class ControlPlane {
   }
 
   route(hints: TaskHints) {
-    return route(this.registry, hints);
+    // v3: user routing rules from Settings override builtin per-task-type rules.
+    return route(this.registry, hints, getMerged().routing.rules);
   }
 
   status() {
@@ -127,7 +128,10 @@ export class ControlPlane {
     let workspaceNote: string | undefined;
     if (opts.workspaceMode === 'worktree') {
       try {
-        ws = await prepareWorkspace({ repoDir: opts.cwd, agent: decision.agent, mode: 'worktree' });
+        ws = await prepareWorkspace({
+          repoDir: opts.cwd, agent: decision.agent, mode: 'worktree',
+          baseDir: settings.workspace.worktreeBaseDir ?? undefined,
+        });
         effCwd = ws.path;
         this.worktrees.add(ws);
       } catch (e: any) {
@@ -169,7 +173,7 @@ export class ControlPlane {
       ? { kind: ws.kind, path: ws.path, branch: ws.branch }
       : { kind: 'shared', path: opts.cwd };
     if (workspaceNote) r.workspaceNote = workspaceNote;
-    this.budget.record(r.usage);
+    this.budget.record(r.usage, r.agent);
     return r;
   }
 

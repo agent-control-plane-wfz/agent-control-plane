@@ -91,6 +91,27 @@ try {
   // 6) real capability probe on claude adapter (handshake only — no token cost)
   const probe: any = await (await fetch(`${base}/api/agents/claude/test`, { method: 'POST' })).json();
   check('probe: claude handshake', probe.ok === true && (probe.models?.length ?? 0) >= 1, `${(probe.durationMs / 1000).toFixed(1)}s, models=${(probe.models || []).length}, efforts=${(probe.efforts || []).length}`);
+
+  // 7) P2: routing rule override takes effect (quick -> dsh), real roundtrip
+  await fetch(`${base}/api/settings`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: j({ routing: { rules: { quick: { agent: 'dsh' } } } }) });
+  const s2: any = await (await fetch(`${base}/api/settings`)).json();
+  check('routing: effectiveRouting reflects user rule', s2.effectiveRouting?.quick?.source === 'user' && s2.effectiveRouting?.quick?.agent === 'dsh');
+  const qjob: any = await (await fetch(`${base}/api/ask`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: j({ taskType: 'quick', task: '只输出两个字符：OK', cwd: root }) })).json();
+  const qdone: any = await until(async () => {
+    const jj: any = await (await fetch(`${base}/api/jobs/${qjob.id}`)).json();
+    return jj.status !== 'running' ? jj : undefined;
+  }, 180_000, 'quick routing roundtrip');
+  check('routing: quick task actually routed to dsh', qdone?.result?.agent === 'dsh' && qdone?.result?.ok === true, `agent=${qdone?.result?.agent}, ok=${qdone?.result?.ok}`);
+
+  // 8) P2: cwd recorded into recentCwds after ask
+  const s3: any = await (await fetch(`${base}/api/settings`)).json();
+  check('workspace: cwd recorded into recentCwds', (s3.merged.workspace.recentCwds || []).includes(root));
+
+  // 9) P2: budget reset wipes today's counters
+  await fetch(`${base}/api/budget/reset`, { method: 'POST' });
+  const st: any = await (await fetch(`${base}/api/status`)).json();
+  check('budget: resetDay zeroes counters', (st.budget?.requests ?? 1) === 0, `requests=${st.budget?.requests}`);
+  await fetch(`${base}/api/settings/reset`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: j({ section: 'routing' }) });
 } catch (e: any) {
   console.error('E2E error:', String(e?.message ?? e));
   failed = true;

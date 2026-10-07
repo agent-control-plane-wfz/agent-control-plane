@@ -134,8 +134,9 @@ WORKSPACE_DIR=/path/to/workspace npm run web
 `join(WORKSPACE_DIR, 'node_modules')` 解析 adapter 入口。端口用 `ACP_WEB_PORT` 修改。
 
 > [!IMPORTANT]
-> **首次打开会进入「首启向导」**：装好 adapter 包**不等于**同意运行它。向导里预勾选候选、让你
-> 确认每一家的命令与凭据来源（并逐个握手探测），**确认之前不会有任何 agent 被路由选中**。
+> **首次打开会进入「首启向导」**：装好 adapter 包**不等于**同意运行它。向导默认**一个都不列** ——
+> 由你用「+ 添加」自己挑要接入的 agent，再确认它的命令与凭据来源（并逐个握手探测），
+> **确认之前不会有任何 agent 被路由选中**。
 > 已有用户配置的机器判定为 `legacy`，不出现向导、行为不变；想重走一遍用「设置 → Agents →
 > ✦ 重新运行首启向导」。详见 `acp/README.md` 的首启向导一节。
 

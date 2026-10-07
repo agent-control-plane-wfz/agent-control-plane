@@ -141,11 +141,11 @@ Change the port with `ACP_WEB_PORT`.
 
 > [!IMPORTANT]
 > **The first launch opens a first-run wizard**: having an adapter package installed is *not*
-> consent to run it. The wizard pre-checks the candidates, lets you confirm each one's command
-> and credential source (and handshake-probes each), and **no agent is routable until you
-> confirm it**. A machine with an existing user config is treated as `legacy` — no wizard,
-> unchanged behaviour; to walk through it again use Settings → Agents → "Re-run first-run
-> wizard". See the wizard section in `acp/README.md`.
+> consent to run it. The wizard **lists nothing by default** — you add the harnesses you actually
+> want with "+ 添加", then confirm each one's command and credential source (and handshake-probe
+> each), and **no agent is routable until you confirm it**. A machine with an existing user config
+> is treated as `legacy` — no wizard, unchanged behaviour; to walk through it again use
+> Settings → Agents → "Re-run first-run wizard". See the wizard section in `acp/README.md`.
 
 > [!WARNING]
 > The web console binds to **`127.0.0.1` only**. Jobs really invoke agents inside the

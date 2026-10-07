@@ -9,17 +9,31 @@
 // Nothing here performs a prompt, and nothing is written until completeSetup() is called
 // explicitly. Credential VALUES are write-only: they go into state/secrets.env via
 // setCredential() and are never echoed back by any API.
+//
+// issue #7 follow-up: the wizard no longer dumps every builtin on the user. "Installing an
+// adapter is not consent" cut both ways — a wall of four pre-checked cards is a different kind
+// of presumption: someone who wants ONE harness still has to read past the other three (and
+// cancel them, which used to record them as declined). So a fresh machine opens on an EMPTY
+// list plus an "add" row, and `setupView()` hands back two collections:
+//   candidates — agents the user already took on (confirmed, or written into their own config).
+//                Rendered by default, so re-running the wizard shows your existing choices
+//                instead of asking you to pick them again.
+//   templates  — the builtins that are NOT candidates: add-able building blocks carrying all
+//                the prefills (command/args/credentialRef/detection) the card needs.
+// Which templates got added is a UI decision and lives in the page until completeSetup() runs;
+// nothing here reads or writes that set.
 import { authEvidence, nativeAuthEvidence, type AuthEvidence, type NativeAuthEvidence } from './auth-evidence.ts';
 import { detectAgent } from './detect.ts';
 import {
-  builtinDefaults, clearSetupMarker, configuredAgent, getMerged, isValidAgentId,
+  builtinDefaults, clearSetupMarker, configuredAgent, getMerged, isValidAgentId, loadUserConfig,
   saveSettings, setupState, type AgentSettings, type AppSettings,
 } from './settings.ts';
 import { setCredential } from './secrets.ts';
 
 export type SetupPhase = 'pending' | 'done' | 'legacy';
 
-export interface SetupCandidate {
+/** One agent as the wizard sees it: machine facts + where its credentials live. */
+export interface SetupEntry {
   id: string;
   transport: string;
   command?: string;
@@ -31,42 +45,73 @@ export interface SetupCandidate {
   detection: string;
   credentialRef: string | null;
   credentialNative?: string;
-  /** Already confirmed by the user? */
-  confirmed: boolean;
-  configuredNow: boolean;
   evidence: AuthEvidence;
   nativeAuth: NativeAuthEvidence;
 }
 
+/** An agent the user already took on — shown by default. */
+export interface SetupCandidate extends SetupEntry {
+  /** Already confirmed by the user? */
+  confirmed: boolean;
+  configuredNow: boolean;
+}
+
 export interface SetupView {
   phase: SetupPhase;
+  /** Taken on already: rendered without the user having to add anything. */
   candidates: SetupCandidate[];
+  /** Add-able building blocks — everything else the machine could run. */
+  templates: SetupEntry[];
   userConfigError?: string;
 }
 
-/** What the wizard shows, per candidate. Read-only; no writes. */
+function entryFor(id: string, a: AgentSettings): SetupEntry {
+  const detection = detectAgent(a);
+  return {
+    id,
+    transport: a.transport ?? 'acp',
+    command: a.command,
+    args: a.args,
+    profile: a.profile,
+    detected: detection.detected,
+    detection: detection.detail,
+    credentialRef: a.credentialRef ?? null,
+    credentialNative: a.credentialNative,
+    evidence: authEvidence(id, a.credentialRef),
+    nativeAuth: nativeAuthEvidence(id),
+  };
+}
+
+/** What the wizard shows. Read-only; no writes. */
 export function setupView(): SetupView {
   const merged = getMerged();
+  const { config } = loadUserConfig();
+  const own = config.agents ?? {};
   const candidates: SetupCandidate[] = [];
+  const templates: SetupEntry[] = [];
   for (const [id, a] of Object.entries(merged.agents)) {
-    const detection = detectAgent(a);
-    candidates.push({
-      id,
-      transport: a.transport ?? 'acp',
-      command: a.command,
-      args: a.args,
-      profile: a.profile,
-      detected: detection.detected,
-      detection: detection.detail,
-      credentialRef: a.credentialRef ?? null,
-      credentialNative: a.credentialNative,
-      confirmed: a.confirmed === true,
-      configuredNow: configuredAgent(id, merged),
-      evidence: authEvidence(id, a.credentialRef),
-      nativeAuth: nativeAuthEvidence(id),
-    });
+    const entry = entryFor(id, a);
+    // "Already taken on" is about the USER, not about what ships in the code:
+    //   confirmed === true                                 — they said yes;
+    //   confirmed === undefined + present in their config   — an agent they wrote by hand.
+    // An explicit `confirmed: false` is NOT taken on: the user looked at it and passed, so it
+    // goes back into the option pool, where re-adding it is a deliberate act. And a builtin
+    // nobody has ever spoken for is a template, nothing more — `confirmed: false` (which
+    // completeSetup writes for every builtin it was not asked about) must not turn all four
+    // into candidates, which is exactly the "wall of cards" this is undoing.
+    const takenOn = a.confirmed === true
+      || (a.confirmed === undefined && Object.prototype.hasOwnProperty.call(own, id));
+    if (takenOn) {
+      candidates.push({
+        ...entry,
+        confirmed: a.confirmed === true,
+        configuredNow: configuredAgent(id, merged),
+      });
+    } else {
+      templates.push(entry);
+    }
   }
-  return { phase: setupState(), candidates };
+  return { phase: setupState(), candidates, templates };
 }
 
 export interface SetupChoice {
@@ -87,6 +132,10 @@ export class SetupError extends Error {}
  * Write the user's answers. Builtins that were not confirmed are recorded as `confirmed: false`
  * (so "we showed it and the user declined" is distinguishable from "we never asked"), and the
  * completion marker is set — which is what stops the wizard from reappearing.
+ *
+ * The add-row does not change this: the wizard still lays every builtin out as an option, so
+ * "not added" remains a decision the user made after seeing it, not an omission. What it does
+ * change is the DEFAULT — nothing is picked, nothing is prefilled as "on".
  */
 export function completeSetup(choices: Record<string, SetupChoice>): AppSettings {
   const merged = getMerged();
@@ -121,7 +170,7 @@ export function completeSetup(choices: Record<string, SetupChoice>): AppSettings
     patch[id] = entry;
   }
 
-  // Everything else that is a builtin and was shown gets an explicit decision.
+  // Everything else that is a builtin and was offered gets an explicit decision.
   const defaults = builtinDefaults();
   for (const id of Object.keys(defaults)) {
     if (!Object.prototype.hasOwnProperty.call(patch, id)) patch[id] = { confirmed: false };

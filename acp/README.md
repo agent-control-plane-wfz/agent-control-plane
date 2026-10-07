@@ -194,9 +194,15 @@
 | `configured` | **用户确认**（`agents.<id>.confirmed`） | 用户同意用它 —— **唯一允许进路由与 fallback 的状态** |
 | `reachable` | `initialize + session/new` 握手 | 进程能起来（**不代表有凭据**，见 issue #6） |
 
-- 全新机器（无用户配置）打开控制台即进入**首启向导**：候选全部预勾选（不损失开箱即用）、
-  命令预填可改、凭据来源**由用户回答**（环境变量 / 现在填写写入 `secrets.env` / 使用它自身的
-  登录态）、逐个握手探测（不耗 token），**显式确认后**才写入 `state/control-plane-config.json`。
+- 全新机器（无用户配置）打开控制台即进入**首启向导**，默认**一个都不列出**：用「+ 添加」挑出
+  你要接入的 harness（`opencode` / `claude` / `codex` / `dsh`，以及「+ 自定义…」跳去设置页接
+  任何 ACP 兼容 agent），加进来才成为一张卡 —— 命令预填可改、凭据来源**由用户回答**
+  （环境变量 / 现在填写写入 `secrets.env` / 使用它自身的登录态）、逐个握手探测（不耗 token），
+  **显式确认后**才写入 `state/control-plane-config.json`。
+- 向导只自动列出**你已经确认过**的 agent（重跑向导时不必重新添加）；本次添加的卡片可 ✕ 移除。
+  提交时，向导列出的 agent 里没被勾选的记为「看过但不用」（`confirmed: false`），区别于
+  「从未问过」（字段缺省）；`confirmed: true` 是唯一可路由的状态，这两者都不可路由
+  —— 唯一的例外是本特性之前就存在的 `legacy` 配置（见下）。
 - 未确认的 agent：显示为中性灰「未确认」，**不参与路由与 fallback**；显式指定时**报错并给出启用
   方式**（不静默改道）。
 - 不做硬门禁：headless/MCP 场景没有已确认的 agent 时 **fail-loud** 并附配置指引，而不是静默
@@ -205,7 +211,8 @@
   **不出现向导、行为完全不变**，也不要求补确认。想重新走一遍：设置 → Agents →「✦ 重新运行首启向导」
   （只清完成标记，确认结果保留，可随时取消）。
 
-相关 API：`GET /api/setup`（状态 + 候选）、`POST /api/setup`（写入确认）、`POST /api/setup/rerun`。
+相关 API：`GET /api/setup`（状态 + 已确认候选 `candidates` + 可添加模板 `templates`）、
+`POST /api/setup`（写入确认）、`POST /api/setup/rerun`。
 `GET /api/agents` 额外返回 `detected` / `confirmed` / `configured` 与 `authState: 'unconfirmed'`。
 
 ## Web 控制台（Phase 5.5）

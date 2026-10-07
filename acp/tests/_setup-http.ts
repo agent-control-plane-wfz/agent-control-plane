@@ -7,7 +7,10 @@
 export async function confirmAllViaHttp(base: string): Promise<string[]> {
   const view = (await (await fetch(`${base}/api/setup`)).json()) as any;
   const agents: Record<string, { confirm: boolean }> = {};
-  for (const c of view.candidates ?? []) agents[c.id] = { confirm: true };
+  // issue #7 follow-up: the wizard opens with an empty list, so "every agent" now means the
+  // taken-on candidates PLUS every template the user could have added — i.e. what the old
+  // pre-checked list used to be.
+  for (const c of [...(view.candidates ?? []), ...(view.templates ?? [])]) agents[c.id] = { confirm: true };
   const r = await fetch(`${base}/api/setup`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

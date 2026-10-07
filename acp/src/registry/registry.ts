@@ -91,10 +91,14 @@ export class Registry {
     const out: AgentStatusSummary[] = [];
     for (const [id, e] of Object.entries(this.matrix.agents)) {
       const agent = id as AgentId;
+      // FIX (P1): requiresAuth() answers "does this agent NEED auth" (false = already
+      // authenticated). This field is named `authenticated`, so invert it — otherwise every
+      // authenticated agent was reported as unauthenticated and UIs rendered it as an error.
+      const needsAuth = this.requiresAuth(agent);
       out.push({
         agent,
         transport: e.transport,
-        authenticated: this.requiresAuth(agent),
+        authenticated: needsAuth === 'unknown' ? 'unknown' : !needsAuth,
         models: this.listModels(agent),
         effortLevels: this.effortOptions(agent),
         actualVendorNote: this.actualVendor(agent),

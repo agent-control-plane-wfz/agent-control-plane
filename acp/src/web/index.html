@@ -37,6 +37,7 @@ aside{width:252px;min-width:252px;height:100vh;overflow-y:auto;background:var(--
 .agent .nm{font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px}
 .agent .sub{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .agent .vn{font-size:10px;color:var(--warn);margin-top:1px}
+.agent .vn.dim{color:var(--dim)}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--faint);display:inline-block;flex-shrink:0}
 .dot.ok{background:var(--ok);box-shadow:0 0 6px rgba(52,211,153,.7)}
 .dot.err{background:var(--err)}
@@ -356,6 +357,18 @@ const $=id=>document.getElementById(id);
 const COPYBUF={};
 const AGENT_COLORS={opencode:'#3ecf8e',claude:'#f5a623',codex:'#4f8cff',dsh:'#c3a6ff'};
 const AGENT_SHORT={opencode:'OC',claude:'CL',codex:'CX',dsh:'DS'};
+/* FIX (P1): which vendor each adapter is EXPECTED to run. The backend reports the vendor the
+   default model ACTUALLY runs on (adapter name != vendor). Only flag a mismatch against this
+   expectation — previously any non-empty value rendered as a warning, so all four agents
+   showed a bogus "实际厂商不同", including perfectly normal ones. */
+const EXPECTED_VENDOR={claude:'anthropic',codex:'openai',dsh:'deepseek'};
+function vendorNote(a){
+  const v=a.actualVendorNote;if(!v)return '';
+  if(v==='unknown')return `<div class="vn" title="该 agent 的默认模型厂商未能确认；异构互审（differentVendorFrom）按 fail-closed 会把它视为不可满足而排除">⚠ 厂商未识别</div>`;
+  const exp=EXPECTED_VENDOR[a.agent];
+  if(exp&&exp!==v)return `<div class="vn" title="adapter 名 ≠ 实际厂商：本机默认模型实际跑在 ${v}">⚠ 实际跑 ${esc(v)}（非 ${exp}）</div>`;
+  return `<div class="vn dim" title="实际运行厂商">vendor: ${esc(v)}</div>`;
+}
 const PRESETS=[
   ['🔍 代码审查','审查这段代码的风险与改进点（把代码贴到下面）：\n'],
   ['🧪 写测试','为下面的函数写单元测试，覆盖边界情况：\n'],
@@ -385,7 +398,7 @@ function renderStatus(s){
       <span class="avatar" style="background:${AGENT_COLORS[a.agent]||'#5b7cfa'}">${AGENT_SHORT[a.agent]||a.agent.slice(0,2).toUpperCase()}</span>
       <div class="info"><div class="nm">${a.agent} <span class="dot ${dot}" title="认证状态"></span></div>
       <div class="sub">${a.models?.length||0} 模型 · ${a.effortLevels?.length||0} 档</div>
-      ${a.actualVendorNote?`<div class="vn" title="${esc(a.actualVendorNote)}">⚠ 实际厂商不同</div>`:''}</div></div>`;
+      ${vendorNote(a)}</div></div>`;
   }).join('');
   if($('f-agent').options.length<=1){
     $('f-agent').innerHTML='<option value="">auto 路由</option>'+(s.agents||[]).map(a=>`<option>${a.agent}</option>`).join('');

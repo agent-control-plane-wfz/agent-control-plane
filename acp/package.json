@@ -7,7 +7,7 @@
   "engines": { "node": ">=22.6" },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test:unit": "node --test --experimental-strip-types tests/unit/",
+    "test:unit": "node -e \"const fs=require('node:fs');const n=fs.readdirSync('tests/unit').filter(function(f){return f.endsWith('.test.ts')}).length;if(n===0){console.error('test:unit: no *.test.ts found under tests/unit');process.exit(1)};console.log('test:unit: '+n+' file(s)')\" && node --test --experimental-strip-types \"tests/unit/**/*.test.ts\"",
     "mcp": "node --experimental-strip-types src/mcp/server.ts",
     "web": "node --experimental-strip-types src/web/server.ts"
   },

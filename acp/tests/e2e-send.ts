@@ -1,6 +1,7 @@
 // E2E: long-lived session context continuity — spawn(keepSession) then send follow-up.
 // Run: node --experimental-strip-types tests/e2e-send.ts
 import './_isolate-state.ts';   // isolate state dir before app modules load
+import './_confirm-agents.ts';   // issue #7: act as the user and confirm the agents this test dispatches
 import { ControlPlane } from '../src/control/plane.ts';
 
 const cwd = 'D:\\workb\\orchestrator\\phase0';

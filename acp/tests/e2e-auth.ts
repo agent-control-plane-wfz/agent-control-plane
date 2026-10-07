@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import './_isolate-state.ts';   // isolate state dir before app modules load
+import { confirmAllViaHttp } from './_setup-http.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -70,7 +71,12 @@ try {
     return r.ok ? (await r.json()) as any : undefined;
   }, 30_000, 'server readiness');
 
-  const rows: any[] = agents.agents;
+  // issue #7: this file tests the CREDENTIAL judgement, so the consent precondition has to be
+  // satisfied first — otherwise the refusal would come from the wizard gate, not from evidence.
+  await confirmAllViaHttp(base);
+
+  // Re-read AFTER confirming, so the assertions below describe the state under test.
+  const rows: any[] = ((await (await fetch(`${base}/api/agents`)).json()) as any).agents;
   const claude = rows.find((a) => a.id === 'claude');
   check('reporter scenario: claude row exists', !!claude);
   check('claude directory alone is NOT credential evidence', claude.nativeAuth.present !== true,

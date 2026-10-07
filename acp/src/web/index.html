@@ -42,6 +42,7 @@ aside{width:252px;min-width:252px;height:100vh;overflow-y:auto;background:var(--
 .dot.ok{background:var(--ok);box-shadow:0 0 6px rgba(52,211,153,.7)}
 .dot.err{background:var(--err)}
 .dot.warn{background:var(--warn)}
+.dot.idle{background:var(--faint)}
 .dot.pulse{animation:pulse 1.2s infinite}
 @keyframes pulse{50%{opacity:.35}}
 .side-foot{margin-top:auto;font-size:10px;color:var(--faint);line-height:1.5;padding:0 2px}
@@ -79,6 +80,18 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 #btn-go:hover{filter:brightness(1.12);transform:translateY(-1px)}
 #btn-go:disabled{opacity:.6;cursor:wait;transform:none}
 .form-err{color:var(--err);font-size:12px;margin-top:8px;font-family:var(--mono);min-height:16px}
+
+/* ---------- first-run wizard (issue #7) ---------- */
+.wiz{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.wcard{border:1px solid var(--border);border-radius:var(--dsw-radius-sm);padding:12px;background:var(--surface2)}
+.wcard.off{opacity:.5}
+.whead{display:flex;align-items:center;gap:10px}
+.whead b{font-size:13.5px}
+.wdet{color:var(--faint);font-size:11.5px}
+.wprobe{font:11.5px/1.6 var(--mono);color:var(--dim);white-space:pre-wrap;margin-top:8px;display:none}
+.badge-unconf{background:#2b2b30;color:var(--dim);border-radius:99px;padding:1px 9px;font-size:11px;font-weight:700}
+.badge-ok{background:#14301f;color:var(--ok);border-radius:99px;padding:1px 9px;font-size:11px;font-weight:700}
+.wiznote{background:#ffffff0a;box-shadow:0 0 0 1px var(--border);border-radius:var(--dsw-radius-sm);padding:11px 13px;font-size:12.5px;color:var(--dim);margin-top:10px}
 
 /* ---------- jobs ---------- */
 .jobs-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
@@ -265,6 +278,7 @@ button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
   <div class="brand"><span class="logo">◈</span> Control Plane <small>v0.3</small></div>
   <div class="sidenav">
     <button class="navrow on" id="nav-console" onclick="switchView('console')"><span class="navico">▤</span>控制台</button>
+    <button class="navrow" id="nav-setup" onclick="switchView('setup')"><span class="navico">✦</span>首启向导<span class="badge-unconf" id="nav-setup-badge" style="display:none;margin-left:auto">待设置</span></button>
     <button class="navrow" id="nav-settings" onclick="switchView('settings')"><span class="navico">⚙</span>设置</button>
   </div>
   <div class="side-card" id="budget"></div>
@@ -337,6 +351,10 @@ button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
     <div id="jobs"><div class="empty">暂无作业</div></div>
   </section>
   </div><!-- /view-console -->
+
+  <div id="view-setup" style="display:none">
+    <div id="setup-body"></div>
+  </div>
 
   <div id="view-settings" style="display:none">
     <div class="setgrid">
@@ -424,7 +442,12 @@ function setMode(m){
 }
 $('tab-ask').onclick=()=>setMode('ask');$('tab-batch').onclick=()=>setMode('batch');
 $('presets').innerHTML=PRESETS.map((p,i)=>`<button data-i="${i}" title="${esc(p[1].slice(0,60))}…">${p[0]}</button>`).join('');
-$('presets').onclick=e=>{const b=e.target.closest('button');if(!b)return;$('f-task').value=PRESETS[+b.dataset.i][1];$('f-task').focus()};
+// PR #8 follow-up: the presets used to write into the single-task box even in batch mode, where
+// that box is hidden — so clicking one gave no visible feedback. In batch mode they now append
+// the preset text as a new task line, which keeps them usable instead of merely hiding them.
+$('presets').onclick=e=>{const b=e.target.closest('button');if(!b)return;const txt=PRESETS[+b.dataset.i][1];
+  if(mode==='batch'){const t=$('f-batchtasks');t.value=(t.value.trim()?t.value.replace(/\s+$/,'')+'\n':'')+txt.trim()+'\n';t.focus();}
+  else{$('f-task').value=txt;$('f-task').focus()}};
 
 function collectForm(){
   return{cwd:$('f-cwd').value.trim(),agent:$('f-agent').value||undefined,model:$('f-model').value.trim()||undefined,
@@ -565,12 +588,15 @@ const OPENID={};  // which agent card stays expanded
 
 function switchView(v){
   $('nav-console').classList.toggle('on',v==='console');
+  $('nav-setup').classList.toggle('on',v==='setup');
   $('nav-settings').classList.toggle('on',v==='settings');
   $('view-console').style.display=v==='console'?'':'none';
+  $('view-setup').style.display=v==='setup'?'':'none';
   $('view-settings').style.display=v==='settings'?'':'none';
   $('btn-clear').style.display=v==='console'?'':'none';
-  $('view-title').textContent=v==='console'?'控制台':'设置';
+  $('view-title').textContent=v==='console'?'控制台':v==='setup'?'首启向导':'设置';
   if(v==='settings')loadSettings();
+  if(v==='setup')loadSetup();
 }
 function setSection(s){
   SETSECTION=s;
@@ -708,6 +734,7 @@ function renderAgents(){
   return`<div class="card">${onboarding}<h2 class="ct">凭据（值只写不回显 · 环境变量优先，其次 secrets.env）</h2><div class="credstrip">${creds}</div>
     <h2 class="ct" style="margin-top:6px">Agents · 点击行展开编辑（一次一张卡）</h2>${rows}
     <button class="ghost" style="width:auto;margin-top:6px" onclick="toggleCustom()">+ 添加自定义 Agent</button>
+    <button class="ghost" style="width:auto;margin-top:6px;margin-left:8px" onclick="rerunSetup()">✦ 重新运行首启向导</button>
     <div id="custom-card" style="display:none;margin-top:10px">${customCardHtml()}</div></div>`;
 }
 function customCardHtml(){
@@ -739,7 +766,8 @@ async function addCustom(){
     if(!command)throw new Error('命令不能为空');
     const args=$('cu-args').value.split('\n').map(s=>s.trim()).filter(Boolean);
     const credRef=($('cu-cred').value||'').trim()||null;
-    const patch={enabled:true,transport:$('cu-transport').value,command,args,credentialRef:credRef};
+    // issue #7: adding an agent BY HAND is the user's explicit consent — record it as confirmed.
+    const patch={enabled:true,confirmed:true,transport:$('cu-transport').value,command,args,credentialRef:credRef};
     await api('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({agents:{[id]:patch}})});
     const credVal=($('cu-credval').value||'').trim();
     if(credRef&&credVal)await api(`/api/credentials/${credRef}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({value:credVal})});
@@ -767,7 +795,9 @@ function credSummary(a){
 }
 function agentRowHtml(a){
   const open=OPENID[a.id]?'open':'';
-  const dot=a.authState==='ok'?'ok':a.authState==='missing'?'err':'warn';
+  // issue #7: 'unconfirmed' (never asked) is neutral grey, distinct from 'disabled'
+  // (user said no) and from 'missing' (confirmed, but no credentials on this machine).
+  const dot=a.authState==='ok'?'ok':a.authState==='missing'?'err':a.authState==='unconfirmed'?'idle':'warn';
   // 厂商提示按「本机实际厂商 ≠ 该 adapter 的预期厂商」判定，而不是硬编码 claude —— 硬编码
   // 在任何机器上都会对 claude 显示该提示，与该机是否真的重映射无关。
   const vn=STATUS?.agents?.find(x=>x.agent===a.id)?.actualVendorNote;
@@ -784,10 +814,12 @@ function agentRowHtml(a){
       <span class="dot ${dot}"></span><b style="min-width:76px">${esc(a.id)}</b>
       <span class="jid">${esc(a.transport)}</span>
       ${a.enabled?'':'<span class="badge-dis">已禁用</span>'}
+      ${a.authState==='unconfirmed'?'<span class="badge-unconf">未确认</span>':''}
       <span class="jtask" style="flex:1;color:var(--faint)">${esc(d.command||'')}${warn?` · ${warn}`:''}</span>
       <span class="jmeta">${credSummary(a)}</span>
     </div>
     <div class="aedit">
+      ${a.authState==='unconfirmed'?`<div class="wiznote" style="margin:0 0 10px">该 agent 尚未确认启用 —— 不会参与路由与 fallback，显式指定会被拒绝。<button class="ghost" style="width:auto;margin:0 0 0 10px" onclick="confirmAgent('${esc(a.id)}')">确认启用</button></div>`:''}
       <div class="grid3">
         <div><label>启用</label><label class="switch" style="margin-top:6px"><input type="checkbox" ${d.enabled?'checked':''} oninput="upd('${esc(a.id)}','enabled',this.checked)"><span></span></label></div>
         <div><label>传输方式</label><select oninput="upd('${esc(a.id)}','transport',this.value)">
@@ -887,6 +919,123 @@ async function saveCredential(id){
 }
 function showProbe(id,text){const b=$('probe-'+id);if(b){b.style.display='';b.textContent=text}}
 
+/* ---------- first-run wizard (issue #7) ---------- */
+let SETUP=null;
+async function loadSetup(){
+  try{
+    SETUP=await api('/api/setup');
+    const badge=$('nav-setup-badge');
+    if(badge)badge.style.display=SETUP.phase==='pending'?'':'none';
+    renderSetup();
+  }catch(e){$('setup-body').innerHTML=`<div class="card"><div class="empty">加载失败：${esc(String(e.message??e))}</div></div>`}
+}
+function renderSetup(){
+  const s=SETUP;if(!s)return;
+  const note=s.phase==='pending'
+    ?'这台机器上还没有确认过任何 agent。请选择<b>你愿意让它接入的</b> agent —— <b>装好 adapter 包不等于同意运行它</b>：未确认的 agent 不会显示为可用，也不会被路由选中。全部预勾选，取消即表示不用。'
+    :s.phase==='legacy'
+    ?'检测到已有用户配置（本次升级之前写入）：为保持行为不变，不会自动改动你现有的启用状态。你也可以在这里重新确认一遍（会覆盖现有确认项）。'
+    :'首启设置已完成。再次确认会覆盖现有确认项；未勾选的会被显式标记为「未确认」。';
+  $('setup-body').innerHTML=`<div class="card">
+    <h2 class="ct">首启向导 · 选择要接入的 agent</h2>
+    <div class="wiznote">${note}</div>
+    <div class="wiz">${s.candidates.map(wizCard).join('')}</div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="ghost" style="flex:1;margin:0" onclick="probePicked()">🔌 探测选中的（握手，不耗 token）</button>
+      <button style="flex:2;margin:0" id="wiz-go" onclick="finishSetup()">完成设置并写入用户配置</button>
+    </div>
+    <div class="form-err" id="wiz-err"></div></div>`;
+}
+function wizCard(c){
+  const on=c.detected?'checked':'disabled';
+  const src=c.credentialRef?'env':'native';
+  const credNote=c.credentialRef?`环境变量名 ${esc(c.credentialRef)}`:'无凭据引用名';
+  return `<div class="wcard${c.detected?'':' off'}">
+    <div class="whead">
+      <label class="switch" style="margin:0"><input type="checkbox" id="w-pick-${esc(c.id)}" ${on}><span></span></label>
+      <b>${esc(c.id)}</b>
+      <span class="jid">${esc(c.transport)}</span>
+      <span class="dot ${c.detected?'ok':'err'}"></span>
+      <span class="wdet">${c.detected?'已检测到':'未检测到'}：${esc(c.detection)}</span>
+      ${c.confirmed?'<span class="badge-ok">已确认</span>':'<span class="badge-unconf">未确认</span>'}
+      <span style="flex:1"></span>
+      <button class="ghost" style="width:auto;margin:0" onclick="probeOne('${esc(c.id)}')">探测</button>
+    </div>
+    <div class="grid3" style="margin-top:8px">
+      <div><label>命令</label><input id="w-cmd-${esc(c.id)}" value="${esc(c.command||'')}"></div>
+      <div><label>参数（每行一个）</label><input id="w-args-${esc(c.id)}" value="${esc((c.args||[]).join(' '))}" placeholder="空格分隔"></div>
+      <div><label>凭据来源（由你回答）</label>
+        <select id="w-cs-${esc(c.id)}" onchange="wizSrc('${esc(c.id)}')">
+          <option value="native"${src==='native'?' selected':''}>使用它自身的登录态</option>
+          <option value="env"${src==='env'?' selected':''}>环境变量（已有）</option>
+          <option value="value">现在填写（写入 secrets.env）</option>
+        </select></div>
+    </div>
+    <div class="grid2" style="margin-top:8px">
+      <div><label>凭据引用名</label><input id="w-ref-${esc(c.id)}" value="${esc(c.credentialRef||'')}" placeholder="如 OPENAI_API_KEY"></div>
+      <div id="w-valwrap-${esc(c.id)}" style="display:none"><label>凭据值（只写不回显）</label>
+        <input type="password" id="w-val-${esc(c.id)}" autocomplete="new-password" placeholder="粘贴后保存，界面不会回显"></div>
+    </div>
+    <div class="wdet" style="margin-top:6px">它自身的凭据位置：${esc(c.credentialNative||credNote)}${c.nativeAuth?` · ${esc(c.nativeAuth.detail)}`:''}</div>
+    <div class="wprobe" id="w-probe-${esc(c.id)}"></div>
+  </div>`;
+}
+function wizSrc(id){
+  const v=$('w-cs-'+id)?.value;
+  const wrap=$('w-valwrap-'+id);
+  if(wrap)wrap.style.display=v==='value'?'':'none';
+}
+async function probeOne(id){
+  const box=$('w-probe-'+id);
+  if(box){box.style.display='';box.textContent='探测中…（initialize + session/new，不消耗 token）'}
+  try{
+    const r=await api(`/api/agents/${id}/test`,{method:'POST'});
+    if(box)box.textContent=r.ok
+      ?`✓ ${r.detail||'握手成功'} · ${(r.durationMs/1000).toFixed(1)}s\n模型: ${(r.models||[]).slice(0,12).join(', ')||'(未上报)'}\n档位: ${(r.efforts||[]).join(', ')||'(未上报)'}`
+      :`✕ 探测失败（${(r.durationMs/1000).toFixed(1)}s）：${r.error||r.detail||'未知原因'}`;
+  }catch(e){if(box)box.textContent='✕ 探测失败：'+String(e.message??e)}
+}
+async function probePicked(){
+  const ids=(SETUP?.candidates||[]).filter(c=>$('w-pick-'+c.id)?.checked).map(c=>c.id);
+  for(const id of ids)await probeOne(id);
+}
+async function finishSetup(){
+  const err=$('wiz-err');err.textContent='';
+  const agents={};
+  for(const c of SETUP.candidates){
+    const on=!!($('w-pick-'+c.id)?.checked);
+    const src=$('w-cs-'+c.id)?.value||'native';
+    const e={confirm:on};
+    const cmd=($('w-cmd-'+c.id)?.value||'').trim();
+    if(cmd&&cmd!==(c.command||''))e.command=cmd;
+    const argsTxt=$('w-args-'+c.id)?.value;
+    if(argsTxt!==undefined){
+      const args=argsTxt.split(/[\r\n]+/).map(x=>x.trim()).filter(Boolean);
+      if(JSON.stringify(args)!==JSON.stringify(c.args||[]))e.args=args;
+    }
+    if(src!=='native')e.credentialRef=($('w-ref-'+c.id)?.value||'').trim()||null;
+    if(src==='value'){const v=$('w-val-'+c.id)?.value;if(v)e.credentialValue=v;}
+    agents[c.id]=e;
+  }
+  const btn=$('wiz-go');btn.disabled=true;btn.textContent='写入中…';
+  try{
+    await api('/api/setup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({agents})});
+    await loadSetup();await refreshStatus();await loadSettings();
+    switchView('console');
+  }catch(e){err.textContent=String(e.message??e);btn.disabled=false;btn.textContent='完成设置并写入用户配置'}
+}
+async function rerunSetup(){
+  try{await api('/api/setup/rerun',{method:'POST'});await loadSetup();switchView('setup');}
+  catch(e){alert('无法重新运行向导：'+String(e.message??e))}
+}
+/* 快速确认单个 agent（Agents 页未确认行的捷径） */
+async function confirmAgent(id){
+  try{await api('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},
+    body:JSON.stringify({agents:{[id]:{confirmed:true}}})});
+    await loadSettings();await loadSetup();await refreshStatus();
+  }catch(e){alert('确认失败：'+String(e.message??e))}
+}
+
 /* ---------- polling ---------- */
 async function refreshStatus(){
   try{renderStatus(await api('/api/status'));
@@ -902,6 +1051,8 @@ async function refreshJobs(force){
   }catch{}
 }
 restoreForm();setMode('ask');refreshStatus();refreshJobs(true);
+// issue #7: a machine with nothing confirmed opens on the wizard instead of silently routing.
+loadSetup().then(()=>{if(SETUP&&SETUP.phase==='pending')switchView('setup');});
 api('/api/settings').then(s=>{SETTINGS=s;fillCwdList();}).catch(()=>{});
 setInterval(refreshStatus,5000);setInterval(refreshJobs,1200);
 </script>

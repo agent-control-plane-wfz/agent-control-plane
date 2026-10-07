@@ -2,6 +2,7 @@
 // Verifies: (1) all jobs return, (2) wall time < serial sum (concurrency is real),
 // (3) per-job agent identity is verified (sessionId format / model echo), (4) usage aggregation.
 import './_isolate-state.ts';   // isolate state dir before app modules load
+import './_confirm-agents.ts';   // issue #7: act as the user and confirm the agents this test dispatches
 import { ControlPlane } from '../src/control/plane.ts';
 
 const plane = new ControlPlane();

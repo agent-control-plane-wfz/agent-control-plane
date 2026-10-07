@@ -1,6 +1,7 @@
 // E2E: Phase 3 — workspace worktree mechanism + structured verdict (real opencode call).
 // Run: node --experimental-strip-types tests/e2e-phase3.ts
 import './_isolate-state.ts';   // isolate state dir before app modules load
+import './_confirm-agents.ts';   // issue #7: act as the user and confirm the agents this test dispatches
 import { ControlPlane } from '../src/control/plane.ts';
 import { selfTest } from '../src/workspace/manager.ts';
 

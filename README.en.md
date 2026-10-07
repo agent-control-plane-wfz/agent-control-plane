@@ -139,6 +139,14 @@ WORKSPACE_DIR=/path/to/workspace npm run web
 packages — ACP resolves adapter entry points via `join(WORKSPACE_DIR, 'node_modules')`.
 Change the port with `ACP_WEB_PORT`.
 
+> [!IMPORTANT]
+> **The first launch opens a first-run wizard**: having an adapter package installed is *not*
+> consent to run it. The wizard pre-checks the candidates, lets you confirm each one's command
+> and credential source (and handshake-probes each), and **no agent is routable until you
+> confirm it**. A machine with an existing user config is treated as `legacy` — no wizard,
+> unchanged behaviour; to walk through it again use Settings → Agents → "Re-run first-run
+> wizard". See the wizard section in `acp/README.md`.
+
 > [!WARNING]
 > The web console binds to **`127.0.0.1` only**. Jobs really invoke agents inside the
 > server process, so do not expose the port to your LAN or the public internet.

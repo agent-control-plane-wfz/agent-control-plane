@@ -65,6 +65,9 @@ export interface AgentStatusSummary {
   models: string[];
   effortLevels: string[];
   actualVendorNote?: string;
+  /** issue #7: the user's consent switch. Absent on registry-only callers (no settings layer). */
+  enabled?: boolean;
+  configured?: boolean;
 }
 
 // Raw shapes observed in Phase 0 (capability-matrix.json)

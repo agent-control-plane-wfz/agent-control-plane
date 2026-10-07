@@ -6,6 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { confirmAllViaHttp } from './_setup-http.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -41,6 +42,7 @@ async function until(fn: () => Promise<any>, timeoutMs: number, label: string) {
 
 try {
   // 1) server up + static page
+  // issue #7: nothing is routable until confirmed — act as the user.
   await until(async () => (await fetch(base)).status === 200, 20_000, 'server listen');
   const page = await (await fetch(base)).text();
   console.log('static page:', page.includes('Agent Control Plane') ? 'OK' : 'MISSING TITLE');

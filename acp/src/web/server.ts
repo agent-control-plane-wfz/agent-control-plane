@@ -11,6 +11,9 @@ import { getMerged, saveSettings, resetSettings, loadUserConfig, type AppSetting
 import { describeCredential, setCredential, deleteCredential, storedNames } from '../config/secrets.ts';
 import { probeAgent } from '../config/probe.ts';
 import { authEvidence, nativeAuthEvidence } from '../config/auth-evidence.ts';
+import { detectAgent } from '../config/detect.ts';
+import { completeSetup, rerunSetup, setupView } from '../config/setup.ts';
+import { configuredAgent, setupState } from '../config/settings.ts';
 import { BUILTIN_RULES } from '../router/router.ts';
 import { HISTORY_FILE } from '../config/paths.ts';
 
@@ -103,6 +106,7 @@ function agentRows() {
     const ev = authEvidence(id, a.credentialRef);
     const cred = a.credentialRef ? describeCredential(a.credentialRef) : null;
     const native = nativeAuthEvidence(id);
+    const detection = detectAgent(a);
     return {
       id,
       enabled: a.enabled !== false,
@@ -114,7 +118,15 @@ function agentRows() {
       credential: cred ? { configured: cred.configured, source: cred.source } : null,
       nativeAuth: { present: native.present, detail: native.detail },
       evidence: ev,
+      // issue #7: three independent facts, all exposed so the UI never has to guess.
+      detected: detection.detected,
+      detection: detection.detail,
+      confirmed: a.confirmed === true,
+      configured: configuredAgent(id),
+      // 'unconfirmed' is deliberately distinct from 'disabled' (user said no) and from
+      // 'missing' (user said yes, but no credentials exist here).
       authState: a.enabled === false ? 'disabled'
+        : !configuredAgent(id) ? 'unconfirmed'
         : ev.state === 'present' ? 'ok'
         : ev.state === 'absent' ? 'missing'
         : 'unknown',
@@ -231,6 +243,34 @@ const server = createServer(async (req, res) => {
       const merged = resetSettings(section, body.sub);
       plane.applyBudget(merged.budget);
       json(res, 200, { merged });
+      return;
+    }
+    // --- first-run wizard (issue #7) -----------------------------------------------------
+    // Read-only view: what the machine COULD run (detected), who the user confirmed, and the
+    // credential evidence for each. Deliberately separate from /api/agents: that endpoint
+    // describes an agent's configuration, this one describes the setup decision.
+    if (req.method === 'GET' && url.pathname === '/api/setup') {
+      json(res, 200, setupView());
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/setup') {
+      const body = await readBody(req);
+      if (!body.agents || typeof body.agents !== 'object' || Array.isArray(body.agents)) {
+        json(res, 400, { error: 'agents 必填（{ id: { confirm, command?, args?, credentialRef?, credentialValue? } }）' });
+        return;
+      }
+      try {
+        const merged = completeSetup(body.agents);
+        plane.applyBudget(merged.budget);
+        json(res, 200, { merged, setup: setupView() });
+      } catch (e: any) {
+        json(res, 400, { error: String(e?.message ?? e) });
+      }
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/setup/rerun') {
+      rerunSetup();
+      json(res, 200, setupView());
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/agents') {

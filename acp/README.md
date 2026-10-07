@@ -125,6 +125,33 @@
   - **集成**：一键生成并复制 MCP 接入片段（给 Claude Code / Codex 的 .mcp.json，含 env）
 - 设计对标 DeepSeek Harness 的设置页（原则提取自其官方包文档，见计划文档 §1）
 
+## 首启向导与「确认」语义（issue #7）
+
+**默认值反过来了**：装好 adapter 包不再等于同意运行它。本项目会真实 spawn 子进程、消耗额度、
+并在你指定的仓库里执行命令，所以「装了就开」在这个威胁模型下太激进。
+
+三个状态是**互相独立**的，别再混用：
+
+| 状态 | 来源 | 含义 |
+|---|---|---|
+| `detected` | `src/config/detect.ts`（命令可解析 + 入口文件存在） | 这台机器**可能**能跑它（机器事实） |
+| `configured` | **用户确认**（`agents.<id>.confirmed`） | 用户同意用它 —— **唯一允许进路由与 fallback 的状态** |
+| `reachable` | `initialize + session/new` 握手 | 进程能起来（**不代表有凭据**，见 issue #6） |
+
+- 全新机器（无用户配置）打开控制台即进入**首启向导**：候选全部预勾选（不损失开箱即用）、
+  命令预填可改、凭据来源**由用户回答**（环境变量 / 现在填写写入 `secrets.env` / 使用它自身的
+  登录态）、逐个握手探测（不耗 token），**显式确认后**才写入 `state/control-plane-config.json`。
+- 未确认的 agent：显示为中性灰「未确认」，**不参与路由与 fallback**；显式指定时**报错并给出启用
+  方式**（不静默改道）。
+- 不做硬门禁：headless/MCP 场景没有已确认的 agent 时 **fail-loud** 并附配置指引，而不是静默
+  使用全部 `detected` 项。
+- **迁移**：已有 `state/control-plane-config.json` 的机器（本特性之前写入）判定为 `legacy` ——
+  **不出现向导、行为完全不变**，也不要求补确认。想重新走一遍：设置 → Agents →「✦ 重新运行首启向导」
+  （只清完成标记，确认结果保留，可随时取消）。
+
+相关 API：`GET /api/setup`（状态 + 候选）、`POST /api/setup`（写入确认）、`POST /api/setup/rerun`。
+`GET /api/agents` 额外返回 `detected` / `confirmed` / `configured` 与 `authState: 'unconfirmed'`。
+
 ## Web 控制台（Phase 5.5）
 
 图形化操作页面：浏览器里看四家 agent 实时状态（transport / 认证 / 模型数 / 实际厂商警告）、
@@ -247,3 +274,9 @@ F1 用 `tests/fixtures/stub-acp-agent.mjs`（最小 ACP 桩，无凭据无网络
 - worktree 只隔离 git 分支；`@automatalabs/codex-acp` 的 `_meta.outputSchema` 待 OPENAI key 实测后替换 prompt 约束方案
 - 显式 `agent` 提示仍是硬约束（不可用即报错），因此其 `fallbackChain` 为空——这是刻意保留的
   安全属性（B5 审计决策），与 F9 修的是两件事
+- `confirmed`（用户同意）与 `enabled`（开关）是两件事，都需要：前者只在向导/设置页里被用户写入，
+  后者是「之后关掉」。**注意**：任何设置保存都必须保留 `confirmed`（曾经的整体替换会静默取消确认，
+  `tests/unit/setup.test.ts` 已锁）
+- 向导只做握手探测，**不做真实 prompt**；它也不能替你判断凭据是否有效（那由凭据证据层回答）
+- 空 `WORKSPACE_DIR` 下 `claude/codex/dsh` 不会出现在候选里（`builtinDefaults()` 依赖它拼入口路径），
+  启动时会以 `WORKSPACE_DIR is not set` 明确报错

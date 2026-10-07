@@ -3,6 +3,7 @@
 // codex (openai vendor) cross-reviews, node commands verify neutrally.
 // Run: node --experimental-strip-types tests/e2e-phase4.ts
 import './_isolate-state.ts';   // isolate state dir before app modules load
+import './_confirm-agents.ts';   // issue #7: act as the user and confirm the agents this test dispatches
 import { execFile } from 'node:child_process';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

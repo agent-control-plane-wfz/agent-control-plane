@@ -13,7 +13,7 @@ import { prepareWorkspace, type PreparedWorkspace } from '../workspace/manager.t
 import { heteroReview as runHeteroReview, type HeteroReviewOptions, type HeteroReviewOutcome } from '../review/review.ts';
 import { Budget } from '../budget/budget.ts';
 import { runParallel, type ParallelJob, type ParallelOutcome } from '../batch/parallel.ts';
-import { getMerged, type AgentSettings } from '../config/settings.ts';
+import { getMerged, configuredAgent, type AgentSettings } from '../config/settings.ts';
 import { getCredential } from '../config/secrets.ts';
 import { authEvidence } from '../config/auth-evidence.ts';
 
@@ -79,11 +79,23 @@ export class ControlPlane {
 
   route(hints: TaskHints) {
     // v3: user routing rules from Settings override builtin per-task-type rules.
-    return route(this.registry, hints, getMerged().routing.rules);
+    // issue #7: the consent gate travels with the registry so every path (rules, explicit
+    // hints, fallback chain) can only ever select an agent the user confirmed.
+    const merged = getMerged();
+    return route(this.registry, hints, merged.routing.rules, {
+      isConfigured: (id) => configuredAgent(id, merged),
+    });
   }
 
   status() {
-    return this.registry.statusList();
+    const merged = getMerged();
+    // issue #7: "the user never confirmed this" must be distinguishable from "disabled" and
+    // from "no credentials" — the console and the MCP status tool both read this.
+    return this.registry.statusList().map((row) => ({
+      ...row,
+      enabled: merged.agents[row.agent]?.enabled !== false,
+      configured: configuredAgent(row.agent, merged),
+    }));
   }
 
   async ask(opts: AskOptions): Promise<AgentResult> {
@@ -95,6 +107,15 @@ export class ControlPlane {
       return {
         agent: opts.agent, ok: false, text: '',
         error: `agent ${opts.agent} 已在设置中禁用（设置 → Agents）`,
+        toolCalls: 0, durationMs: Date.now() - t0,
+      };
+    }
+    // issue #7: a never-confirmed agent is refused for the same reason a disabled one is —
+    // explicitly, and with instructions rather than a silent swap to somebody else.
+    if (opts.agent && !configuredAgent(opts.agent, settings)) {
+      return {
+        agent: opts.agent, ok: false, text: '',
+        error: `agent ${opts.agent} 尚未确认启用：请先运行首启向导，或在「设置 → Agents」中确认（装好 adapter 包不等于同意运行它）`,
         toolCalls: 0, durationMs: Date.now() - t0,
       };
     }

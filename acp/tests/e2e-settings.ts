@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 import { rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { confirmAllViaHttp } from './_setup-http.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -50,6 +51,7 @@ function check(name: string, ok: boolean, detail = '') {
 }
 
 try {
+  await confirmAllViaHttp(base);   // issue #7: establish the consent precondition
   await until(async () => (await fetch(base)).status === 200, 20_000, 'server listen');
 
   // 1) merged settings expose the four builtins

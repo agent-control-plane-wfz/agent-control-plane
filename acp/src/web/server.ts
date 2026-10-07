@@ -2,7 +2,7 @@
 // Local only — binds 127.0.0.1. Zero deps; Node 22 --experimental-strip-types.
 // Run: WORKSPACE_DIR=<node workspace with adapter packages> npm run web
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
@@ -10,6 +10,11 @@ import { ControlPlane } from '../control/plane.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.ACP_WEB_PORT ?? 7777);
+const HISTORY_FILE = join(here, '..', '..', 'state', 'web-jobs.jsonl');
+const EVENT_CAP = 400;
+const HISTORY_LOAD = 60;
+
+interface JobEvent { kind: string; text?: string; at: number }
 
 interface Job {
   id: string;
@@ -18,6 +23,7 @@ interface Job {
   request: any;
   result?: any;
   error?: string;
+  events: JobEvent[];
   createdAt: number;
   finishedAt?: number;
 }
@@ -25,25 +31,50 @@ interface Job {
 const plane = new ControlPlane();
 const jobs = new Map<string, Job>();
 
+// Load recent finished jobs so history survives restarts (events are not persisted).
+try {
+  if (existsSync(HISTORY_FILE)) {
+    const lines = readFileSync(HISTORY_FILE, 'utf8').trim().split('\n').filter(Boolean).slice(-HISTORY_LOAD);
+    for (const line of lines) {
+      try {
+        const j = JSON.parse(line) as Job;
+        j.events = j.events ?? [];
+        jobs.set(j.id, j);
+      } catch { /* skip corrupt line */ }
+    }
+  }
+} catch { /* best-effort history */ }
+
+function persistFinished(job: Job): void {
+  try {
+    appendFileSync(HISTORY_FILE, JSON.stringify({ ...job, events: undefined }) + '\n', 'utf8');
+  } catch { /* best-effort */ }
+}
+
 function submit(kind: Job['kind'], request: any): Job {
   const id = randomUUID().slice(0, 8);
-  const job: Job = { id, kind, status: 'running', request, createdAt: Date.now() };
+  const job: Job = { id, kind, status: 'running', request, events: [], createdAt: Date.now() };
   jobs.set(id, job);
   void runJob(job);
   return job;
 }
 
 async function runJob(job: Job): Promise<void> {
+  const onEvent = (e: { kind: string; text?: string }) => {
+    job.events.push({ ...e, at: Date.now() });
+    if (job.events.length > EVENT_CAP) job.events.splice(0, job.events.length - EVENT_CAP);
+  };
   try {
     job.result = job.kind === 'ask'
-      ? await plane.ask(job.request)
-      : await plane.parallel(job.request.jobs, job.request.concurrency);
+      ? await plane.ask({ ...job.request, onEvent })
+      : await plane.parallel(job.request.jobs, job.request.concurrency, onEvent);
     job.status = 'done';
   } catch (e: any) {
     job.status = 'failed';
     job.error = String(e?.message ?? e).slice(0, 500);
   } finally {
     job.finishedAt = Date.now();
+    persistFinished(job);
   }
 }
 
@@ -83,6 +114,12 @@ const server = createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/api/jobs') {
       json(res, 200, [...jobs.values()].sort((a, b) => b.createdAt - a.createdAt));
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/jobs/clear') {
+      for (const [id, j] of jobs) if (j.status !== 'running') jobs.delete(id);
+      try { writeFileSync(HISTORY_FILE, '', 'utf8'); } catch { /* best-effort */ }
+      json(res, 200, { cleared: true });
       return;
     }
     const m = url.pathname.match(/^\/api\/jobs\/([\w-]+)$/);

@@ -61,6 +61,7 @@ export interface AskOptions {
   verdict?: boolean;                        // structured verdict contract (instruction + extraction, 1 retry)
   maxToolCalls?: number;                    // per-call hard gate
   fallback?: boolean;                       // default true: retry on transport-class failure via fallbackChain
+  onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void;  // live progress for UIs
 }
 
 export class ControlPlane {
@@ -135,7 +136,7 @@ export class ControlPlane {
     const attempts: string[] = [];
     for (const agent of chain) {
       r = agent === 'dsh'
-        ? await this.runDsh(finalTask, { cwd: effCwd, timeoutMs: opts.timeoutMs }, t0, decision)
+        ? await this.runDsh(finalTask, { cwd: effCwd, timeoutMs: opts.timeoutMs, onEvent: opts.onEvent }, t0, decision)
         : await this.runAcp(agent, decision, finalTask, { cwd: effCwd, opts, keep: !!opts.keepSession, verdict: !!opts.verdict }, t0);
       if (r.ok) break;
       if (!isTransportError(r.error)) break;
@@ -170,8 +171,8 @@ export class ControlPlane {
   }
 
   // Phase 5: native fan-out/fan-in batch (fractal/CAO replacement on Windows — see batch/parallel.ts).
-  parallel(jobs: ParallelJob[], concurrency?: number): Promise<ParallelOutcome> {
-    return runParallel(this, jobs, concurrency);
+  parallel(jobs: ParallelJob[], concurrency?: number, onEvent?: (e: { jobId: string; kind: string; text?: string }) => void): Promise<ParallelOutcome> {
+    return runParallel(this, jobs, concurrency, onEvent);
   }
 
   async send(agent: AgentId, sessionId: string, task: string, timeoutMs?: number): Promise<AgentResult> {
@@ -266,9 +267,9 @@ export class ControlPlane {
     return d;
   }
 
-  private async runDsh(task: string, o: { cwd: string; timeoutMs?: number }, t0: number,
+  private async runDsh(task: string, o: { cwd: string; timeoutMs?: number; onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void }, t0: number,
     decision: { effort?: string; model?: string }): Promise<AgentResult> {
-    const r = await DshDriver.run(task, { cwd: o.cwd, timeoutMs: o.timeoutMs });
+    const r = await DshDriver.run(task, { cwd: o.cwd, timeoutMs: o.timeoutMs, onEvent: o.onEvent });
     if (r.sessionId && r.exitCode === 0) this.dshSessions.set(r.sessionId, o.cwd);
     return {
       agent: 'dsh',
@@ -322,7 +323,7 @@ export class ControlPlane {
           applied.push({ id, value, ...(await driver.setConfig(session, id, value)) });
         }
 
-        const outcome = await driver.run(session, task, { timeoutMs: o.opts.timeoutMs ?? 300_000, maxToolCalls: o.opts.maxToolCalls });
+        const outcome = await driver.run(session, task, { timeoutMs: o.opts.timeoutMs ?? 300_000, maxToolCalls: o.opts.maxToolCalls, onEvent: o.opts.onEvent });
         let text = outcome.text;
         let verdict: Verdict | undefined;
         let verdictError: string | undefined;

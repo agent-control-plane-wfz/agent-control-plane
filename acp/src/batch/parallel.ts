@@ -44,7 +44,12 @@ export interface ParallelOutcome {
 
 const DEFAULT_CONCURRENCY = 3;
 
-export async function runParallel(plane: ControlPlane, jobs: ParallelJob[], concurrency?: number): Promise<ParallelOutcome> {
+export async function runParallel(
+  plane: ControlPlane,
+  jobs: ParallelJob[],
+  concurrency?: number,
+  onEvent?: (e: { jobId: string; kind: string; text?: string }) => void,
+): Promise<ParallelOutcome> {
   if (!Array.isArray(jobs) || jobs.length === 0) throw new Error('parallel: jobs must be a non-empty array');
   const limit = Math.max(1, Math.min(concurrency ?? DEFAULT_CONCURRENCY, jobs.length));
   const t0 = Date.now();
@@ -70,11 +75,14 @@ export async function runParallel(plane: ControlPlane, jobs: ParallelJob[], conc
           maxToolCalls: job.maxToolCalls,
           workspaceMode: job.workspaceMode,
           timeoutMs: job.timeoutMs,
+          onEvent: onEvent ? (e) => onEvent({ jobId: id, kind: e.kind, text: e.text }) : undefined,
         });
+        onEvent?.({ jobId: id, kind: 'subtask_done', text: r.ok ? '完成' : `失败：${(r.error ?? 'no text').slice(0, 120)}` });
         outcomes[i] = { id, agent: r.agent, ok: r.ok, error: r.error, result: r };
       } catch (e: any) {
         // Budget caps and routing errors reject the job, never the batch.
         outcomes[i] = { id, ok: false, error: String(e?.message ?? e).slice(0, 300) };
+        onEvent?.({ jobId: id, kind: 'subtask_done', text: `异常：${String(e?.message ?? e).slice(0, 120)}` });
       }
     }
   };

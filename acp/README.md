@@ -94,10 +94,15 @@ WORKSPACE_DIR=C:\Users\me\.workbuddy\binaries\node\workspace npm run web
 # 打开 http://127.0.0.1:7777（端口可用 ACP_WEB_PORT 改）
 ```
 
-- REST API：`GET /api/status`、`GET/POST /api/jobs`、`POST /api/ask`、`POST /api/parallel`
+- REST API：`GET /api/status`、`GET/POST /api/jobs`、`POST /api/jobs/clear`、`POST /api/ask`、`POST /api/parallel`
+- **实时事件流**：driver 层 `onEvent` 回调 → 作业事件（模型输出块 / 工具调用 / 子任务完成）
+  → UI 实时日志面板，运行中的作业不再是黑盒等待
+- **历史落盘**：完成的作业追加到 `state/web-jobs.jsonl`，服务重启自动加载最近 60 条
+- 易用性：快捷模板、表单参数 localStorage 记忆、状态/agent/搜索三重筛选、
+  批量作业子任务进度 chips、一键复制回复、侧栏 agent 点击选中（含实际厂商警告）
 - **只绑定 127.0.0.1**（作业在服务进程内存里执行真实 agent 调用，不要暴露到局域网/公网）
-- 作业列表存内存（重启即清）；预算按天落盘不受影响
-- E2E：`tests/e2e-web.ts`（拉起子进程服务端 → 静态页 / 状态 / 400 校验 / 真实 dsh 往返）
+- 预算按天落盘不受影响
+- E2E：`tests/e2e-web.ts`（拉起子进程服务端 → 静态页 / 状态 / 400 校验 / 真实 dsh 往返 / 事件流捕获）
 
 ## 运行
 

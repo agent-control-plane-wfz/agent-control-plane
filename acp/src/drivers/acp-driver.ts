@@ -83,15 +83,19 @@ export class AcpDriver {
 
   // Run a task: session/prompt with a long timeout, collecting session/update stream.
   // maxToolCalls: hard per-call gate — cancels the session when exceeded (stopReason='budget_tool_calls').
-  async run(s: AcpSession, task: string, opts: { timeoutMs?: number; maxToolCalls?: number } = {}): Promise<RunOutcome> {
+  // onEvent: live progress callback (text chunks / tool calls) for UIs.
+  async run(s: AcpSession, task: string, opts: {
+    timeoutMs?: number; maxToolCalls?: number;
+    onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void;
+  } = {}): Promise<RunOutcome> {
     const timeoutMs = opts.timeoutMs ?? 300_000;
     const outcome: RunOutcome = { text: '', stopReason: undefined, toolCalls: 0, updates: [], usage: {} };
     let cancelled = false;
+    let lastMessageId: string | undefined;
+    const seenToolCalls = new Set<string>();
     // B1 (audit): `tool_call` (start) and `tool_call_update` (progress) both exist; count each
     // real call once by toolCallId. `agent_message_chunk` appends; `agent_message` REPLACES
     // the accumulated text for the same messageId (C2).
-    const seenToolCalls = new Set<string>();
-    let lastMessageId: string | undefined;
     const prevHandler = s.rpc.onNotification;
     s.rpc.onNotification = (method, params) => {
       if (prevHandler) prevHandler(method, params);
@@ -103,7 +107,7 @@ export class AcpDriver {
       if (kind === 'agent_message_chunk') {
         const block = u.content ?? u.contentBlock;
         const t = typeof block === 'string' ? block : (block?.text ?? '');
-        if (t) outcome.text += t;
+        if (t) { outcome.text += t; opts.onEvent?.({ kind: 'text', text: t }); }
       } else if (kind === 'agent_message') {
         const block = u.content ?? u.contentBlock;
         const t = typeof block === 'string' ? block : (block?.text ?? '');
@@ -116,6 +120,7 @@ export class AcpDriver {
         if (!seenToolCalls.has(id)) {
           seenToolCalls.add(id);
           outcome.toolCalls++;
+          opts.onEvent?.({ kind: 'tool', text: String(u.title ?? u.toolName ?? u.name ?? u.kind ?? 'tool') });
           if (opts.maxToolCalls && outcome.toolCalls >= opts.maxToolCalls && !cancelled) {
             cancelled = true;
             s.rpc.notify('session/cancel', { sessionId: s.sessionId });

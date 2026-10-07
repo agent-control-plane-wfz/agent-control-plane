@@ -3,264 +3,418 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Agent Control Plane 控制台</title>
+<title>Agent Control Plane</title>
 <style>
-  :root {
-    --bg: #0f1115; --panel: #171a21; --panel2: #1d212b; --border: #2a2f3c;
-    --text: #e6e9ef; --dim: #8b93a5; --accent: #4f8cff; --ok: #3ecf8e; --warn: #f5a623; --err: #ff5c6c;
-    --mono: 'Cascadia Code', Consolas, monospace;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.55 'Segoe UI', 'Microsoft YaHei', sans-serif; }
-  header { display: flex; align-items: center; gap: 14px; padding: 14px 22px; border-bottom: 1px solid var(--border); background: var(--panel); }
-  header h1 { font-size: 16px; margin: 0; letter-spacing: .5px; }
-  header .sub { color: var(--dim); font-size: 12px; }
-  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--border); font-size: 12px; color: var(--dim); }
-  .chip b { color: var(--text); font-weight: 600; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); display: inline-block; }
-  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.err { background: var(--err); }
-  main { display: grid; grid-template-columns: 400px 1fr; gap: 16px; padding: 16px 22px; max-width: 1500px; margin: 0 auto; }
-  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
-  .card h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); }
-  label { display: block; font-size: 12px; color: var(--dim); margin: 10px 0 4px; }
-  textarea, input, select { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font: 13px var(--mono); }
-  textarea { resize: vertical; min-height: 84px; }
-  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-  .check { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--text); }
-  .check input { width: auto; }
-  button { background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 9px 16px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 14px; width: 100%; }
-  button:hover { filter: brightness(1.1); }
-  button:disabled { opacity: .5; cursor: wait; }
-  .toggle { display: inline-flex; gap: 0; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-  .toggle button { margin: 0; width: auto; padding: 6px 14px; background: var(--panel2); color: var(--dim); font-size: 12px; border-radius: 0; }
-  .toggle button.on { background: var(--accent); color: #fff; }
-  .agents { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 22px; max-width: 1500px; margin: 12px auto 0; }
-  .agent { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; min-width: 170px; }
-  .agent .name { font-weight: 700; font-size: 13px; }
-  .agent .meta { color: var(--dim); margin-top: 2px; }
-  .agent .note { color: var(--warn); margin-top: 2px; font-size: 11px; }
-  #jobs { display: flex; flex-direction: column; gap: 8px; }
-  .job { border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); }
-  .job summary { list-style: none; display: flex; gap: 10px; align-items: center; padding: 10px 12px; cursor: pointer; flex-wrap: wrap; }
-  .job summary::-webkit-details-marker { display: none; }
-  .badge { padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-  .badge.running { background: #2b3a5e; color: #9cc0ff; }
-  .badge.ok { background: #17352a; color: var(--ok); }
-  .badge.err { background: #3d1e24; color: var(--err); }
-  .badge.parallel { background: #33284a; color: #c3a6ff; }
-  .jid { font-family: var(--mono); color: var(--dim); font-size: 12px; }
-  .jtask { flex: 1; min-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
-  .jmeta { color: var(--dim); font-size: 12px; }
-  .jbody { border-top: 1px solid var(--border); padding: 12px; }
-  .jbody h3 { margin: 0 0 6px; font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; }
-  pre { background: #12151c; border: 1px solid var(--border); border-radius: 6px; padding: 10px; overflow: auto; max-height: 340px; font: 12px var(--mono); white-space: pre-wrap; word-break: break-word; margin: 0 0 12px; }
-  .empty { color: var(--dim); text-align: center; padding: 30px 0; }
-  .err-text { color: var(--err); font-family: var(--mono); font-size: 12px; margin-top: 6px; }
+:root{
+  --bg:#0a0c10; --surface:#12151d; --surface2:#181c26; --surface3:#1f2432;
+  --border:#242a38; --border2:#2e3546;
+  --text:#e8ebf4; --dim:#98a0b3; --faint:#5d6577;
+  --acc1:#5b7cfa; --acc2:#9a6bff; --ok:#34d399; --warn:#fbbf24; --err:#f87171;
+  --mono:'Cascadia Code',Consolas,'Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.6 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;display:flex}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#2b3244;border-radius:9px}
+::-webkit-scrollbar-thumb:hover{background:#39415a}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- sidebar ---------- */
+aside{width:252px;min-width:252px;height:100vh;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);padding:18px 14px;display:flex;flex-direction:column;gap:14px;position:sticky;top:0}
+.brand{font-size:15px;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;gap:8px}
+.brand .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--acc1),var(--acc2));display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#fff;box-shadow:0 2px 12px rgba(91,124,250,.4)}
+.brand small{color:var(--faint);font-weight:400;margin-left:auto;font-size:11px}
+.side-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.side-title{font-size:10px;letter-spacing:1.6px;color:var(--faint);font-weight:700;margin:4px 2px 0}
+.budget-row{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);padding:2px 0}
+.budget-row b{color:var(--text);font-family:var(--mono)}
+.agent{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:background .15s,border-color .15s}
+.agent:hover{background:var(--surface3)}
+.agent.sel{background:var(--surface3);border-color:var(--acc1)}
+.avatar{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;letter-spacing:.5px}
+.agent .info{flex:1;min-width:0}
+.agent .nm{font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px}
+.agent .sub{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent .vn{font-size:10px;color:var(--warn);margin-top:1px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--faint);display:inline-block;flex-shrink:0}
+.dot.ok{background:var(--ok);box-shadow:0 0 6px rgba(52,211,153,.7)}
+.dot.err{background:var(--err)}
+.dot.warn{background:var(--warn)}
+.dot.pulse{animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.side-foot{margin-top:auto;font-size:10px;color:var(--faint);line-height:1.5;padding:0 2px}
+
+/* ---------- main ---------- */
+main{flex:1;height:100vh;overflow-y:auto;padding:0 26px 40px}
+header.main{display:flex;align-items:center;gap:12px;padding:16px 2px 6px;position:sticky;top:0;background:linear-gradient(var(--bg) 82%,transparent);z-index:5}
+header.main h1{font-size:17px;font-weight:700}
+header.main .conn{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim)}
+button.ghost{background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;transition:.15s}
+button.ghost:hover{color:var(--text);border-color:var(--border2)}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:0 4px 24px rgba(0,0,0,.25)}
+.card+.card{margin-top:16px}
+h2.ct{font-size:11px;letter-spacing:1.6px;color:var(--faint);font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+h2.ct .n{background:var(--surface3);border-radius:99px;padding:0 8px;font-size:10px;color:var(--dim)}
+
+/* tabs & presets */
+.tabs{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:3px;margin-bottom:12px}
+.tabs button{border:0;background:transparent;color:var(--dim);font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:8px;cursor:pointer;transition:.15s}
+.tabs button.on{background:linear-gradient(135deg,var(--acc1),var(--acc2));color:#fff;box-shadow:0 2px 10px rgba(91,124,250,.35)}
+.presets{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}
+.presets button{background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:99px;padding:4px 12px;font-size:12px;cursor:pointer;transition:.15s}
+.presets button:hover{color:var(--text);border-color:var(--acc1);background:var(--surface3)}
+
+label{display:block;font-size:11px;color:var(--dim);margin:11px 0 4px;font-weight:600;letter-spacing:.3px}
+textarea,input,select{width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font:13px var(--mono);transition:border-color .15s}
+textarea{resize:vertical;min-height:90px;line-height:1.55}
+textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);box-shadow:0 0 0 3px rgba(91,124,250,.15)}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;user-select:none}
+.check input{width:15px;height:15px;accent-color:var(--acc1)}
+#btn-go{width:100%;margin-top:16px;padding:11px;border:0;border-radius:10px;background:linear-gradient(135deg,var(--acc1),var(--acc2));color:#fff;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.5px;box-shadow:0 4px 18px rgba(91,124,250,.35);transition:.15s}
+#btn-go:hover{filter:brightness(1.12);transform:translateY(-1px)}
+#btn-go:disabled{opacity:.6;cursor:wait;transform:none}
+.form-err{color:var(--err);font-size:12px;margin-top:8px;font-family:var(--mono);min-height:16px}
+
+/* ---------- jobs ---------- */
+.jobs-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.jobs-head h2{font-size:15px;font-weight:700;margin-right:4px}
+.fchip{background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:99px;padding:3px 12px;font-size:12px;cursor:pointer;transition:.15s}
+.fchip.on{color:#fff;border-color:var(--acc1);background:var(--surface3)}
+.fsel{width:auto;background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:99px;padding:3px 10px;font-size:12px}
+.fsearch{width:150px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:99px;padding:4px 12px;font-size:12px}
+.jobs-head .spacer{flex:1}
+
+.job{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--faint);border-radius:12px;margin-bottom:10px;animation:in .25s ease;overflow:hidden}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+.job.st-running{border-left-color:var(--acc1)}
+.job.st-ok{border-left-color:var(--ok)}
+.job.st-err{border-left-color:var(--err)}
+.job-h{display:flex;align-items:center;gap:9px;padding:11px 14px;cursor:pointer;flex-wrap:wrap}
+.job-h:hover{background:var(--surface2)}
+.pill{padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.3px;flex-shrink:0}
+.pill.running{background:rgba(91,124,250,.15);color:#9db4ff}
+.pill.ok{background:rgba(52,211,153,.13);color:var(--ok)}
+.pill.err{background:rgba(248,113,113,.13);color:var(--err)}
+.pill.batch{background:rgba(154,107,255,.15);color:#c3a6ff}
+.jid{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.jtask{flex:1;min-width:180px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jmeta{color:var(--faint);font-size:11.5px;font-family:var(--mono);flex-shrink:0}
+.jbody{border-top:1px solid var(--border);padding:13px 15px;display:none}
+.job.open .jbody{display:block}
+.job.open{border-color:var(--border2)}
+
+.livelog{background:#0c0e13;border:1px solid var(--border);border-radius:9px;padding:9px 11px;max-height:200px;overflow-y:auto;font:12px var(--mono);margin-bottom:12px}
+.livelog .ev{padding:1.5px 0;color:var(--dim);word-break:break-all}
+.livelog .ev.t-text{color:#b8c4e0}
+.livelog .ev.t-tool{color:var(--warn)}
+.livelog .ev.t-status{color:var(--faint);font-style:italic}
+.livelog .ev.t-done{color:var(--ok)}
+.livelog .ev .k{opacity:.6;margin-right:6px;user-select:none}
+
+.reply{background:#0c0e13;border:1px solid var(--border);border-radius:9px;padding:11px 13px;font-size:13px;white-space:pre-wrap;word-break:break-word;max-height:380px;overflow-y:auto;line-height:1.65}
+.verdict{background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.25);border-radius:9px;padding:11px 13px;margin-top:10px;font-size:12.5px}
+.verdict b{color:var(--ok)}
+.verdict ul{margin:6px 0 0 18px}
+.rrow{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--dim)}
+.rrow b{color:var(--text);font-family:var(--mono)}
+details.raw{margin-top:10px}
+details.raw summary{cursor:pointer;font-size:12px;color:var(--faint)}
+details.raw pre{margin-top:6px}
+pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;padding:11px;font:11.5px var(--mono);white-space:pre-wrap;word-break:break-all;max-height:320px;overflow-y:auto;color:#9aa6c4}
+.btn-copy{background:var(--surface3);border:1px solid var(--border);color:var(--dim);border-radius:7px;padding:3px 10px;font-size:11px;cursor:pointer;margin-top:8px}
+.btn-copy:hover{color:var(--text)}
+.subchips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.schip{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:4px 11px;font-size:12px;color:var(--dim);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.schip.ok{border-color:rgba(52,211,153,.4)}
+.schip.err{border-color:rgba(248,113,113,.4);color:var(--err)}
+.schip.run{border-color:rgba(91,124,250,.4);color:#9db4ff}
+.empty{color:var(--faint);text-align:center;padding:44px 0;font-size:13px}
 </style>
 </head>
 <body>
-<header>
-  <h1>Agent Control Plane</h1>
-  <span class="sub">把 Claude Code / Codex / OpenCode / DeepSeek 当 subagent 调度</span>
-  <span style="flex:1"></span>
-  <span class="chip" id="budget-chip">预算加载中…</span>
-  <span class="chip" id="poll-chip"><span class="dot"></span><span id="poll-text">连接中</span></span>
-</header>
 
-<div class="agents" id="agents"></div>
+<aside>
+  <div class="brand"><span class="logo">◈</span> Control Plane <small>v0.2</small></div>
+  <div class="side-card" id="budget"></div>
+  <div class="side-title">AGENTS · 点击选中</div>
+  <div class="side-card" style="padding:6px;display:flex;flex-direction:column;gap:2px" id="agents"></div>
+  <div class="side-foot">只绑定 127.0.0.1<br>作业：内存 + 历史文件<br>MCP 与 Web 共用同一 ControlPlane</div>
+</aside>
 
 <main>
+  <header class="main">
+    <h1>任务控制台</h1>
+    <div class="conn"><span class="dot pulse" id="conn-dot"></span><span id="conn-text">连接中…</span></div>
+    <button class="ghost" id="btn-clear">清空历史</button>
+  </header>
+
   <section class="card">
-    <h2>派任务</h2>
-    <div class="toggle">
-      <button id="tab-ask" class="on" onclick="setMode('ask')">单任务 ask</button>
-      <button id="tab-batch" onclick="setMode('batch')">批量 parallel</button>
+    <h2 class="ct">发起任务</h2>
+    <div class="tabs">
+      <button id="tab-ask" class="on">单任务</button>
+      <button id="tab-batch">批量并发</button>
     </div>
+    <div class="presets" id="presets"></div>
 
     <div id="batch-box" style="display:none">
-      <label>任务列表（每行一个任务）</label>
-      <textarea id="f-batchtasks" placeholder="每行一个任务，例如：&#10;审查 README 的措辞风险&#10;把 package.json 的描述改成英文"></textarea>
-      <label>并发数</label>
-      <input id="f-concurrency" type="number" value="3" min="1" max="8">
+      <label>任务列表（每行一个任务，共用下方参数）</label>
+      <textarea id="f-batchtasks" style="min-height:110px" placeholder="每行一个任务"></textarea>
+      <div class="grid2"><div><label>并发数</label><input id="f-concurrency" type="number" value="3" min="1" max="8"></div></div>
     </div>
 
-    <label>任务内容</label>
-    <textarea id="f-task" placeholder="要交给 agent 的任务描述"></textarea>
+    <div id="ask-box">
+      <label>任务描述</label>
+      <textarea id="f-task" placeholder="要交给 agent 的任务，越具体越好"></textarea>
+    </div>
+
     <label>工作目录 cwd</label>
-    <input id="f-cwd" value="D:\workb\orchestrator">
-    <div class="row3">
-      <div><label>Agent</label><select id="f-agent" onchange="agentChanged()">
-        <option value="">auto（路由）</option>
-        <option value="opencode">opencode</option>
-        <option value="claude">claude</option>
-        <option value="codex">codex</option>
-        <option value="dsh">dsh</option>
-      </select></div>
-      <div><label>模型（留空默认）</label><input id="f-model" list="model-list" placeholder="auto"><datalist id="model-list"></datalist></div>
+    <input id="f-cwd" list="cwd-list">
+    <datalist id="cwd-list"></datalist>
+
+    <div class="grid3">
+      <div><label>Agent</label>
+        <select id="f-agent"><option value="">auto 路由</option></select></div>
+      <div><label>模型（空=默认）</label><input id="f-model" list="model-list" placeholder="auto"><datalist id="model-list"></datalist></div>
       <div><label>思考档位</label><input id="f-effort" list="effort-list" placeholder="auto"><datalist id="effort-list"></datalist></div>
     </div>
-    <div class="row3">
-      <div><label>任务类型</label><select id="f-tasktype">
-        <option value="">auto</option><option>quick</option><option>code</option><option>reasoning</option><option>review</option>
-      </select></div>
-      <div><label>Workspace</label><select id="f-wsmode"><option>shared</option><option>worktree</option></select></div>
+    <div class="grid3">
+      <div><label>任务类型</label>
+        <select id="f-tasktype"><option value="">auto</option><option>quick</option><option>code</option><option>reasoning</option><option>review</option></select></div>
+      <div><label>工作区隔离</label>
+        <select id="f-wsmode"><option value="shared">shared 共享</option><option value="worktree">worktree 隔离</option></select></div>
       <div><label>工具调用上限</label><input id="f-maxtools" type="number" placeholder="不限"></div>
     </div>
-    <div class="check"><input type="checkbox" id="f-verdict"> 要求结构化 verdict（JSON 结论/风险/建议，失败自动重试一次）</div>
-    <button id="btn-submit" onclick="submitJob()">派发</button>
-    <div class="err-text" id="form-err"></div>
+    <label class="check"><input type="checkbox" id="f-verdict"> 结构化 verdict（JSON 结论/风险/建议，失败自动重试一次）</label>
+    <button id="btn-go">🚀 派发任务</button>
+    <div class="form-err" id="form-err"></div>
   </section>
 
-  <section class="card">
-    <h2>作业（本次进程内存中）</h2>
-    <div id="jobs"><div class="empty">暂无作业 —— 左侧派一个任务试试</div></div>
+  <section class="card" style="padding:16px 18px">
+    <div class="jobs-head">
+      <h2>作业</h2>
+      <span class="fchip on" data-f="all">全部</span>
+      <span class="fchip" data-f="running">运行中</span>
+      <span class="fchip" data-f="ok">完成</span>
+      <span class="fchip" data-f="err">失败</span>
+      <select class="fsel" id="f-agent-filter"><option value="">全部 agent</option></select>
+      <input class="fsearch" id="f-search" placeholder="搜索任务…">
+      <span class="spacer"></span>
+      <span class="jid" id="job-count"></span>
+    </div>
+    <div id="jobs"><div class="empty">暂无作业</div></div>
   </section>
 </main>
 
 <script>
-const $ = (id) => document.getElementById(id);
-let mode = 'ask';
-let STATUS = null;
+const $=id=>document.getElementById(id);
+const COPYBUF={};
+const AGENT_COLORS={opencode:'#3ecf8e',claude:'#f5a623',codex:'#4f8cff',dsh:'#c3a6ff'};
+const AGENT_SHORT={opencode:'OC',claude:'CL',codex:'CX',dsh:'DS'};
+const PRESETS=[
+  ['🔍 代码审查','审查这段代码的风险与改进点（把代码贴到下面）：\n'],
+  ['🧪 写测试','为下面的函数写单元测试，覆盖边界情况：\n'],
+  ['🐛 排查 Bug','这段代码有一个 bug（现象如下），请定位根因并给出修复 patch：\n'],
+  ['📖 解释','用简洁的中文解释下面这段代码/概念：\n'],
+  ['⚡ 快问快答',''],
+];
+let mode='ask',STATUS=null,FILTER='all',FAGENT='',FSEARCH='',JOBS=[];
 
-function setMode(m) {
-  mode = m;
-  $('tab-ask').classList.toggle('on', m === 'ask');
-  $('tab-batch').classList.toggle('on', m === 'batch');
-  $('batch-box').style.display = m === 'batch' ? '' : 'none';
-  $('f-task').parentElement.style.display = m === 'batch' ? 'none' : '';
-}
+/* ---------- helpers ---------- */
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtN=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':String(n??0);
+const fmtT=ts=>{const d=new Date(ts);return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`};
+async function api(p,o){const r=await fetch(p,o);const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||r.status);return b}
 
-async function api(path, opts) {
-  const r = await fetch(path, opts);
-  const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(body.error || r.status);
-  return body;
-}
-
-function agentChanged() {
-  const a = STATUS?.agents?.find((x) => x.agent === $('f-agent').value);
-  $('model-list').innerHTML = (a?.models ?? []).map((m) => `<option value="${m}">`).join('');
-  $('effort-list').innerHTML = (a?.effortLevels ?? []).map((e) => `<option value="${e}">`).join('');
-}
-
-function renderStatus(s) {
-  STATUS = s;
-  const b = s.budget ?? {};
-  $('budget-chip').innerHTML = `预算今日 <b>${b.requests ?? 0}</b> 次 / <b>${fmtNum((b.tokensIn ?? 0) + (b.tokensOut ?? 0))}</b> tokens`;
-  $('agents').innerHTML = (s.agents ?? []).map((a) => {
-    const dot = a.authenticated === true ? 'ok' : a.authenticated === false ? 'err' : 'warn';
-    const auth = a.authenticated === true ? '已认证' : a.authenticated === false ? '未认证' : '未知';
-    return `<div class="agent">
-      <div class="name"><span class="dot ${dot}"></span> ${a.agent}</div>
-      <div class="meta">${a.transport} · ${auth} · ${a.models?.length ?? 0} 模型 · effort ${a.effortLevels?.length ?? 0} 档</div>
-      ${a.actualVendorNote ? `<div class="note">⚠ ${a.actualVendorNote}</div>` : ''}
-    </div>`;
+/* ---------- status / sidebar ---------- */
+function renderStatus(s){
+  STATUS=s;const b=s.budget||{};
+  $('budget').innerHTML=`
+    <div class="budget-row"><span>今日请求</span><b>${b.requests??0}${b.caps?.dailyRequests?` / ${b.caps.dailyRequests}`:''}</b></div>
+    <div class="budget-row"><span>tokens</span><b>${fmtN((b.tokensIn??0)+(b.tokensOut??0))}${b.caps?.dailyTokens?` / ${fmtN(b.caps.dailyTokens)}`:''}</b></div>
+    <div class="budget-row"><span>活跃会话</span><b>${(s.openSessions??[]).length}</b></div>`;
+  $('agents').innerHTML=(s.agents||[]).map(a=>{
+    const dot=a.authenticated===true?'ok':a.authenticated===false?'err':'warn';
+    const sel=$('f-agent').value===a.agent?'sel':'';
+    return `<div class="agent ${sel}" data-agent="${a.agent}" onclick="pickAgent('${a.agent}')">
+      <span class="avatar" style="background:${AGENT_COLORS[a.agent]||'#5b7cfa'}">${AGENT_SHORT[a.agent]||a.agent.slice(0,2).toUpperCase()}</span>
+      <div class="info"><div class="nm">${a.agent} <span class="dot ${dot}" title="认证状态"></span></div>
+      <div class="sub">${a.models?.length||0} 模型 · ${a.effortLevels?.length||0} 档</div>
+      ${a.actualVendorNote?`<div class="vn" title="${esc(a.actualVendorNote)}">⚠ 实际厂商不同</div>`:''}</div></div>`;
   }).join('');
+  if($('f-agent').options.length<=1){
+    $('f-agent').innerHTML='<option value="">auto 路由</option>'+(s.agents||[]).map(a=>`<option>${a.agent}</option>`).join('');
+    $('f-agent-filter').innerHTML='<option value="">全部 agent</option><option value="auto">auto</option>'+(s.agents||[]).map(a=>`<option>${a.agent}</option>`).join('');
+  }
   agentChanged();
 }
-
-function fmtNum(n) {
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
-  return String(n ?? 0);
+function pickAgent(a){
+  $('f-agent').value=$('f-agent').value===a?'':a;
+  renderStatus(STATUS);agentChanged();saveForm();
+}
+function agentChanged(){
+  const a=STATUS?.agents?.find(x=>x.agent===$('f-agent').value);
+  $('model-list').innerHTML=(a?.models||[]).map(m=>`<option value="${esc(m)}">`).join('');
+  $('effort-list').innerHTML=(a?.effortLevels||[]).map(e=>`<option value="${esc(e)}">`).join('');
 }
 
-function badge(job) {
-  if (job.status === 'running') return '<span class="badge running">运行中</span>';
-  const ok = job.kind === 'ask' ? job.result?.ok : job.result?.summary?.failed === 0;
-  return job.status === 'failed' || ok === false
-    ? '<span class="badge err">失败</span>'
-    : `<span class="badge ${job.kind === 'parallel' ? 'parallel' : 'ok'}">${job.kind === 'parallel' ? '批次完成' : '完成'}</span>`;
+/* ---------- composer ---------- */
+function setMode(m){
+  mode=m;
+  $('tab-ask').classList.toggle('on',m==='ask');$('tab-batch').classList.toggle('on',m==='batch');
+  $('batch-box').style.display=m==='batch'?'':'none';$('ask-box').style.display=m==='batch'?'none':'';
 }
+$('presets').innerHTML=PRESETS.map((p,i)=>`<button data-i="${i}" title="${esc(p[1].slice(0,60))}…">${p[0]}</button>`).join('');
+$('presets').onclick=e=>{const b=e.target.closest('button');if(!b)return;$('f-task').value=PRESETS[+b.dataset.i][1];$('f-task').focus()};
 
-function renderJobs(jobs) {
-  if (!jobs.length) { $('jobs').innerHTML = '<div class="empty">暂无作业 —— 左侧派一个任务试试</div>'; return; }
-  $('jobs').innerHTML = jobs.map((j) => {
-    const task = j.kind === 'parallel'
-      ? `批量 ${j.request.jobs.length} 个任务`
-      : String(j.request.task).slice(0, 90);
-    const meta = j.kind === 'parallel'
-      ? `并发 ${j.request.concurrency ?? 3}`
-      : `${j.request.agent || 'auto'}${j.request.model ? ' · ' + j.request.model : ''}${j.request.effort ? ' · ' + j.request.effort : ''}`;
-    const dur = j.finishedAt ? `${((j.finishedAt - j.createdAt) / 1000).toFixed(1)}s` : '';
-    return `<details class="job"><summary>
-      ${badge(j)}<span class="jid">${j.id}</span><span class="jtask">${escapeHtml(task)}</span>
-      <span class="jmeta">${meta}${dur ? ' · ' + dur : ''}</span></summary>
+function collectForm(){
+  return{cwd:$('f-cwd').value.trim(),agent:$('f-agent').value||undefined,model:$('f-model').value.trim()||undefined,
+    effort:$('f-effort').value.trim()||undefined,taskType:$('f-tasktype').value||undefined,
+    workspaceMode:$('f-wsmode').value,verdict:$('f-verdict').checked||undefined,
+    maxToolCalls:$('f-maxtools').value?Number($('f-maxtools').value):undefined};
+}
+function saveForm(){try{localStorage.setItem('acp-form',JSON.stringify({...collectForm(),cwd:$('f-cwd').value,concurrency:$('f-concurrency').value}))}catch{}}
+function restoreForm(){
+  try{const f=JSON.parse(localStorage.getItem('acp-form')||'{}');
+    if(f.cwd)$('f-cwd').value=f.cwd;if(f.concurrency)$('f-concurrency').value=f.concurrency;
+    if(f.agent)$('f-agent').value=f.agent;if(f.model)$('f-model').value=f.model;
+    if(f.effort)$('f-effort').value=f.effort;if(f.taskType)$('f-tasktype').value=f.taskType;
+    if(f.workspaceMode)$('f-wsmode').value=f.workspaceMode;if(f.verdict)$('f-verdict').checked=true;
+    if(f.maxToolCalls)$('f-maxtools').value=f.maxToolCalls;
+  }catch{}
+  if(!$('f-cwd').value)$('f-cwd').value='D:\\workb\\orchestrator';
+}
+$('btn-go').onclick=async()=>{
+  $('form-err').textContent='';const btn=$('btn-go');btn.disabled=true;
+  try{
+    const base=collectForm();
+    if(mode==='ask'){
+      const task=$('f-task').value.trim();if(!task)throw new Error('任务内容不能为空');
+      await api('/api/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({task,...base})});
+      $('f-task').value='';
+    }else{
+      const tasks=$('f-batchtasks').value.split('\n').map(t=>t.trim()).filter(Boolean);
+      if(!tasks.length)throw new Error('批量任务列表为空');
+      await api('/api/parallel',{method:'POST',headers:{'content-type':'application/json'},
+        body:JSON.stringify({concurrency:Number($('f-concurrency').value)||3,jobs:tasks.map((task,i)=>({id:`job-${i+1}`,task,...base}))})});
+      $('f-batchtasks').value='';
+    }
+    saveForm();refreshJobs(true);
+  }catch(e){$('form-err').textContent=String(e.message??e)}
+  finally{btn.disabled=false}
+};
+$('btn-clear').onclick=async()=>{await fetch('/api/jobs/clear',{method:'POST'});refreshJobs(true)};
+
+/* ---------- jobs feed ---------- */
+function jobState(j){
+  if(j.status==='running')return{cls:'st-running',pill:'<span class="pill running">● 运行中</span>'};
+  const ok=j.kind==='ask'?j.result?.ok:j.result?.summary?.failed===0;
+  return j.status==='failed'||ok===false
+    ?{cls:'st-err',pill:'<span class="pill err">✕ 失败</span>'}
+    :{cls:'st-ok',pill:`<span class="pill ${j.kind==='parallel'?'batch':'ok'}">✓ ${j.kind==='parallel'?'批次完成':'完成'}</span>`};
+}
+function evLine(e){
+  const t=new Date(e.at).toLocaleTimeString('zh-CN',{hour12:false});
+  const tag=e.jobId?`[${e.jobId}] `:'';
+  if(e.kind==='text')return`<div class="ev t-text"><span class="k">${t} 📝</span>${esc(tag+(e.text||'').slice(0,160))}</div>`;
+  if(e.kind==='tool')return`<div class="ev t-tool"><span class="k">${t} 🔧</span>${esc(tag)}工具：${esc((e.text||'tool').slice(0,100))}</div>`;
+  if(e.kind==='subtask_done')return`<div class="ev t-done"><span class="k">${t} ✓</span>${esc(tag+(e.text||'子任务结束'))}</div>`;
+  return`<div class="ev t-status"><span class="k">${t} ·</span>${esc(tag+(e.text||e.kind).slice(0,120))}</div>`;
+}
+function renderJobs(list){
+  const filtered=list.filter(j=>{
+    if(FILTER!=='all'){const st=jobState(j);if(FILTER==='running'&&st.cls!=='st-running')return false;if(FILTER==='ok'&&st.cls!=='st-ok')return false;if(FILTER==='err'&&st.cls!=='st-err')return false;}
+    if(FAGENT&&FAGENT!=='auto'){const ag=j.kind==='parallel'?null:(j.request.agent||j.result?.agent);if(ag!==FAGENT)return false;if(FAGENT==='auto'&&(j.request.agent||j.result?.agent))return false;}
+    if(FSEARCH&&!String(j.request.task).toLowerCase().includes(FSEARCH))return false;
+    return true;});
+  $('job-count').textContent=`${filtered.length}/${list.length}`;
+  if(!filtered.length){$('jobs').innerHTML='<div class="empty">没有匹配的作业</div>';return}
+  $('jobs').innerHTML=filtered.map(j=>{
+    const st=jobState(j);
+    const task=j.kind==='parallel'?`批量 ${j.request.jobs.length} 个任务 · 并发 ${j.request.concurrency||3}`:String(j.request.task).slice(0,120);
+    const ag=j.kind==='parallel'?'parallel':(j.request.agent||j.result?.agent||'auto');
+    const dur=j.finishedAt?((j.finishedAt-j.createdAt)/1000).toFixed(1)+'s':'';
+    return`<details class="job ${st.cls}" data-id="${j.id}" ontoggle="onToggle(this)">
+      <summary class="job-h" onclick="toggleOpen(event,this)">${st.pill}
+        <span class="jid">${j.id}</span>
+        <span class="avatar" style="width:20px;height:20px;font-size:8px;border-radius:6px;background:${AGENT_COLORS[ag]||'#5b7cfa'}">${AGENT_SHORT[ag]||'AU'}</span>
+        <span class="jtask">${esc(task)}</span>
+        <span class="jmeta">${esc(ag)}${dur?' · '+dur:''} · ${fmtT(j.createdAt)}</span></summary>
       <div class="jbody">${renderBody(j)}</div></details>`;
   }).join('');
 }
-
-function renderBody(j) {
-  if (j.status === 'failed') return `<h3>错误</h3><pre>${escapeHtml(j.error ?? '')}</pre>`;
-  if (j.status === 'running') return '<div class="empty">执行中…（agent 子进程真实工作，请稍候）</div>';
-  const r = j.result;
-  if (j.kind === 'ask') {
-    const v = r.verdict ? `<h3>Verdict</h3><pre>${escapeHtml(JSON.stringify(r.verdict, null, 2))}</pre>` : '';
-    return `${r.error ? `<div class="err-text">${escapeHtml(r.error)}</div>` : ''}
-      <h3>回复（${escapeHtml(r.agent ?? '')}${r.model ? ' · ' + escapeHtml(r.model) : ''}）</h3>
-      <pre>${escapeHtml(r.text ?? '(空)')}</pre>${v}
-      <h3>原始结果</h3><pre>${escapeHtml(JSON.stringify(r, null, 2))}</pre>`;
+function toggleOpen(ev,el){ev.preventDefault();el.parentElement.classList.toggle('open')}
+function onToggle(el){/* hook for future lazy-load */}
+function renderBody(j){
+  if(j.status==='running'){
+    const evs=(j.events||[]).slice(-10).map(evLine).join('')||'<div class="ev t-status">等待 agent 子进程输出…</div>';
+    const subs=j.kind==='parallel'?subChips(j):'';
+    return`<div class="livelog">${evs}</div>${subs}`;
   }
-  const s = r.summary ?? {};
-  const rows = (r.results ?? []).map((x) => `<li>${escapeHtml(x.id)}：${x.ok ? '✅' : '❌'} ${escapeHtml((x.result?.text ?? x.error ?? '').slice(0, 120))}</li>`).join('');
-  return `<h3>汇总</h3><pre>total=${s.total} ok=${s.ok} failed=${s.failed} 耗时=${(s.durationMs / 1000).toFixed(1)}s（并发节省 ${(s.wallVsSerialMsSaved / 1000).toFixed(1)}s） usage=${JSON.stringify(s.usage)}</pre>
-    <h3>各任务</h3><pre>${rows}</pre>
-    <h3>原始结果</h3><pre>${escapeHtml(JSON.stringify(r, null, 2))}</pre>`;
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-async function submitJob() {
-  $('form-err').textContent = '';
-  const btn = $('btn-submit');
-  btn.disabled = true;
-  try {
-    const base = {
-      cwd: $('f-cwd').value.trim(),
-      agent: $('f-agent').value || undefined,
-      model: $('f-model').value.trim() || undefined,
-      effort: $('f-effort').value.trim() || undefined,
-      taskType: $('f-tasktype').value || undefined,
-      workspaceMode: $('f-wsmode').value,
-      verdict: $('f-verdict').checked || undefined,
-      maxToolCalls: $('f-maxtools').value ? Number($('f-maxtools').value) : undefined,
-    };
-    if (mode === 'ask') {
-      const task = $('f-task').value.trim();
-      if (!task) throw new Error('任务内容不能为空');
-      await api('/api/ask', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ task, ...base }) });
-    } else {
-      const tasks = $('f-batchtasks').value.split('\n').map((t) => t.trim()).filter(Boolean);
-      if (!tasks.length) throw new Error('批量任务列表为空');
-      await api('/api/parallel', { method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ concurrency: Number($('f-concurrency').value) || 3, jobs: tasks.map((task, i) => ({ id: `job-${i + 1}`, task, ...base })) }) });
-    }
-    refreshJobs();
-  } catch (e) {
-    $('form-err').textContent = String(e.message ?? e);
-  } finally {
-    btn.disabled = false;
+  if(j.status==='failed')return`<div class="reply" style="color:var(--err)">${esc(j.error||'未知错误')}</div>`;
+  const r=j.result||{};
+  if(j.kind==='ask'){
+    COPYBUF[j.id]=r.text||'';
+    const v=r.verdict?`<div class="verdict"><b>verdict：</b>${esc(r.verdict.recommendation||r.verdict.conclusion||'')}
+      ${(r.verdict.risks||[]).length?`<ul>${r.verdict.risks.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}</div>`:'';
+    const u=r.usage?`<span>tokens <b>${fmtN(r.usage.input||0)}入/${fmtN(r.usage.output||0)}出</b></span>`:'';
+    return`${r.error?`<div class="reply" style="color:var(--err)">${esc(r.error)}</div>`:''}
+      <div class="reply">${esc(r.text||'(空回复)')}</div>${v}
+      <div class="rrow">${u}<span>工具调用 <b>${r.toolCalls??0}</b></span><span>agent <b>${esc(r.agent||'')}</b>${r.model?` · ${esc(r.model)}`:''}${r.effort?` · ${esc(r.effort)}`:''}</span>
+      ${r.workspace?.kind==='worktree'?`<span>worktree <b>${esc(r.workspace.branch||'')}</b></span>`:''}
+      ${r.verdictError?`<span style="color:var(--err)">verdict 解析失败（原文见 raw）</span>`:''}</div>
+      <button class="btn-copy" onclick="copyText(this,'${j.id}')">复制回复</button>
+      <details class="raw"><summary>原始 JSON</summary><pre class="rawj">${esc(JSON.stringify(r,null,2))}</pre></details>`;
   }
+  const s=r.summary||{};
+  return`<div class="rrow"><span>结果 <b>${s.ok}✓ / ${s.failed}✕</b></span><span>耗时 <b>${(s.durationMs/1000).toFixed(1)}s</b>（并发节省 <b>${((s.wallVsSerialMsSaved||0)/1000).toFixed(1)}s</b>）</span>
+    <span>tokens <b>${fmtN(s.usage?.input||0)}入/${fmtN(s.usage?.output||0)}出</b></span></div>
+    <div class="subchips">${subChips(j)}</div>
+    <details class="raw"><summary>原始 JSON</summary><pre class="rawj">${esc(JSON.stringify(r,null,2))}</pre></details>`;
 }
+function subChips(j){
+  if(j.kind!=='parallel')return'';
+  if(j.status==='done'&&(j.result?.results)){
+    return j.result.results.map(x=>`<span class="schip ${x.ok?'ok':'err'}" title="${esc((x.result?.text||x.error||'').slice(0,200))}">${x.ok?'✓':'✕'} ${esc(x.id)} · ${esc(((x.result?.text??'')||x.error||'').slice(0,40))}</span>`).join('');
+  }
+  // running: derive per-subtask status from the event stream
+  const done=new Set(),err=new Set();
+  for(const e of j.events||[])if(e.kind==='subtask_done'&&e.jobId)(String(e.text||'').startsWith('完成')?done:err).add(e.jobId);
+  return(j.request.jobs||[]).map((t,i)=>{
+    const id=t.id||`job-${i+1}`;
+    const cls=err.has(id)?'err':done.has(id)?'ok':'run';
+    const mark=err.has(id)?'✕':done.has(id)?'✓':'◌';
+    return`<span class="schip ${cls}">${mark} ${esc(id)}：${esc(String(t.task).slice(0,36))}</span>`;
+  }).join('');
+}
+function copyText(btn,id){navigator.clipboard.writeText(COPYBUF[id]||'').then(()=>{btn.textContent='已复制 ✓';setTimeout(()=>btn.textContent='复制回复',1200)})}
 
-async function refreshStatus() {
-  try { renderStatus(await api('/api/status')); $('poll-text').textContent = '已连接'; }
-  catch { $('poll-text').textContent = '断开'; }
-}
-async function refreshJobs() {
-  try { renderJobs(await api('/api/jobs')); } catch { /* ignore */ }
-}
+/* filters */
+document.querySelectorAll('.fchip').forEach(c=>c.onclick=()=>{
+  document.querySelectorAll('.fchip').forEach(x=>x.classList.remove('on'));c.classList.add('on');
+  FILTER=c.dataset.f;renderJobs(JOBS);});
+$('f-agent-filter').onchange=e=>{FAGENT=e.target.value;renderJobs(JOBS)};
+$('f-search').oninput=e=>{FSEARCH=e.target.value.toLowerCase();renderJobs(JOBS)};
 
-setMode('ask');
-refreshStatus();
-refreshJobs();
-setInterval(refreshStatus, 5000);
-setInterval(refreshJobs, 1500);
+/* ---------- polling ---------- */
+async function refreshStatus(){
+  try{renderStatus(await api('/api/status'));
+    $('conn-dot').className='dot ok';$('conn-text').textContent='已连接';}
+  catch{$('conn-dot').className='dot err';$('conn-text').textContent='断开';}
+}
+async function refreshJobs(force){
+  try{
+    const list=await api('/api/jobs');
+    JOBS=list;renderJobs(list);
+    // auto-scroll open running livelogs
+    document.querySelectorAll('details.job.open.st-running .livelog').forEach(el=>{el.scrollTop=el.scrollHeight});
+  }catch{}
+}
+restoreForm();setMode('ask');refreshStatus();refreshJobs(true);
+setInterval(refreshStatus,5000);setInterval(refreshJobs,1200);
 </script>
 </body>
 </html>

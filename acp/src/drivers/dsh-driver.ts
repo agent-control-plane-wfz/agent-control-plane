@@ -38,7 +38,10 @@ export class DshDriver {
   // One-shot run (headless is stateless apart from --session-id adoption).
   static async run(
     task: string,
-    opts: { cwd: string; sessionId?: string; timeoutMs?: number },
+    opts: {
+      cwd: string; sessionId?: string; timeoutMs?: number;
+      onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void;
+    },
   ): Promise<DshRunOutcome> {
     const args = [...dshArgs(), '--profile', 'headless', '--json'];
     if (opts.sessionId) args.push('--session-id', opts.sessionId);
@@ -70,13 +73,18 @@ export class DshDriver {
           case 'session':
             sessionId = ev.sessionId ?? sessionId;
             break;
+          case 'thinking':
+            opts.onEvent?.({ kind: 'status', text: `思考中：${String(ev.text ?? '').slice(0, 80)}` });
+            break;
           case 'text':
             streamText += ev.text ?? '';
+            opts.onEvent?.({ kind: 'text', text: String(ev.text ?? '') });
             break;
           case 'final':
             finalText = ev.text ?? finalText;
             break;
           case 'status':
+            if (ev.phase === 'turn_start') opts.onEvent?.({ kind: 'status', text: '开始处理' });
             if (ev.phase === 'step_end' && ev.usage && typeof ev.usage === 'object') {
               usage.input = (usage.input ?? 0) + (ev.usage.inputTokens ?? 0);
               usage.output = (usage.output ?? 0) + (ev.usage.outputTokens ?? 0);

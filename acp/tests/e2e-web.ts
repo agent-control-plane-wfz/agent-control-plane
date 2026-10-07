@@ -63,6 +63,11 @@ try {
   const ok = job.status === 'done' && job.result?.ok && (job.result?.text ?? '').includes('OK');
   console.log('dsh roundtrip:', ok ? `OK — "${job.result.text}" in ${(job.result.durationMs / 1000).toFixed(1)}s` : `FAIL — ${JSON.stringify(job).slice(0, 300)}`);
   if (!ok) failed = true;
+  // 5) live event stream captured (UI livelog data source)
+  const evCount = (job.events ?? []).length;
+  const hasText = (job.events ?? []).some((e: any) => e.kind === 'text');
+  console.log(`events captured: ${evCount} (text events: ${hasText ? 'yes' : 'no'})`);
+  if (!evCount || !hasText) { console.error('FAIL: no live events captured'); failed = true; }
 } catch (e: any) {
   console.error('E2E error:', String(e?.message ?? e));
   failed = true;

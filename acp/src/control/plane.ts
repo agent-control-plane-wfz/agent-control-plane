@@ -336,18 +336,34 @@ export class ControlPlane {
 
   private async runDsh(task: string, o: { cwd: string; timeoutMs?: number; onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void }, t0: number,
     decision: { effort?: string; model?: string }): Promise<AgentResult> {
-    const r = await DshDriver.run(task, { cwd: o.cwd, timeoutMs: o.timeoutMs, onEvent: o.onEvent, profile: dshProfileOf() });
+    const r = await DshDriver.run(task, { cwd: o.cwd, timeoutMs: o.timeoutMs, onEvent: o.onEvent, profile: dshProfileOf(), effort: decision.effort });
     if (r.sessionId && r.exitCode === 0) this.dshSessions.set(r.sessionId, o.cwd);
+
+    // C4 (audit): report only what verifiably took effect. Effort now HAS a channel on dsh —
+    // a `--patch` overlay pinning agent-default-model.config.reasoningEffort (see dsh-driver);
+    // `ok` means the overlay made it into argv, which is what the driver can prove.
+    const applied: ConfigApplyRecord[] = [];
+    if (decision.effort) {
+      applied.push(r.effortApplied
+        ? { id: 'reasoning_effort', value: decision.effort, ok: true, via: 'profile-patch' }
+        : { id: 'reasoning_effort', value: decision.effort, ok: false, via: 'not-supported', error: r.effortError ?? 'reasoning effort was not applied' });
+    }
+    // Model still has no channel: headless takes no model flag, and the overlay's model id must
+    // be dsh's own (`deepseek-flash`), which the registry does not carry. Reported, not guessed.
+    if (decision.model) {
+      applied.push({ id: 'model', value: decision.model, ok: false, via: 'not-supported', error: 'dsh headless has no external model flag; set it in the dsh profile' });
+    }
+
     return {
       agent: 'dsh',
-      // C4 (audit): dsh headless exposes no external model/effort flag — do not echo the route decision.
-      model: undefined, effort: undefined,
+      model: ControlPlane.effective(applied, 'model'),
+      effort: ControlPlane.effective(applied, 'effort'),
       sessionId: r.sessionId,
       ok: r.exitCode === 0, text: r.text || `(dsh exit=${r.exitCode}) ${r.stderr.slice(-500)}`,
       stopReason: r.exitCode === 0 ? 'end_turn' : 'error', toolCalls: 0,
       durationMs: Date.now() - t0,
       usage: r.usage,
-      applied: [{ id: 'model', value: decision.model, ok: false, via: 'not-supported', error: 'dsh headless has no external model/effort flag; uses its own default' }],
+      applied,
     };
   }
 

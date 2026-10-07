@@ -149,17 +149,39 @@ export class Registry {
     return this.models.models[key]?.tier;
   }
 
+  /**
+   * Reasoning-effort levels this agent can be asked for.
+   *
+   * Two admissible sources, in priority order:
+   *
+   *  1. `configOptions_observed` — a REAL observation, written only by the ACP probe path
+   *     (initialize + session/new return live configOptions).
+   *  2. `capabilities.reasoning_effort` — a DECLARED fact in the matrix, for transports that
+   *     have no ACP handshake to observe. dsh runs as `json-process`; its probe branch only
+   *     checks `--help`'s exit code, so no configOptions are ever collected for it and the
+   *     observed source is structurally always empty. Before this fallback the console showed
+   *     dsh with zero effort levels while dsh in fact supports four.
+   *
+   * The fallback deliberately reads the DECLARED block rather than fabricating an entry under
+   * `configOptions_observed`: that field means "observed", and writing an unobserved value there
+   * is the same category error issue #6 removed from the auth path.
+   */
   effortOptions(agentId: AgentId, model?: string): string[] {
     const e = this.get(agentId);
     const eff = e?.configOptions_observed?.effort ?? e?.configOptions_observed?.reasoning_effort;
-    return eff?.options ?? [];
+    const observed: string[] | undefined = eff?.options;
+    if (observed?.length) return observed;
+    const declared = e?.capabilities?.reasoning_effort;
+    return Array.isArray(declared?.options) ? declared.options : [];
   }
 
   supportsConfig(agentId: AgentId, optionId: 'model' | 'effort'): boolean {
     const e = this.get(agentId);
     const obs = e?.configOptions_observed ?? {};
     if (optionId === 'model') return 'model' in obs;
-    return 'effort' in obs || 'reasoning_effort' in obs;
+    // A declared capability counts here too (see effortOptions) — otherwise dsh would advertise
+    // four levels while answering "I can't do effort", and callers keying off this would refuse.
+    return 'effort' in obs || 'reasoning_effort' in obs || e?.capabilities?.reasoning_effort?.supported === true;
   }
 
   /**

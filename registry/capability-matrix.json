@@ -371,7 +371,19 @@
         "session_resume_detail": "--session-id <id> 采用持久化 Session，未知 id 报错",
         "stdin": true,
         "stderr_separation": "答案走 stdout，诊断走 stderr",
-        "prompt_roundtrip_tested": true
+        "prompt_roundtrip_tested": true,
+        "reasoning_effort": {
+          "supported": true,
+          "options": [
+            "off",
+            "low",
+            "high",
+            "max"
+          ],
+          "default": "high",
+          "mechanism": "--patch overlay 注入 agent-default-model.config.reasoningEffort；headless 不暴露 flag，也没有 env 变量（源码：dsh-llm-deepseek 的 REASONING_EFFORTS，2026-10-07 实测 --dump-config 确认生效）",
+          "note": "profile patch 会替换整块 config，overlay 必须重述 provider + model，否则 dsh 启动即 ValidationError（$.provider missing required value）。"
+        }
       },
       "windows": {
         "works": "partially",

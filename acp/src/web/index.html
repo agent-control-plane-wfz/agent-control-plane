@@ -422,6 +422,7 @@ function setMode(m){
   $('tab-ask').classList.toggle('on',m==='ask');$('tab-batch').classList.toggle('on',m==='batch');
   $('batch-box').style.display=m==='batch'?'':'none';$('ask-box').style.display=m==='batch'?'none':'';
 }
+$('tab-ask').onclick=()=>setMode('ask');$('tab-batch').onclick=()=>setMode('batch');
 $('presets').innerHTML=PRESETS.map((p,i)=>`<button data-i="${i}" title="${esc(p[1].slice(0,60))}…">${p[0]}</button>`).join('');
 $('presets').onclick=e=>{const b=e.target.closest('button');if(!b)return;$('f-task').value=PRESETS[+b.dataset.i][1];$('f-task').focus()};
 

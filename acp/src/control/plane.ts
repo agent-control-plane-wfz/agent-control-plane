@@ -16,6 +16,7 @@ import { runParallel, type ParallelJob, type ParallelOutcome } from '../batch/pa
 import { getMerged, configuredAgent, type AgentSettings } from '../config/settings.ts';
 import { getCredential } from '../config/secrets.ts';
 import { authEvidence } from '../config/auth-evidence.ts';
+import { applyPreset } from '../config/presets.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -50,6 +51,10 @@ export interface AskOptions {
   effort?: string;
   mode?: string;
   taskType?: TaskHints['taskType'];
+  /** issue #11: named preset (see config/presets.ts). Fields set here win over the preset. */
+  preset?: string;
+  /** issue #11: prefer a model of this tier; the Router resolves it against this machine's table. */
+  tier?: string;
   differentVendorFrom?: string[];
   timeoutMs?: number;
   keepSession?: boolean;
@@ -103,8 +108,10 @@ export class ControlPlane {
     }));
   }
 
-  async ask(opts: AskOptions): Promise<AgentResult> {
+  async ask(optsIn: AskOptions): Promise<AgentResult> {
     const t0 = Date.now();
+    // issue #11: a named preset fills in the fields the caller left unset (explicit fields win).
+    const opts = optsIn.preset ? (applyPreset(optsIn, optsIn.preset) as AskOptions) : optsIn;
     const settings = getMerged();
 
     // v3: disabled agents fail loudly on explicit hints (no silent reroute)...
@@ -139,6 +146,7 @@ export class ControlPlane {
       effort: opts.effort,
       mode: opts.mode,
       taskType,
+      tier: opts.tier,
       requirements: { differentVendorFrom: opts.differentVendorFrom },
     });
     if (llmReason) decision.reason = `${decision.reason} [${llmReason}]`;

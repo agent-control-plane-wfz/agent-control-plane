@@ -9,6 +9,8 @@ export interface TaskHints {
   effort?: string;
   mode?: string;
   taskType?: 'quick' | 'code' | 'reasoning' | 'review';
+  /** issue #11: prefer a model of this tier for the chosen agent. */
+  tier?: string;
   requirements?: { differentVendorFrom?: string[] };
 }
 
@@ -21,7 +23,11 @@ export interface RouteOptions {
   isConfigured?: (id: AgentId) => boolean;
 }
 
-const RULES: Record<NonNullable<TaskHints['taskType']>, { agent: AgentId; effort?: string; note: string }> = {
+// issue #11: builtin rules intentionally carry NO tier. Adding one would change which model every
+// existing deployment picks by default, and that is not a change to make blind — the tiers in the
+// table are declared facts that a probe can contradict. A tier therefore takes effect only where a
+// user rule or preset asks for one; the defaults stay exactly as they were.
+const RULES: Record<NonNullable<TaskHints['taskType']>, { agent: AgentId; effort?: string; tier?: string; note: string }> = {
   quick:     { agent: 'opencode', effort: 'default', note: 'cheap/fast pool for mechanical work' },
   code:      { agent: 'codex',    effort: 'medium',  note: 'workhorse coding model' },
   reasoning: { agent: 'codex',    effort: 'xhigh',   note: 'deep reasoning for hard analysis' },
@@ -30,14 +36,33 @@ const RULES: Record<NonNullable<TaskHints['taskType']>, { agent: AgentId; effort
 
 // v3: user rules from Settings override the builtins per task type.
 export const BUILTIN_RULES = RULES;
-export type RoutingRuleOverride = { agent?: string; effort?: string };
+export type RoutingRuleOverride = { agent?: string; effort?: string; tier?: string };
+
+/**
+ * issue #11: resolve the model for a chosen agent. A tier is a PREFERENCE against this machine's
+ * table; an explicit model always wins; an unsatisfiable tier falls back to the agent default and
+ * SAYS SO (the note goes into the route reason) instead of pretending the preference was honoured.
+ * Shared by the explicit-hint path and the rule/fallback path so the two cannot drift apart.
+ */
+function pickModel(reg: Registry, agent: AgentId, hints: TaskHints, ruleTier?: string): { model?: string; tierNote?: string } {
+  const wantTier = hints.tier ?? ruleTier;
+  const tierModel = wantTier && hints.model === undefined ? reg.modelsByTier(agent, wantTier)[0] : undefined;
+  const model = hints.model ?? tierModel ?? reg.defaultModel(agent);
+  if (!wantTier) return { model };
+  return {
+    model,
+    tierNote: tierModel
+      ? `tier:${wantTier} -> ${tierModel}`
+      : `tier:${wantTier} 未匹配（${agent} 的模型表里没有该档位），已用其默认模型 ${model ?? '(未配置)'}`,
+  };
+}
 
 export function route(reg: Registry, hints: TaskHints, rulesOverride?: Record<string, RoutingRuleOverride>, options?: RouteOptions): RouteDecision {
   const chain: AgentId[] = [];
   const push = (d: Omit<RouteDecision, 'fallbackChain'>) => ({ ...d, fallbackChain: chain.slice() });
   const ruleFor = (t: NonNullable<TaskHints['taskType']>) => {
     const o = rulesOverride?.[t];
-    if (o?.agent) return { agent: o.agent as AgentId, effort: o.effort ?? RULES[t].effort, note: 'user rule (Settings)' };
+    if (o?.agent) return { agent: o.agent as AgentId, effort: o.effort ?? RULES[t].effort, tier: o.tier, note: 'user rule (Settings)' };
     return RULES[t];
   };
   const configured = (a: AgentId) => !options?.isConfigured || options.isConfigured(a);
@@ -65,12 +90,13 @@ export function route(reg: Registry, hints: TaskHints, rulesOverride?: Record<st
         + 'Configure its credentials, or omit the agent hint to allow routing.',
       );
     }
+    const explicit = pickModel(reg, hints.agent, hints);
     return push({
       agent: hints.agent,
-      model: hints.model ?? reg.defaultModel(hints.agent),
+      model: explicit.model,
       effort: hints.effort ?? reg.defaultEffort(hints.agent),
       mode: hints.mode,
-      reason: 'explicit agent hint',
+      reason: `explicit agent hint${explicit.tierNote ? ` + ${explicit.tierNote}` : ''}`,
     });
   }
 
@@ -121,8 +147,13 @@ export function route(reg: Registry, hints: TaskHints, rulesOverride?: Record<st
   }
 
   const chosen = pick;
-  const model = hints.model ?? reg.defaultModel(chosen);
+  // issue #11: a tier is a PREFERENCE resolved against this machine's table — an explicit model
+  // hint always wins, and if the tier cannot be satisfied we say so in `reason` rather than
+  // silently pretending the preference was honoured.
+  const picked = pickModel(reg, chosen, hints, activeRule?.tier);
+  const model = picked.model;
   let reason = hints.taskType ? `rule:${hints.taskType} (${activeRule?.note ?? 'default'})` : 'fallback order';
+  if (picked.tierNote) reason += ` + ${picked.tierNote}`;
   if (excludeVendors.length) reason += ` + differentVendorFrom(${JSON.stringify(excludeVendors)}) [fail-closed]`;
 
   for (const a of viable.slice(1)) chain.push(a);

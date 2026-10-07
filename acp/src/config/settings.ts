@@ -45,7 +45,9 @@ export interface AgentSettings {
 }
 
 export interface RoutingSettings {
-  rules?: Record<string, { agent?: string; effort?: string }>;
+  /** Per-task-type rule. `tier` (issue #11) expresses a model preference that is resolved against
+   *  THIS machine's model table at routing time, instead of hard-coding a model id. */
+  rules?: Record<string, { agent?: string; effort?: string; tier?: string }>;
   llmRouter?: boolean;
 }
 
@@ -61,6 +63,12 @@ export interface TeamTemplate {
 }
 
 export interface BudgetSettings { dailyRequests?: number; dailyTokens?: number }
+
+/** Named routing presets (issue #11) — see src/config/presets.ts. */
+export interface PresetSettings {
+  agent?: string; model?: string; effort?: string; tier?: string;
+  taskType?: 'quick' | 'code' | 'reasoning' | 'review';
+}
 export interface WorkspaceSettings { recentCwds?: string[]; worktreeBaseDir?: string | null }
 
 export interface AppSettings {
@@ -70,6 +78,8 @@ export interface AppSettings {
   workspace: WorkspaceSettings;
   /** Named review-team templates (issue #10). */
   teams?: Record<string, TeamTemplate>;
+  /** Named routing presets (issue #11). */
+  presets?: Record<string, PresetSettings>;
   /** First-run wizard bookkeeping (issue #7). Absent = this machine predates the feature. */
   setup?: { completedAt?: string | null };
 }
@@ -202,6 +212,7 @@ export function getMerged(): AppSettings {
       worktreeBaseDir: config.workspace?.worktreeBaseDir ?? null,
     },
     teams: config.teams ?? {},
+    presets: config.presets ?? {},
     setup: config.setup ?? {},
   };
 }
@@ -305,6 +316,19 @@ function validate(patch: Partial<AppSettings>): string | null {
       }
     }
   }
+  if (patch.presets) {
+    for (const [name, p] of Object.entries(patch.presets)) {
+      if (!isValidAgentId(name)) return `presets.${name}: 预设名非法（字母/数字/下划线/连字符）`;
+      if (!p || typeof p !== 'object') return `presets.${name}: 必须是对象`;
+      for (const k of ['agent', 'model', 'effort', 'tier'] as const) {
+        const v = (p as any)[k];
+        if (v !== undefined && (typeof v !== 'string' || !v)) return `presets.${name}.${k}: 必须是非空字符串`;
+      }
+      if (p.taskType !== undefined && !['quick', 'code', 'reasoning', 'review'].includes(p.taskType)) {
+        return `presets.${name}.taskType: 未知任务类型`;
+      }
+    }
+  }
   if (patch.setup?.completedAt !== undefined && patch.setup.completedAt !== null && typeof patch.setup.completedAt !== 'string') return 'setup.completedAt: 必须是 ISO 字符串或 null';
   return null;
 }
@@ -340,6 +364,7 @@ export function saveSettings(patch: Partial<AppSettings>): AppSettings {
     budget: { ...(cur.budget ?? {}), ...(patch.budget ?? {}) },
     workspace: { ...(cur.workspace ?? {}), ...(patch.workspace ?? {}) },
     teams: { ...(cur.teams ?? {}), ...(patch.teams ?? {}) },
+    presets: { ...(cur.presets ?? {}), ...(patch.presets ?? {}) },
     setup: { ...(cur.setup ?? {}), ...(patch.setup ?? {}) },
   };
   mkdirSync(dirname(USER_CONFIG_FILE), { recursive: true });
@@ -348,10 +373,10 @@ export function saveSettings(patch: Partial<AppSettings>): AppSettings {
 }
 
 /** Remove a whole section (or one agent) from the user layer — 恢复默认. */
-export function resetSettings(section: 'agents' | 'routing' | 'budget' | 'workspace' | 'teams', sub?: string): AppSettings {
+export function resetSettings(section: 'agents' | 'routing' | 'budget' | 'workspace' | 'teams' | 'presets', sub?: string): AppSettings {
   const cur = loadUserConfig().config;
-  if ((section === 'agents' || section === 'teams') && sub) {
-    const key = section === 'teams' ? 'teams' : 'agents';
+  if ((section === 'agents' || section === 'teams' || section === 'presets') && sub) {
+    const key = section === 'agents' ? 'agents' : section;
     const bag = { ...((cur as any)[key] ?? {}) };
     // F10 (issue #2): only delete an OWN key — a bare `delete bag[sub]` with sub='__proto__'
     // (or 'constructor') would otherwise reach into the prototype chain.

@@ -131,6 +131,24 @@ export class Registry {
     return entry ? entry.vendor : 'unknown';
   }
 
+  /**
+   * issue #11: the `tier` field on every model entry was never read by anything. These are the
+   * accessors that make it usable: pick a model of a wanted tier instead of hard-coding an id that
+   * may not exist on this machine. Deterministic (table order), matching the project's rule that
+   * facts come from the table rather than from guesswork.
+   */
+  modelsByTier(agentId: AgentId, tier: string): string[] {
+    return Object.entries(this.models.models)
+      .filter(([, m]) => m.via === agentId && m.tier === tier)
+      .map(([k]) => k.split('/').slice(1).join('/'));
+  }
+
+  /** Tier of the model an agent would actually use (undefined = not in the table). */
+  modelTier(agentId: AgentId, model?: string): string | undefined {
+    const key = model ? `${agentId}/${model}` : `${agentId}/${this.defaultModel(agentId) ?? ''}`;
+    return this.models.models[key]?.tier;
+  }
+
   effortOptions(agentId: AgentId, model?: string): string[] {
     const e = this.get(agentId);
     const eff = e?.configOptions_observed?.effort ?? e?.configOptions_observed?.reasoning_effort;

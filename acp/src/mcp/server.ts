@@ -14,6 +14,8 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        preset: { type: 'string', description: 'issue #11: named preset from Settings' },
+        tier: { type: 'string' },
         task: { type: 'string', description: 'The task text' },
         cwd: { type: 'string', description: 'Working directory for the agent' },
         agent: { type: 'string', enum: ['opencode', 'claude', 'codex', 'dsh'] },
@@ -174,6 +176,7 @@ async function callTool(name: string, args: any): Promise<{ content: any[]; isEr
           task: args.task, cwd: args.cwd,
           agent: args.agent as AgentId | undefined, model: args.model, effort: args.effort,
           mode: args.mode, taskType: args.taskType, differentVendorFrom: args.differentVendorFrom,
+          preset: args.preset, tier: args.tier,
           timeoutMs: args.timeoutMs, workspaceMode: args.workspaceMode,
           verdict: args.verdict, maxToolCalls: args.maxToolCalls,
         });

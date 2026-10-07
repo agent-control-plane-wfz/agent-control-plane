@@ -5,18 +5,17 @@
 // CURRENT state (fixes the stale-auth silent-reroute class of bugs from v2 testing).
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { AcpDriver } from '../drivers/acp-driver.ts';
 import { DshDriver, dshCommand, dshArgs } from '../drivers/dsh-driver.ts';
 import { execFile } from 'node:child_process';
+import { OBSERVED_FILE } from './paths.ts';
 
-const here = dirname(fileURLToPath(import.meta.url));
+export { OBSERVED_FILE };
+
 // F2 (issue #2): DECLARED facts live in the checked-in matrix; OBSERVED facts (the result
 // of a probe on THIS machine) are written to the state dir, which is gitignored. The
 // Registry reads declared-then-observed, so a probe never mutates tracked files or burns
-// a machine-specific absolute path into the repo. ACP_OBSERVED_FILE overrides the target.
-const STATE_DIR = process.env.ACP_STATE_DIR ?? join(here, '..', '..', '..', 'state');
-export const OBSERVED_FILE = process.env.ACP_OBSERVED_FILE ?? join(STATE_DIR, 'capability-observed.json');
+// a machine-specific absolute path into the repo. OBSERVED_FILE comes from ./paths.ts.
 
 export interface ProbeResult {
   ok: boolean;

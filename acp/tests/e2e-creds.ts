@@ -1,6 +1,7 @@
 // E2E: credential-dependent final verification (Phase 0 leftover).
 // Run: node --experimental-strip-types tests/e2e-creds.ts
 // Requires: codex logged in (~/.codex/auth.json) + DEEPSEEK_API_KEY in env.
+import './_isolate-state.ts';   // isolate state dir before app modules load
 import { ControlPlane } from '../src/control/plane.ts';
 
 const cwd = 'D:\\workb\\orchestrator\\phase0';

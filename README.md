@@ -107,11 +107,18 @@ npm run mcp         # 启动 stdio MCP server
       "args": [
         "--experimental-strip-types",
         "/absolute/path/to/agent-control-plane/acp/src/mcp/server.ts"
-      ]
+      ],
+      "env": {
+        "WORKSPACE_DIR": "/path/to/workspace"
+      }
     }
   }
 }
 ```
+
+> [!IMPORTANT]
+> `env.WORKSPACE_DIR` 不能省 —— 缺了它，`claude` / `codex` / `dsh` 三个 adapter 的入口无法解析，
+> 只有 `opencode`（走 PATH）可用。
 
 > [!TIP]
 > Web 控制台的「集成」页可以一键生成并复制这段配置（含 env），不必手写路径。
@@ -150,15 +157,19 @@ WORKSPACE_DIR=/path/to/workspace npm run web
 | --- | --- | --- |
 | `WORKSPACE_DIR` | — | 解析 adapter 包 `node_modules/` 的根目录 |
 | `ACP_WEB_PORT` | `7777` | Web 控制台端口 |
-| `ACP_STATE_DIR` | `acp/state` | 状态落盘目录（预算、作业历史、只写凭据） |
+| `ACP_STATE_DIR` | `state/`（仓库根） | 状态落盘目录：预算账本、作业历史、只写凭据、用户配置、探测观测值 |
+| `ACP_BUDGET_DIR` | 同 `ACP_STATE_DIR` | 单独指定预算账本目录 |
 | `ACP_LLM_ROUTER` | 开启 | 设为 `0` 关闭 LLM 兜底路由 |
 | `ACP_DAILY_REQUESTS` | 不限 | 每日请求数上限 |
 | `ACP_DAILY_TOKENS` | 不限 | 每日 token 上限 |
-| `ACP_MATRIX_FILE` | `registry/capability-matrix.json` | 能力矩阵读写位置 |
-| `DSH_BIN` | 自动探测 | `dsh` 可执行文件路径 |
-| `DSH_NODE` | 自动探测 | 运行 `dsh` 的 Node 可执行文件路径 |
+| `ACP_MATRIX_FILE` | `registry/capability-matrix.json` | 覆盖**声明事实**矩阵的读取位置（探测不会写这里，见 `ACP_OBSERVED_FILE`） |
+| `ACP_OBSERVED_FILE` | `$ACP_STATE_DIR/capability-observed.json` | 探测产生的**观测事实**落盘位置；Registry 读「声明→观测」合并 |
+| `DSH_BIN` | 由 `WORKSPACE_DIR` 推导 | `dsh` 入口 `bin.js` 路径；两者都缺时**报错**而非猜路径 |
+| `DSH_NODE` | `process.execPath` | 运行 `dsh` 的 Node 可执行文件路径 |
 
 多数配置也可以直接在 Web 控制台的设置中心里改，**保存即生效**（优先级：用户配置 > 环境变量 > 实测矩阵 > 代码默认）。
+声明事实与观测事实分开：矩阵（`registry/`）随仓库走、人可编辑；探测结果落 `state/`（gitignored），
+不污染受版本控制的文件。
 
 ## 项目结构
 
@@ -173,7 +184,7 @@ acp/           Control Plane 实现（TypeScript，零运行时依赖）
 ├── src/workspace/ git worktree 管理
 ├── src/budget/    per-call / per-day 预算闸门
 ├── src/batch/     有界并发批量编排
-├── src/config/    settings / secrets / 能力探测
+├── src/config/    settings / secrets / paths（状态目录） / 能力探测
 ├── src/mcp/       手写 MCP stdio server
 ├── src/web/       Web 控制台（单页 + 本地服务端 + 自带设计 token 与字体）
 └── tests/         e2e-*.ts（逐阶段真实往返）与 unit/*.test.ts
@@ -187,7 +198,8 @@ registry/      capability-matrix.json —— 能力注册表的首份机器可�
 - **adapter 是可选对等依赖** —— Control Plane 本体零依赖，但真正驱动 agent 需要各家 adapter 包
 
 - `registry/capability-matrix.json` 是**某台机器的实测快照**，其中的入口路径在别的机器上通常不存在。
-  换机器请用设置中心的「🔌 探测能力」重新握手，或用 `ACP_MATRIX_FILE` 指向临时副本
+  换机器请用设置中心的「🔌 探测能力」重新握手 —— 探测结果写进 `state/capability-observed.json`（不受版本控制），
+  与本文件「声明事实」合并生效，不会改动仓库
 
 - **`worktree` 不是沙箱** —— 它只隔离 git 分支，不隔离文件系统、网络与凭据。agent 进程可以执行任意命令，
   只在可信仓库使用，敏感目录不要进 workspace，绝不在无监督下把密钥暴露给 agent

@@ -1,5 +1,6 @@
 // E2E: long-lived session context continuity — spawn(keepSession) then send follow-up.
 // Run: node --experimental-strip-types tests/e2e-send.ts
+import './_isolate-state.ts';   // isolate state dir before app modules load
 import { ControlPlane } from '../src/control/plane.ts';
 
 const cwd = 'D:\\workb\\orchestrator\\phase0';

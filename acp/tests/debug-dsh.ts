@@ -1,4 +1,5 @@
 // Debug: DshDriver.run via ControlPlane path vs direct.
+import './_isolate-state.ts';   // isolate state dir before app modules load
 import { DshDriver } from '../src/drivers/dsh-driver.ts';
 
 const cwd = 'D:\\workb\\orchestrator\\phase0';

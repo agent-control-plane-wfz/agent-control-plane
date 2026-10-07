@@ -1,6 +1,7 @@
 // Phase 5 E2E: real concurrent batch across three harnesses.
 // Verifies: (1) all jobs return, (2) wall time < serial sum (concurrency is real),
 // (3) per-job agent identity is verified (sessionId format / model echo), (4) usage aggregation.
+import './_isolate-state.ts';   // isolate state dir before app modules load
 import { ControlPlane } from '../src/control/plane.ts';
 
 const plane = new ControlPlane();
@@ -31,7 +32,14 @@ const concurrent = out.summary.wallVsSerialMsSaved > 0;
 
 if (!allPresent) { console.error('FAIL: not all jobs returned a result'); failed = true; }
 if (!dshOk) { console.error('FAIL: dsh job wrong'); failed = true; }
-if (!codexOk) { console.error('FAIL: codex job wrong'); failed = true; }
+if (!codexOk) {
+  // Distinguish "the agent is out of quota / rate-limited" from a real regression — the
+  // suite is still red either way, but the message must not send someone hunting a bug.
+  const err = String(byId.get('codex-job')?.error ?? '');
+  const external = /usage limit|usageLimitExceeded|quota|rate.?limit|429/i.test(err);
+  console.error(`FAIL: codex job wrong${external ? ' — EXTERNAL (agent quota/rate limit, not a code fault): ' + err.slice(0, 120) : ''}`);
+  failed = true;
+}
 if (!claudeOk) { console.error('FAIL: claude job failed'); failed = true; }
 if (!dshIdentity) { console.error(`FAIL: dsh sessionId format unexpected: ${dshSession} (agent-spoofing guard)`); failed = true; }
 if (!concurrent) { console.error(`FAIL: no concurrency gain (saved=${out.summary.wallVsSerialMsSaved}ms)`); failed = true; }

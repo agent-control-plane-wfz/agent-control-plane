@@ -5,6 +5,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AgentId, AgentStatusSummary } from '../core/types.ts';
+import { OBSERVED_FILE } from '../config/paths.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -38,8 +39,7 @@ export class Registry {
   constructor(matrixPath?: string, modelsPath?: string, observedPath?: string) {
     this.matrixPath = matrixPath ?? process.env.ACP_MATRIX_FILE ?? join(here, '..', '..', '..', 'registry', 'capability-matrix.json');
     this.modelsPath = modelsPath ?? join(here, 'models.json');
-    this.observedPath = observedPath ?? process.env.ACP_OBSERVED_FILE
-      ?? join(process.env.ACP_STATE_DIR ?? join(here, '..', '..', '..', 'state'), 'capability-observed.json');
+    this.observedPath = observedPath ?? process.env.ACP_OBSERVED_FILE ?? OBSERVED_FILE;
     this.matrix = JSON.parse(readFileSync(this.matrixPath, 'utf8'));
     this.models = JSON.parse(readFileSync(this.modelsPath, 'utf8'));
     this.loadObserved();

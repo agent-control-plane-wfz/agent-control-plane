@@ -2,6 +2,8 @@
 // /api/status, then one real dsh ask roundtrip through the HTTP API.
 // Run: WORKSPACE_DIR=<workspace> DEEPSEEK_API_KEY=<key> node --experimental-strip-types tests/e2e-web.ts
 import { spawn } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -16,9 +18,14 @@ if (!process.env.WORKSPACE_DIR) {
   process.exit(1);
 }
 
+// Isolate every state file the server writes (job history, budget ledger, credentials,
+// user config, probe observations) — otherwise an E2E run appends to the real deployment's
+// state. This is the same class of pollution that issue #2 flagged on the probe side.
+const STATE = process.env.ACP_TEST_STATE ?? mkdtempSync(join(tmpdir(), 'acp-web-e2e-'));
+
 const child = spawn(process.execPath, ['--experimental-strip-types', 'src/web/server.ts'], {
   cwd: root,
-  env: { ...process.env, ACP_WEB_PORT: PORT },
+  env: { ...process.env, ACP_WEB_PORT: PORT, ACP_STATE_DIR: STATE },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 child.stderr.on('data', (d) => process.stderr.write(`[server] ${d}`));
@@ -60,8 +67,13 @@ try {
     const j: any = await (await fetch(`${base}/api/jobs/${sub.id}`)).json();
     return j.status !== 'running' ? j : undefined;
   }, 180_000, 'dsh job completion');
-  const ok = job.status === 'done' && job.result?.ok && (job.result?.text ?? '').includes('OK');
-  console.log('dsh roundtrip:', ok ? `OK — "${job.result.text}" in ${(job.result.durationMs / 1000).toFixed(1)}s` : `FAIL — ${JSON.stringify(job).slice(0, 300)}`);
+  // This asserts the HTTP plumbing (submit → poll → result → events), not the model's
+  // wording: a live model may answer with prose instead of the literal token, which is not
+  // what this test is about. Exact-content assertions live on the more deterministic paths
+  // (e2e-send / e2e-phase3).
+  const text = job.result?.text ?? '';
+  const ok = job.status === 'done' && job.result?.ok === true && text.trim().length > 0;
+  console.log('dsh roundtrip:', ok ? `OK — "${text.slice(0, 60)}" in ${(job.result.durationMs / 1000).toFixed(1)}s` : `FAIL — ${JSON.stringify(job).slice(0, 400)}`);
   if (!ok) failed = true;
   // 5) live event stream captured (UI livelog data source)
   const evCount = (job.events ?? []).length;
@@ -73,6 +85,7 @@ try {
   failed = true;
 } finally {
   child.kill();
+  if (!process.env.ACP_TEST_STATE) { try { rmSync(STATE, { recursive: true, force: true }); } catch { /* tolerate */ } }
 }
 
 console.log(failed ? '\nWEB_E2E_FAIL' : '\nWEB_E2E_PASS');

@@ -111,11 +111,18 @@ Add this to your host's `.mcp.json` (Claude Code, Codex, …):
       "args": [
         "--experimental-strip-types",
         "/absolute/path/to/agent-control-plane/acp/src/mcp/server.ts"
-      ]
+      ],
+      "env": {
+        "WORKSPACE_DIR": "/path/to/workspace"
+      }
     }
   }
 }
 ```
+
+> [!IMPORTANT]
+> `env.WORKSPACE_DIR` is not optional — without it the `claude` / `codex` / `dsh` adapter
+> entry points cannot be resolved and only `opencode` (found on `PATH`) is available.
 
 > [!TIP]
 > The **Integrations** page in the web console generates and copies this snippet
@@ -156,16 +163,21 @@ Change the port with `ACP_WEB_PORT`.
 | --- | --- | --- |
 | `WORKSPACE_DIR` | — | Root used to resolve adapter package `node_modules/` |
 | `ACP_WEB_PORT` | `7777` | Web console port |
-| `ACP_STATE_DIR` | `acp/state` | State directory (budget, job history, write-only credentials) |
+| `ACP_STATE_DIR` | `state/` (repo root) | State directory: budget ledger, job history, write-only credentials, user config, probe observations |
+| `ACP_BUDGET_DIR` | same as `ACP_STATE_DIR` | Keep the budget ledger somewhere else |
 | `ACP_LLM_ROUTER` | on | Set to `0` to disable LLM fallback routing |
 | `ACP_DAILY_REQUESTS` | unlimited | Daily request cap |
 | `ACP_DAILY_TOKENS` | unlimited | Daily token cap |
-| `ACP_MATRIX_FILE` | `registry/capability-matrix.json` | Capability matrix read/write location |
-| `DSH_BIN` | auto-detected | Path to the `dsh` executable |
-| `DSH_NODE` | auto-detected | Path to the Node executable used to run `dsh` |
+| `ACP_MATRIX_FILE` | `registry/capability-matrix.json` | Overrides where the **declared** facts matrix is read from (probes do not write here — see `ACP_OBSERVED_FILE`) |
+| `ACP_OBSERVED_FILE` | `$ACP_STATE_DIR/capability-observed.json` | Where **observed** probe facts are written; the Registry reads declared-then-observed |
+| `DSH_BIN` | derived from `WORKSPACE_DIR` | Path to the `dsh` entry `bin.js`; fails loudly when neither is set instead of guessing |
+| `DSH_NODE` | `process.execPath` | Node executable used to run `dsh` |
 
 Most of these can also be edited in the web console's settings center, where **saves take
 effect immediately** (precedence: user settings > environment > measured matrix > code defaults).
+Declared and observed facts are kept apart: the matrix under `registry/` travels with the
+repository and is human-editable, while probe results land in `state/` (gitignored) and never
+touch a tracked file.
 
 ## Repository layout
 
@@ -180,7 +192,7 @@ acp/           Control plane implementation (TypeScript, zero runtime dependenci
 ├── src/workspace/ git worktree management
 ├── src/budget/    per-call / per-day budget gates
 ├── src/batch/     bounded-concurrency batch orchestration
-├── src/config/    settings / secrets / capability probing
+├── src/config/    settings / secrets / paths (state dir) / capability probing
 ├── src/mcp/       hand-written MCP stdio server
 ├── src/web/       Web console (single page + local server + bundled design tokens and fonts)
 └── tests/         e2e-*.ts (per-phase live round-trips) and unit/*.test.ts
@@ -194,7 +206,8 @@ registry/      capability-matrix.json — the registry's first machine-readable 
 - **Adapters are optional peer dependencies** — the control plane is dependency-free, but driving an agent requires its adapter package
 
 - `registry/capability-matrix.json` is a **measurement snapshot from one machine**, and the entry paths in it usually do not exist elsewhere.
-  On a new machine, re-handshake via the **Probe capabilities** button in the settings center, or point `ACP_MATRIX_FILE` at a temporary copy
+  On a new machine, re-handshake via the **Probe capabilities** button in the settings center — probe results are written to
+  `state/capability-observed.json` (untracked) and merged over these declared facts, so the repository is never modified
 
 - **A worktree is not a sandbox** — it isolates git branches only, not the filesystem, network or credentials. Agent processes can run arbitrary
   commands; use this only on trusted repositories, keep sensitive directories out of the workspace, and never expose keys to an agent unsupervised

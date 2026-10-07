@@ -1,5 +1,6 @@
 // E2E acceptance for Phase 1: real round-trip through opencode (authenticated free pool).
 // Run: node --experimental-strip-types tests/e2e-opencode.ts
+import './_isolate-state.ts';   // isolate state dir before app modules load
 import { ControlPlane } from '../src/control/plane.ts';
 
 const cwd = 'D:\\workb\\orchestrator\\phase0';

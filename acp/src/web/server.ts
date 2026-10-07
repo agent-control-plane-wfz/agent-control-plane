@@ -12,10 +12,12 @@ import { describeCredential, setCredential, deleteCredential, storedNames } from
 import { probeAgent } from '../config/probe.ts';
 import { homedir } from 'node:os';
 import { BUILTIN_RULES } from '../router/router.ts';
+import { HISTORY_FILE } from '../config/paths.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.ACP_WEB_PORT ?? 7777);
-const HISTORY_FILE = join(here, '..', '..', 'state', 'web-jobs.jsonl');
+// HISTORY_FILE comes from config/paths.ts: it honours ACP_STATE_DIR, so a test run with an
+// isolated state dir no longer appends to the real job history.
 const EVENT_CAP = 400;
 const HISTORY_LOAD = 60;
 

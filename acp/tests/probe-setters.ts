@@ -1,6 +1,7 @@
 // Probe: which session/config setter shape does each ACP agent actually accept?
 // Config-only (no prompts, no tokens). Model/effort are restored after each probe.
 // Run: node --experimental-strip-types tests/probe-setters.ts
+import './_isolate-state.ts';   // isolate state dir before app modules load
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

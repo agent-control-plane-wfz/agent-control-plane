@@ -1,10 +1,14 @@
 // MCP server smoke: initialize -> tools/list -> tools/call(status). No agent prompt involved.
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
+// Keep the smoke test out of the real deployment state (job history, budget ledger, …).
+if (!process.env.ACP_STATE_DIR) process.env.ACP_STATE_DIR = mkdtempSync(join(tmpdir(), 'acp-mcp-smoke-'));
 const child = spawn(process.execPath, ['--experimental-strip-types', join(here, '..', 'src', 'mcp', 'server.ts')], { windowsHide: true });
 const rl = createInterface({ input: child.stdout });
 const pending = new Map();

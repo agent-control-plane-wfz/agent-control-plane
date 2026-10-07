@@ -8,11 +8,9 @@
 // observed facts into layer ③'s state half — never into the tracked matrix.
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { USER_CONFIG_FILE, REPO_ROOT } from './paths.ts';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const STATE_DIR = process.env.ACP_STATE_DIR ?? join(here, '..', '..', '..', 'state');
-export const USER_CONFIG_FILE = join(STATE_DIR, 'control-plane-config.json');
+export { USER_CONFIG_FILE };
 
 export type Transport = 'acp' | 'json-process';
 
@@ -59,7 +57,7 @@ function workspaceDir(): string {
 // Layer ④: code defaults for builtin agents (derived from the same sources plane used before).
 function matrixOpencodeCommand(): string {
   try {
-    const m = JSON.parse(readFileSync(join(here, '..', '..', '..', 'registry', 'capability-matrix.json'), 'utf8'));
+    const m = JSON.parse(readFileSync(join(REPO_ROOT, 'registry', 'capability-matrix.json'), 'utf8'));
     const c = m.agents?.opencode?.command as string | undefined;
     return c ? c.split(' acp')[0] : 'opencode';
   } catch { return 'opencode'; }

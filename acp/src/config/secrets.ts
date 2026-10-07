@@ -5,13 +5,10 @@
 // Honest limit (same as dsh): agent child processes run as the same OS user and inherit
 // an injected env — this storage cannot isolate secrets from the agents themselves.
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+import { SECRETS_FILE } from './paths.ts';
 
-const here = dirname(fileURLToPath(import.meta.url));
-// Repo-root state dir (D:\workb\orchestrator\state) — same place secrets.env already lives.
-const STATE_DIR = process.env.ACP_STATE_DIR ?? join(here, '..', '..', '..', 'state');
-export const SECRETS_FILE = join(STATE_DIR, 'secrets.env');
+export { SECRETS_FILE };
 
 export interface CredentialStatus {
   name: string;

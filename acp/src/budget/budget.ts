@@ -2,13 +2,8 @@
 // Honest fallback: agents that don't report usage (opencode free pool) still consume request count.
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { TokenUsage } from '../core/types.ts';
-
-const here = dirname(fileURLToPath(import.meta.url));
-// Where the per-day ledger lives. ACP_BUDGET_DIR / ACP_STATE_DIR let tests (and other
-// deployments) keep the ledger out of the repo; default unchanged (acp/state).
-const BUDGET_DIR = process.env.ACP_BUDGET_DIR ?? process.env.ACP_STATE_DIR ?? join(here, '..', '..', 'state');
+import { BUDGET_DIR } from '../config/paths.ts';
 
 export interface BudgetOptions {
   dailyTokens?: number;    // sum(input+output) cap per day; 0/undefined = unlimited

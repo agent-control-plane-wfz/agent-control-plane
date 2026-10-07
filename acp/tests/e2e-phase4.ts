@@ -2,6 +2,7 @@
 // deepseek(via claude adapter) implements in an isolated worktree,
 // codex (openai vendor) cross-reviews, node commands verify neutrally.
 // Run: node --experimental-strip-types tests/e2e-phase4.ts
+import './_isolate-state.ts';   // isolate state dir before app modules load
 import { execFile } from 'node:child_process';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

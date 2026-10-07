@@ -46,6 +46,9 @@ export interface AgentResult {
   verdictError?: string;
   workspace?: { kind: 'shared' | 'worktree'; path: string; branch?: string };
   workspaceNote?: string;  // present when a requested worktree fell back to shared cwd
+  /** issue #11: structured tier resolution (mirrors RouteDecision); absent when no tier asked. */
+  tierRequested?: string;
+  tierMatched?: boolean;
   fallbackTrail?: string;  // F3 (issue #2): diagnostic only — never mirrored into `error`
 }
 
@@ -55,6 +58,10 @@ export interface RouteDecision {
   effort?: string;
   mode?: string;
   reason: string;
+  /** issue #11: present only when a tier was requested — callers must not parse `reason`. */
+  tierRequested?: string;
+  /** true = a model of that tier was found; false = fell back to the agent default. */
+  tierMatched?: boolean;
   fallbackChain: AgentId[];
 }
 

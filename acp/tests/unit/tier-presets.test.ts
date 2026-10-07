@@ -22,7 +22,7 @@ const agents = {
 const models = {
   models: {
     'alpha/alpha-default': { vendor: 'v-alpha', tier: 'fast', traits: [], via: 'alpha' },
-    'alpha/alpha-big': { vendor: 'v-alpha', tier: 'frontier', traits: [], via: 'alpha' },
+    'alpha/alpha-big': { vendor: 'v-big', tier: 'frontier', traits: [], via: 'alpha' },
     'beta/beta-only': { vendor: 'v-beta', tier: 'fast', traits: [], via: 'beta' },
   },
   agentDefaults: { alpha: { model: 'alpha-default' }, beta: { model: 'beta-only' } },
@@ -102,4 +102,38 @@ test('F11: preset validation refuses malformed shapes', () => {
   assert.throws(() => saveSettings({ presets: { bad: { taskType: 'nope' as any } } }), /taskType/);
   assert.throws(() => saveSettings({ presets: { bad: { model: '' } } }), /presets\.bad\.model/);
   assert.throws(() => saveSettings({ presets: { 'bad name': {} } }), /预设名非法/);
+});
+
+test('F11: the heterogeneity check uses the TIER-RESOLVED model, not the agent default', () => {
+  // alpha's default model is vendor v-alpha, but its frontier model is v-big.
+  // NOTE: this must go through a RULE, not an explicit agent hint — an explicit hint is a hard
+  // constraint (B5) and skips the heterogeneity filter entirely, so asserting it there would pass
+  // without exercising the fix at all.
+  const req = { requirements: { differentVendorFrom: ['v-alpha'] } };
+  const noTier = route(reg, { taskType: 'quick', ...req }, { quick: { agent: 'alpha' } });
+  assert.equal(noTier.agent, 'beta', 'default model is v-alpha -> alpha is correctly excluded');
+  const withTier = route(reg, { taskType: 'quick', tier: 'frontier', ...req }, { quick: { agent: 'alpha' } });
+  assert.equal(withTier.agent, 'alpha', 'the frontier model is v-big, so alpha now qualifies');
+  assert.equal(withTier.model, 'alpha-big');
+});
+
+test('F11: the tier resolution is exposed as structured fields, not only as prose', () => {
+  const hit = route(reg, { agent: 'alpha' as any, tier: 'frontier' });
+  assert.equal(hit.tierRequested, 'frontier');
+  assert.equal(hit.tierMatched, true, 'callers must not have to parse `reason`');
+  const miss = route(reg, { agent: 'alpha' as any, tier: 'cheap' });
+  assert.equal(miss.tierRequested, 'cheap');
+  assert.equal(miss.tierMatched, false, 'fell back to the agent default');
+  assert.equal(miss.model, 'alpha-default');
+  const none = route(reg, { agent: 'alpha' as any });
+  assert.equal(none.tierRequested, undefined, 'absent when no tier was asked');
+});
+
+test('F11: patching one preset does not drop its sibling fields', () => {
+  saveSettings({ presets: { deep: { agent: 'alpha', model: 'alpha-big', effort: 'high' } } });
+  saveSettings({ presets: { deep: { effort: 'max' } } });
+  const p = listPresets().deep;
+  assert.equal(p.agent, 'alpha', 'sibling fields survive a partial patch');
+  assert.equal(p.model, 'alpha-big');
+  assert.equal(p.effort, 'max', 'and the patched field is updated');
 });

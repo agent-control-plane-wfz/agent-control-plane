@@ -333,6 +333,18 @@ function validate(patch: Partial<AppSettings>): string | null {
   return null;
 }
 
+function mergeNamed<T>(base: Record<string, T> | undefined, patch: Record<string, T> | undefined):
+Record<string, T> | undefined {
+  if (!patch) return base;
+  const out: Record<string, T> = { ...(base ?? {}) };
+  for (const [k, v] of Object.entries(patch)) {
+    out[k] = (v && typeof v === 'object' && !Array.isArray(v))
+      ? ({ ...((base?.[k] ?? {}) as object), ...(v as object) } as T)
+      : v;
+  }
+  return out;
+}
+
 function atomicWrite(file: string, content: string): void {
   const tmp = `${file}.tmp`;
   writeFileSync(tmp, content, 'utf8');
@@ -363,8 +375,11 @@ export function saveSettings(patch: Partial<AppSettings>): AppSettings {
     },
     budget: { ...(cur.budget ?? {}), ...(patch.budget ?? {}) },
     workspace: { ...(cur.workspace ?? {}), ...(patch.workspace ?? {}) },
-    teams: { ...(cur.teams ?? {}), ...(patch.teams ?? {}) },
-    presets: { ...(cur.presets ?? {}), ...(patch.presets ?? {}) },
+    // Same shape as the agents fix above, one level deeper: a section spread replaces the whole
+    // VALUE of a patched key, so touching `teams.t1.reviewer` would drop `t1.implementer` (and
+    // likewise for presets). Merge each named entry too.
+    teams: mergeNamed(cur.teams, patch.teams),
+    presets: mergeNamed(cur.presets, patch.presets),
     setup: { ...(cur.setup ?? {}), ...(patch.setup ?? {}) },
   };
   mkdirSync(dirname(USER_CONFIG_FILE), { recursive: true });

@@ -214,6 +214,10 @@ export class ControlPlane {
       ? { kind: ws.kind, path: ws.path, branch: ws.branch }
       : { kind: 'shared', path: opts.cwd };
     if (workspaceNote) r.workspaceNote = workspaceNote;
+    // issue #11: expose the tier resolution structurally — a caller (especially an MCP client)
+    // must be able to tell "preference satisfied" from "fell back to the default" without
+    // regex-scraping the human-readable reason.
+    if (decision.tierRequested) { r.tierRequested = decision.tierRequested; r.tierMatched = decision.tierMatched; }
     this.budget.record(r.usage, r.agent);
     return r;
   }

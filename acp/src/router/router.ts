@@ -14,6 +14,14 @@ export interface TaskHints {
   requirements?: { differentVendorFrom?: string[] };
 }
 
+/** issue #11: the resolved model choice, exposed structurally so callers need not parse `reason`. */
+export interface ModelResolution {
+  model?: string;
+  tierRequested?: string;
+  /** true = a model of the requested tier was found; false = fell back to the agent default. */
+  tierMatched?: boolean;
+}
+
 export interface RouteOptions {
   /**
    * User-consent gate (issue #7). Only a confirmed agent may be routed to or used as a fallback.
@@ -44,13 +52,14 @@ export type RoutingRuleOverride = { agent?: string; effort?: string; tier?: stri
  * SAYS SO (the note goes into the route reason) instead of pretending the preference was honoured.
  * Shared by the explicit-hint path and the rule/fallback path so the two cannot drift apart.
  */
-function pickModel(reg: Registry, agent: AgentId, hints: TaskHints, ruleTier?: string): { model?: string; tierNote?: string } {
+function pickModel(reg: Registry, agent: AgentId, hints: TaskHints, ruleTier?: string): { model?: string; tierNote?: string; tierModel?: string } {
   const wantTier = hints.tier ?? ruleTier;
   const tierModel = wantTier && hints.model === undefined ? reg.modelsByTier(agent, wantTier)[0] : undefined;
   const model = hints.model ?? tierModel ?? reg.defaultModel(agent);
   if (!wantTier) return { model };
   return {
     model,
+    tierModel,
     tierNote: tierModel
       ? `tier:${wantTier} -> ${tierModel}`
       : `tier:${wantTier} 未匹配（${agent} 的模型表里没有该档位），已用其默认模型 ${model ?? '(未配置)'}`,
@@ -97,6 +106,9 @@ export function route(reg: Registry, hints: TaskHints, rulesOverride?: Record<st
       effort: hints.effort ?? reg.defaultEffort(hints.agent),
       mode: hints.mode,
       reason: `explicit agent hint${explicit.tierNote ? ` + ${explicit.tierNote}` : ''}`,
+      // The structured fields belong on BOTH returns — this branch was missed on the first pass,
+      // which is the same "one decision, two entry points" shape the agents/`confirmed` fix was.
+      ...(explicit.tierNote ? { tierRequested: hints.tier, tierMatched: Boolean(explicit.tierModel) } : {}),
     });
   }
 
@@ -128,7 +140,11 @@ export function route(reg: Registry, hints: TaskHints, rulesOverride?: Record<st
     if (!reg.get(a)) return false;
     if (!configured(a)) return false;   // issue #7: consent gate
     if (reg.requiresAuth(a) === true) return false;
-    if (excludeVendors.length && !okVendor(a, hints.model ?? reg.defaultModel(a))) return false;
+    // The vendor that matters is the vendor of the model we would ACTUALLY use — the tier-resolved
+    // one. Checking the agent default here was a second entry point for "which model", and it
+    // disagreed with pickModel() exactly when a tier resolved to another vendor (same shape as the
+    // `confirmed` bug: one decision, two places, only one updated).
+    if (excludeVendors.length && !okVendor(a, pickModel(reg, a, hints, activeRule?.tier).model)) return false;
     return true;
   });
 
@@ -141,7 +157,11 @@ export function route(reg: Registry, hints: TaskHints, rulesOverride?: Record<st
       ? ' — no agent has been confirmed on this machine yet. Run the first-run wizard '
         + '(or confirm one in Settings → Agents); a detected adapter is not enough.'
       : excludeVendors.length
-        ? ` (heterogeneity excludeVendors=${JSON.stringify(excludeVendors)} — agents with unknown vendor are excluded by fail-closed policy)`
+        ? ` (heterogeneity excludeVendors=${JSON.stringify(excludeVendors)} — an agent whose vendor is `
+          + '"unknown" cannot prove it differs, so fail-closed excludes it). '
+          + 'On a fresh clone the model table carries no per-machine vendor evidence, so every vendor '
+          + 'is unknown: run a capability probe (Settings → Agents → 探测能力, or POST '
+          + '/api/agents/<id>/test) to record it — that is what makes heterogeneous review assembleable.'
         : '';
     throw new Error(`no viable agent available${why}`);
   }
@@ -164,5 +184,8 @@ export function route(reg: Registry, hints: TaskHints, rulesOverride?: Record<st
     effort: hints.effort ?? reg.defaultEffort(chosen),
     mode: hints.mode,
     reason,
+    ...(picked.tierNote
+      ? { tierRequested: hints.tier ?? activeRule?.tier, tierMatched: Boolean(picked.tierModel) }
+      : {}),
   });
 }

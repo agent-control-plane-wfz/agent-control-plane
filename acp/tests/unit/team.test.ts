@@ -119,3 +119,14 @@ test('F10: team validation and reset', () => {
   assert.equal(teams.t1, undefined, 'only the named template is removed');
   assert.deepEqual(teams.t2, { reviewer: 'a2' });
 });
+
+test('F10: patching one template does not drop its sibling slots', () => {
+  // Same shape as the `confirmed` bug: a section spread replaced the whole entry, so editing one
+  // slot would silently clear the others.
+  saveSettings({ teams: { tri: { implementer: 'a1', reviewer: 'a2', arbiter: 'a3' } } });
+  saveSettings({ teams: { tri: { reviewer: 'a1' } } });
+  const t = (getMerged().teams ?? {}).tri as any;
+  assert.equal(t.implementer, 'a1', 'sibling slots survive a partial patch');
+  assert.equal(t.arbiter, 'a3');
+  assert.equal(t.reviewer, 'a1', 'and the patched slot is updated');
+});

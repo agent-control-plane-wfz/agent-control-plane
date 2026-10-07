@@ -29,7 +29,7 @@ interface JobEvent { kind: string; text?: string; at: number }
 
 interface Job {
   id: string;
-  kind: 'ask' | 'parallel';
+  kind: 'ask' | 'parallel' | 'review';
   status: 'running' | 'done' | 'failed';
   request: any;
   result?: any;
@@ -76,9 +76,16 @@ async function runJob(job: Job): Promise<void> {
     if (job.events.length > EVENT_CAP) job.events.splice(0, job.events.length - EVENT_CAP);
   };
   try {
-    job.result = job.kind === 'ask'
-      ? await plane.ask({ ...job.request, onEvent })
-      : await plane.parallel(job.request.jobs, job.request.concurrency, onEvent);
+    if (job.kind === 'ask') {
+      job.result = await plane.ask({ ...job.request, onEvent });
+    } else if (job.kind === 'review') {
+      // The full orchestration, not a single delegation: implement -> cross-vendor review ->
+      // neutral verification -> optional arbitration. heteroReview reports its stage boundaries
+      // through the same onEvent, so this job streams like the other two.
+      job.result = await plane.heteroReview({ ...job.request, onEvent });
+    } else {
+      job.result = await plane.parallel(job.request.jobs, job.request.concurrency, onEvent);
+    }
     job.status = 'done';
   } catch (e: any) {
     job.status = 'failed';
@@ -398,12 +405,18 @@ const server = createServer(async (req, res) => {
       json(res, 200, { mcpSnippet, webPort: PORT, bind: '127.0.0.1' });
       return;
     }
-    if (req.method === 'POST' && (url.pathname === '/api/ask' || url.pathname === '/api/parallel')) {
+    if (req.method === 'POST' && (url.pathname === '/api/ask' || url.pathname === '/api/parallel' || url.pathname === '/api/review')) {
       const body = await readBody(req);
       if (url.pathname === '/api/ask') {
         if (!body.task || !body.cwd) { json(res, 400, { error: 'task and cwd are required' }); return; }
         noteRecentCwd(String(body.cwd));
         json(res, 200, submit('ask', body));
+        return;
+      }
+      if (url.pathname === '/api/review') {
+        if (!body.task || !body.cwd) { json(res, 400, { error: 'task and cwd are required' }); return; }
+        noteRecentCwd(String(body.cwd));
+        json(res, 200, submit('review', body));
         return;
       }
       if (!Array.isArray(body.jobs) || body.jobs.length === 0) {

@@ -222,7 +222,11 @@ export class ControlPlane {
     return r;
   }
 
-  review(opts: { task: string; cwd: string; excludeVendors: string[]; effort?: string; timeoutMs?: number; verdict?: boolean }) {
+  review(opts: {
+    task: string; cwd: string; excludeVendors: string[];
+    model?: string; effort?: string; timeoutMs?: number; verdict?: boolean;
+    onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void;
+  }) {
     return this.ask({ ...opts, taskType: 'review', differentVendorFrom: opts.excludeVendors, verdict: opts.verdict ?? true });
   }
 

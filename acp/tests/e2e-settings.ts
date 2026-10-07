@@ -51,8 +51,10 @@ function check(name: string, ok: boolean, detail = '') {
 }
 
 try {
-  await confirmAllViaHttp(base);   // issue #7: establish the consent precondition
+  // Order matters: the child needs a moment to bind, and a fetch before that is ECONNREFUSED —
+  // which used to surface as "E2E error: fetch failed" instead of a server-listen timeout.
   await until(async () => (await fetch(base)).status === 200, 20_000, 'server listen');
+  await confirmAllViaHttp(base);   // issue #7: establish the consent precondition
 
   // 1) merged settings expose the four builtins
   const s: any = await (await fetch(`${base}/api/settings`)).json();

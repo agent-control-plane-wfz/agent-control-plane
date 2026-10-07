@@ -34,16 +34,39 @@ test('F7: a fresh machine is "pending" and nothing is configured', () => {
   }
   const view = setupView();
   assert.equal(view.phase, 'pending');
-  assert.deepEqual(view.candidates.map((c) => c.id).sort(), [...BUILTINS].sort());
+  // issue #7 follow-up: the wizard no longer dumps every builtin on the user — a fresh machine
+  // opens on an EMPTY list, with the four builtins parked in `templates` as add-able options.
+  assert.deepEqual(view.candidates, [], 'nothing has been taken on yet');
+  assert.deepEqual(view.templates.map((c) => c.id).sort(), [...BUILTINS].sort());
   // The three adapter-backed agents point at files under WORKSPACE_DIR, which is empty here, so
   // they are NOT detected — that is the "fresh clone without npm install" case the wizard exists
   // to make obvious. opencode is a PATH CLI, so its detection depends on the machine and is not
   // asserted here.
   for (const id of ['claude', 'codex', 'dsh']) {
-    const c = view.candidates.find((x) => x.id === id)!;
+    const c = view.templates.find((x) => x.id === id)!;
     assert.equal(c.detected, false, `${id} has no adapter package in an empty workspace dir`);
     assert.match(c.detection, /入口不存在|不可解析/);
   }
+});
+
+test('F7: the wizard shows what the user took on and offers the rest as add-able', () => {
+  dropConfig();
+  completeSetup({ codex: { confirm: true } });
+  const view = setupView();
+  assert.deepEqual(view.candidates.map((c) => c.id), ['codex'], 'a confirmed agent is listed without being added again');
+  assert.equal(view.candidates[0].confirmed, true);
+  assert.equal(view.candidates[0].configuredNow, true);
+  assert.deepEqual(view.templates.map((c) => c.id).sort(), ['claude', 'dsh', 'opencode'],
+    'the ones nobody spoke for stay options — an explicit rejection is a rejection, not a "re-add me"');
+  // An agent that exists only because the USER wrote it into their config is theirs too: it is a
+  // candidate, never an "option" the wizard offers back.
+  saveSettings({ agents: { gemini: { confirmed: true, transport: 'acp', command: 'gemini', args: ['--acp'] } } });
+  const after = setupView();
+  assert.deepEqual(after.candidates.map((c) => c.id).sort(), ['codex', 'gemini']);
+  assert.equal(after.templates.some((t) => t.id === 'gemini'), false);
+  // A hand-written custom agent is a candidate even before `confirmed` is set (it is in their config).
+  writeConfig({ agents: { mine: { transport: 'acp', command: 'node', args: ['x.js'] } }, setup: { completedAt: 'x' } });
+  assert.deepEqual(setupView().candidates.map((c) => c.id), ['mine']);
 });
 
 test('F7: a pre-existing config is grandfathered (legacy), not revoked', () => {

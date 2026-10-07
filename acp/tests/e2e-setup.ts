@@ -69,9 +69,14 @@ try {
   dropConfig();
   const fresh = await getSetup();
   check('fresh machine: phase is pending', fresh.phase === 'pending', `phase=${fresh.phase}`);
-  check('fresh machine: candidates listed', (fresh.candidates ?? []).length >= 4,
-    (fresh.candidates ?? []).map((c: any) => `${c.id}${c.detected ? '(detected)' : ''}`).join(' '));
-  check('fresh machine: nothing is confirmed', (fresh.candidates ?? []).every((c: any) => c.confirmed === false));
+  // issue #7 follow-up: the wizard does NOT pre-list anything. A fresh machine opens empty and
+  // the four builtins sit in `templates` until the user adds one.
+  check('fresh machine: nothing is listed until the user adds it', (fresh.candidates ?? []).length === 0,
+    (fresh.candidates ?? []).map((c: any) => c.id).join(' '));
+  check('fresh machine: the builtins are offered as add-able templates', (fresh.templates ?? []).length >= 4,
+    (fresh.templates ?? []).map((c: any) => `${c.id}${c.detected ? '(detected)' : ''}`).join(' '));
+  check('fresh machine: nothing is confirmed',
+    [...(fresh.candidates ?? []), ...(fresh.templates ?? [])].every((c: any) => c.confirmed !== true));
 
   let routedTo: string | undefined;
   try { routedTo = plane.route({ taskType: 'quick' }).agent; } catch { routedTo = undefined; }
@@ -88,9 +93,11 @@ try {
   const after = await getSetup();
   check('wizard: phase becomes done', after.phase === 'done', `phase=${after.phase}`);
   const byId = (v: any, id: string) => (v.candidates ?? []).find((c: any) => c.id === id);
+  const tmpl = (v: any, id: string) => (v.templates ?? []).find((c: any) => c.id === id);
   check('wizard: dsh is configured', byId(after, 'dsh')?.configuredNow === true);
   check('wizard: declined claude is recorded, not merely unmentioned',
-    byId(after, 'claude')?.confirmed === false && byId(after, 'claude')?.configuredNow === false);
+    byId(after, 'claude') === undefined && tmpl(after, 'claude') !== undefined,
+    `candidates=${(after.candidates ?? []).map((c: any) => c.id).join(' ')} templates=${(after.templates ?? []).map((c: any) => c.id).join(' ')}`);
 
   const quick = plane.route({ taskType: 'quick' });   // the builtin rule says opencode
   check('routing: a quick task goes to the ONLY confirmed agent, not the rule default',
@@ -126,7 +133,9 @@ try {
   // ---- acceptance 5: convenience is not lost when everything is picked ---------------------
   dropConfig();
   const all: Record<string, any> = {};
-  for (const c of (await getSetup()).candidates) all[c.id] = { confirm: true };
+  const offered = await getSetup();
+  // Following the wizard as a user would: add every option to the list, then confirm it.
+  for (const c of [...(offered.candidates ?? []), ...(offered.templates ?? [])]) all[c.id] = { confirm: true };
   await postSetup(all);
   const full = plane.route({ taskType: 'quick' });
   check('all confirmed: the rule default applies again (no usability loss)',

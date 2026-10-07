@@ -39,7 +39,20 @@ export interface HeteroReviewOptions {
   implementerModel?: string;
   implementerEffort?: string;
   implementerMode?: string;          // e.g. 'acceptEdits' for write tasks
+  // The three seats are symmetric: each one takes {agent, model, effort}. `agent` comes from the
+  // team template (or the Router when the slot is 'auto'); model and effort are per-call overrides.
+  // Leaving any of them unset reproduces the previous behaviour exactly, so callers that never
+  // touched these fields do not regress.
+  reviewerModel?: string;
   reviewerEffort?: string;
+  arbiterModel?: string;
+  arbiterEffort?: string;
+  /**
+   * Live progress for UIs. Stage boundaries are reported as `status` lines, so a long review reads
+   * as a sequence (implement -> review -> verify -> arbitrate) instead of silence; each seat's own
+   * output passes through unchanged.
+   */
+  onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void;
   workspaceMode?: 'shared' | 'worktree';
   worktreeBaseDir?: string;          // where worktrees live — MUST NOT be inside a dir with package.json (module-type inheritance)
   verifyCommands?: VerifyCommand[];  // neutral gate: must all exit 0
@@ -139,6 +152,7 @@ export async function heteroReview(plane: ControlPlane, opts: HeteroReviewOption
 
 async function runLoop(plane: ControlPlane, opts: HeteroReviewOptions, implAgent: AgentId, effCwd: string, team: Required<TeamTemplate>, implVendorPlanned: string): Promise<HeteroReviewOutcome> {
   // 1) Implement (shared mode against effCwd — worktree already prepared above).
+  opts.onEvent?.({ kind: 'status', text: `① 实施 · ${implAgent}（厂商 ${implVendorPlanned}）` });
   const impl = await plane.ask({
     task: opts.task,
     cwd: effCwd,
@@ -147,8 +161,9 @@ async function runLoop(plane: ControlPlane, opts: HeteroReviewOptions, implAgent
     effort: opts.implementerEffort,
     mode: opts.implementerMode ?? 'acceptEdits',
     workspaceMode: 'shared',
-      timeoutMs: opts.timeoutMs,
+    timeoutMs: opts.timeoutMs,
     keepSession: false,
+    onEvent: opts.onEvent,
   });
   const implVendor = plane.registry.actualVendor(implAgent, impl.model);
   const implWorkspacePath = effCwd;
@@ -171,6 +186,10 @@ async function runLoop(plane: ControlPlane, opts: HeteroReviewOptions, implAgent
         '请审查实现是否正确、完整、安全，并按要求的 JSON 格式给出 verdict。',
       ].filter(Boolean).join('\n\n');
   const pinnedReviewer = pinned(team.reviewer);
+  opts.onEvent?.({
+    kind: 'status',
+    text: `② 交叉评审 · ${pinnedReviewer ?? `由 Router 挑选非 ${implVendor} 厂商`}`,
+  });
   try {
     // issue #10: a pinned reviewer is dispatched explicitly (its consent + heterogeneity
     // were pre-flighted in planTeam, before anything ran). No pinned slot -> the Router picks,
@@ -181,17 +200,21 @@ async function runLoop(plane: ControlPlane, opts: HeteroReviewOptions, implAgent
           taskType: 'review',
           task: reviewTask,
           cwd: implWorkspacePath,
+          model: opts.reviewerModel,
           effort: opts.reviewerEffort,
           verdict: true,
           timeoutMs: opts.timeoutMs,
+          onEvent: opts.onEvent,
         })
       : await plane.review({
           task: reviewTask,
           cwd: implWorkspacePath,
           excludeVendors: [implVendor],
+          model: opts.reviewerModel,
           effort: opts.reviewerEffort,
           verdict: true,
           timeoutMs: opts.timeoutMs,
+          onEvent: opts.onEvent,
         });
     reviewerVendor = plane.registry.actualVendor(review.agent, review.model);
   } catch (e: any) {
@@ -206,6 +229,7 @@ async function runLoop(plane: ControlPlane, opts: HeteroReviewOptions, implAgent
   // 3) Neutral verification — objective signals only.
   let verification: VerifyResult | undefined;
   if (opts.verifyCommands?.length) {
+    opts.onEvent?.({ kind: 'status', text: `③ 中立验证 · ${opts.verifyCommands.length} 条命令` });
     verification = await runVerification(opts.verifyCommands, implWorkspacePath);
   }
 
@@ -235,6 +259,10 @@ async function runLoop(plane: ControlPlane, opts: HeteroReviewOptions, implAgent
     const bothVendors = [implVendor, reviewerVendor ?? implVendor];
     try {
       const pinnedArbiter = pinned(team.arbiter);
+      opts.onEvent?.({
+        kind: 'status',
+        text: `④ 仲裁 · ${pinnedArbiter ?? `由 Router 挑选第三方厂商（非 ${bothVendors.join('/')}）`}`,
+      });
       arbitration = await plane.ask({
         // issue #10: a pinned arbiter is dispatched explicitly (pre-flighted as a third vendor).
         ...(pinnedArbiter
@@ -249,8 +277,11 @@ async function runLoop(plane: ControlPlane, opts: HeteroReviewOptions, implAgent
           '请给出最终裁决（按要求的 JSON verdict 格式）：以客观终验结果为最高依据，评审意见其次。',
         ].join('\n\n'),
         cwd: opts.cwd,
+        model: opts.arbiterModel,
+        effort: opts.arbiterEffort,
         verdict: true,
         timeoutMs: opts.timeoutMs,
+        onEvent: opts.onEvent,
       });
     } catch { /* arbitration optional */ }
   }

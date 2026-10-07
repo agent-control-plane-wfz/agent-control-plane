@@ -12,6 +12,7 @@ import { classifyTask, llmRouterEnabled } from '../router/llm-router.ts';
 import { prepareWorkspace, type PreparedWorkspace } from '../workspace/manager.ts';
 import { heteroReview as runHeteroReview, type HeteroReviewOptions, type HeteroReviewOutcome } from '../review/review.ts';
 import { Budget } from '../budget/budget.ts';
+import { runParallel, type ParallelJob, type ParallelOutcome } from '../batch/parallel.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -166,6 +167,11 @@ export class ControlPlane {
   // Phase 4: full implementation -> cross-vendor review -> neutral verification -> arbitration.
   heteroReview(opts: HeteroReviewOptions): Promise<HeteroReviewOutcome> {
     return runHeteroReview(this, opts);
+  }
+
+  // Phase 5: native fan-out/fan-in batch (fractal/CAO replacement on Windows — see batch/parallel.ts).
+  parallel(jobs: ParallelJob[], concurrency?: number): Promise<ParallelOutcome> {
+    return runParallel(this, jobs, concurrency);
   }
 
   async send(agent: AgentId, sessionId: string, task: string, timeoutMs?: number): Promise<AgentResult> {

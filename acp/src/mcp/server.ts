@@ -113,6 +113,37 @@ const TOOLS = [
     },
   },
   {
+    name: 'parallel_agents',
+    description: 'Phase 5 batch: fan out multiple subtasks concurrently, each with independent routing (agent/model/effort or auto), fallback, budget and verdict. Jobs run in a bounded pool; one job failing never fails the batch.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        jobs: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              task: { type: 'string' },
+              cwd: { type: 'string' },
+              agent: { type: 'string', enum: ['opencode', 'claude', 'codex', 'dsh'] },
+              model: { type: 'string' },
+              effort: { type: 'string' },
+              taskType: { type: 'string', enum: ['quick', 'code', 'reasoning', 'review'] },
+              verdict: { type: 'boolean' },
+              maxToolCalls: { type: 'number' },
+              workspaceMode: { type: 'string', enum: ['shared', 'worktree'] },
+              timeoutMs: { type: 'number' },
+            },
+            required: ['task', 'cwd'],
+          },
+        },
+        concurrency: { type: 'number', description: 'max parallel jobs (default 3)' },
+      },
+      required: ['jobs'],
+    },
+  },
+  {
     name: 'stop_agent',
     description: 'Cancel the running prompt of a session.',
     inputSchema: {
@@ -176,6 +207,10 @@ async function callTool(name: string, args: any): Promise<{ content: any[]; isEr
         const { runVerification } = await import('../review/verify.ts');
         const r = await runVerification(args.commands, args.cwd, args.timeoutMs);
         return text(r, !r.allPassed);
+      }
+      case 'parallel_agents': {
+        const r = await plane.parallel(args.jobs, args.concurrency);
+        return text(r, r.summary.failed > 0);
       }
       case 'stop_agent':
         return text(await plane.stop(args.agent as AgentId, args.sessionId));

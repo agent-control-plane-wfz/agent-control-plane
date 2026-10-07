@@ -28,6 +28,22 @@
   注意 codex 的 effort 项 id 是 `reasoning_effort`（plane 按 category=thought_level 动态解析）。
 - MCP 冒烟：initialize / tools/list(6 工具) / tools/call(status) ✅
 
+## Phase 5 新增
+
+- **原生批量编排**（`src/batch/parallel.ts` `plane.parallel` + MCP `parallel_agents`）：
+  多个子任务 fan-out 并发执行（有界并发池，默认 3），每个 job 独立走完整 ask 链路
+  （路由/fallback/预算/verdict/worktree），单 job 失败不拖垮批次；汇总 per-job 状态与
+  合计 usage。E2E 实测（`tests/e2e-phase5.ts`）：dsh+codex+claude 三路并发 12.5s
+  （串行需 23.6s），坏 cwd 任务独立失败、好任务正常完成。
+- **为什么不是 fractal/CAO（实测结论，2026-10-07）**：
+  - `plasma-fractal` 1.3.0 在原生 Windows **直接不可用**：CLI 导入链的 core 层
+    （config.py / node.py / worktree.py）硬依赖 Unix-only 的 `fcntl.flock` 做内核级并发锁，
+    tmux 渗透到 `core/loop.py`。no-op shim 会破坏其自身的并发安全保证，不予采用。
+  - `awslabs/cli-agent-orchestrator` 强依赖 tmux，需 WSL2。
+  - 结论：fractal 的核心价值（worktree 隔离 + 预算 + 层级树）已在本项目原生实现，
+    "整树批处理"由 `parallel_agents` 承担；WSL2 内跑 fractal 作为未来可选路径，
+    届时可通过同一个 Driver 抽象挂为第五个 backend。
+
 ## Phase 4 新增
 
 - **异构互审编排**（`src/review/review.ts` `plane.heteroReview`）：
@@ -35,8 +51,7 @@
   分歧时第三方仲裁（仲裁者输入仅限两份 verdict，隔离上下文偏见）。
 - **中立终验**（`src/review/verify.ts`）：`verifyCommands` 全部 exit 0 才算 done——
   LLM 无权宣布成功。E2E 实测中它抓住了实现者的虚报（"created" 但文件不存在）。
-- MCP 新工具：`hetero_review` / `verify`（共 8 个）。
-- E2E 实录（`tests/e2e-phase4.ts`）：deepseek(claude adapter) 在隔离 worktree 里用 TDD
+- MCP 新工具：`hetero_review` / `verify`（共 8 个）。- E2E 实录（`tests/e2e-phase4.ts`）：deepseek(claude adapter) 在隔离 worktree 里用 TDD
   实现 calc.js → codex(openai) 实际运行测试后给出 approve verdict（还指出 NaN 规格边界）→
   node 中立终验通过 → consensus=verified。
 

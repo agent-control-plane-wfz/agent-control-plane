@@ -3,7 +3,7 @@
   "_meta": {
     "generated": "2026-10-07T15:45+08:00",
     "method": "Phase 0 实测（smoke-acp.mjs 握手）+ Phase 2 setter 探针（probe-setters.ts）+ adapter 源码核实",
-    "note": "每行数据必须来自实测或官方文档并标注来源；未经实测的字段一律 TBD/claimed，禁止臆测",
+    "note": "Each entry from measurement or official docs with source; unmeasured fields are TBD/claimed, never guessed. external_backends added 2026-10-07 (Phase 5 feasibility).",
     "setter_fact": "session/set_config_option { sessionId, configId, value } 三家统一（源码核实 claude-agent-acp 0.86.0 / codex-acp 2.1.1，实测含 opencode 2.0.22），8/8 设置+恢复成功；codex 的 effort 项 id 为 reasoning_effort"
   },
   "agents": {
@@ -14,32 +14,72 @@
       "tested_at": "2026-10-07",
       "auth": {
         "status": "authenticated",
-        "methods_advertised": ["opencode-login"],
+        "methods_advertised": [
+          "opencode-login"
+        ],
         "note": "session/new 成功且返回模型列表，当前账号有可用 provider（免费模型池）"
       },
       "capabilities": {
         "initialize": true,
         "loadSession": true,
-        "session": { "new": true, "resume": true, "fork": true, "list": true, "close": true, "delete": true },
-        "prompt": { "embeddedContext": true, "image": true, "roundtrip_tested": false },
-        "mcp": { "http": true, "sse": false },
+        "session": {
+          "new": true,
+          "resume": true,
+          "fork": true,
+          "list": true,
+          "close": true,
+          "delete": true
+        },
+        "prompt": {
+          "embeddedContext": true,
+          "image": true,
+          "roundtrip_tested": false
+        },
+        "mcp": {
+          "http": true,
+          "sse": false
+        },
         "subagents": false,
-        "extensions": { "opencode/child-session-updates": true }
+        "extensions": {
+          "opencode/child-session-updates": true
+        }
       },
       "configOptions_observed": {
         "model": {
-          "type": "select", "category": "model", "current": "opencode/exo-free",
+          "type": "select",
+          "category": "model",
+          "current": "opencode/exo-free",
           "options_count": 11,
-          "examples": ["opencode/big-pickle", "opencode/ling-3.1-flash-free", "opencode/nemotron-3-ultra-free"]
+          "examples": [
+            "opencode/big-pickle",
+            "opencode/ling-3.1-flash-free",
+            "opencode/nemotron-3-ultra-free"
+          ]
         },
         "effort": {
-          "type": "select", "category": "thought_level", "current": "default",
-          "options": ["high", "default"],
+          "type": "select",
+          "category": "thought_level",
+          "current": "default",
+          "options": [
+            "high",
+            "default"
+          ],
           "note": "档位集合随所选模型变化，路由时须按 model 动态查询"
         },
-        "mode": { "type": "select", "category": "mode", "current": "build", "options": ["build", "plan"] }
+        "mode": {
+          "type": "select",
+          "category": "mode",
+          "current": "build",
+          "options": [
+            "build",
+            "plan"
+          ]
+        }
       },
-      "windows": { "works": true, "note": "原生 bun exe，无 tmux/PTY 依赖，实测通过" },
+      "windows": {
+        "works": true,
+        "note": "原生 bun exe，无 tmux/PTY 依赖，实测通过"
+      },
       "open_questions": [
         "session/prompt 往返与 session/update 事件流未测",
         "set_config_option 方法名与行为未验证",
@@ -59,32 +99,70 @@
       "capabilities": {
         "initialize": true,
         "loadSession": true,
-        "session": { "new": true, "resume": true, "fork": true, "list": true, "close": true, "delete": true, "subagents": true },
-        "prompt": { "embeddedContext": true, "image": true, "roundtrip_tested": false },
-        "mcp": { "http": true, "sse": true },
+        "session": {
+          "new": true,
+          "resume": true,
+          "fork": true,
+          "list": true,
+          "close": true,
+          "delete": true,
+          "subagents": true
+        },
+        "prompt": {
+          "embeddedContext": true,
+          "image": true,
+          "roundtrip_tested": false
+        },
+        "mcp": {
+          "http": true,
+          "sse": true
+        },
         "steering": true,
         "promptQueueing": true
       },
       "configOptions_observed": {
         "model": {
-          "type": "select", "category": "model", "current": "sonnet",
+          "type": "select",
+          "category": "model",
+          "current": "sonnet",
           "warning": "本机已把 opus/sonnet/haiku 重映射为 deepseek-v4-flash（自定义模型映射），仅 fable-5 为真 Claude",
           "heterogeneity_impact": "异构评审约束必须基于实际模型厂商判断，不能看 adapter 名"
         },
         "effort": {
-          "type": "select", "category": "thought_level", "current": "xhigh",
-          "options": ["default", "low", "medium", "high", "xhigh", "max"]
+          "type": "select",
+          "category": "thought_level",
+          "current": "xhigh",
+          "options": [
+            "default",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
         },
         "mode": {
-          "type": "select", "category": "mode", "current": "default",
-          "options": ["default", "acceptEdits", "plan", "auto", "bypassPermissions"]
+          "type": "select",
+          "category": "mode",
+          "current": "default",
+          "options": [
+            "default",
+            "acceptEdits",
+            "plan",
+            "auto",
+            "bypassPermissions"
+          ]
         },
         "agent": {
-          "type": "select", "current": "default",
+          "type": "select",
+          "current": "default",
           "note": "可选择 agent persona（本机已有 code-simplifier、task-orchestrator 等定义）"
         }
       },
-      "windows": { "works": true, "note": "Node 22 直跑 dist/index.js，无需 prebuild" },
+      "windows": {
+        "works": true,
+        "note": "Node 22 直跑 dist/index.js，无需 prebuild"
+      },
       "open_questions": [
         "模型偏好 bug（部分版本忽略 settings）在 0.86.0 的表现",
         "prompt 往返、子代理事件形状未测",
@@ -98,24 +176,63 @@
       "tested_at": "2026-10-07",
       "auth": {
         "status": "authenticated (chat-gpt, ~/.codex/auth.json)",
-        "methods_advertised": ["api-key (openai)", "chat-gpt"],
+        "methods_advertised": [
+          "api-key (openai)",
+          "chat-gpt"
+        ],
         "note": "2026-10-07 下午 wfz 完成 ChatGPT 登录；prompt 往返已实测通过（e2e-creds）"
       },
       "capabilities": {
         "initialize": true,
         "loadSession": true,
-        "session": { "new": true, "resume": true, "fork": true, "list": true, "close": true, "delete": true, "subagents": true, "additionalDirectories": true },
-        "prompt": { "embeddedContext": true, "image": true, "roundtrip_tested": false },
-        "mcp": { "http": true, "acp": false, "sse": false }
+        "session": {
+          "new": true,
+          "resume": true,
+          "fork": true,
+          "list": true,
+          "close": true,
+          "delete": true,
+          "subagents": true,
+          "additionalDirectories": true
+        },
+        "prompt": {
+          "embeddedContext": true,
+          "image": true,
+          "roundtrip_tested": false
+        },
+        "mcp": {
+          "http": true,
+          "acp": false,
+          "sse": false
+        }
       },
       "configOptions_observed": {
         "model": {
-          "type": "select", "category": "model", "current": "gpt-6.1-sol",
-          "options": ["gpt-6.1-sol", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]
+          "type": "select",
+          "category": "model",
+          "current": "gpt-6.1-sol",
+          "options": [
+            "gpt-6.1-sol",
+            "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6-luna",
+            "gpt-5.6-sol",
+            "gpt-5.6-terra",
+            "gpt-5.6-luna"
+          ]
         },
         "reasoning_effort": {
-          "type": "select", "category": "thought_level", "current": "xhigh",
-          "options": ["low", "medium", "high", "xhigh", "max", "ultra"]
+          "type": "select",
+          "category": "thought_level",
+          "current": "xhigh",
+          "options": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ]
         },
         "models_catalog": {
           "format": "modelId 内嵌档位，如 gpt-6.1-sol[xhigh]",
@@ -123,14 +240,40 @@
           "note": "7 模型 × 6 档；ultra 档带 automatic task delegation"
         },
         "mode": {
-          "type": "select", "category": "mode", "current": "agent",
-          "options": ["read-only", "workspace-write", "agent", "agent-full-access"],
+          "type": "select",
+          "category": "mode",
+          "current": "agent",
+          "options": [
+            "read-only",
+            "workspace-write",
+            "agent",
+            "agent-full-access"
+          ],
           "note": "approval+sandbox 四预设，等价 --sandbox/--ask-for-approval 组合"
         },
-        "collaboration_mode": { "type": "select", "current": "default", "options": ["default", "plan"] },
-        "fast_mode": { "type": "select", "category": "model_config", "current": "off", "options": ["off", "on"], "note": "1.5x 速度，用量增加" }
+        "collaboration_mode": {
+          "type": "select",
+          "current": "default",
+          "options": [
+            "default",
+            "plan"
+          ]
+        },
+        "fast_mode": {
+          "type": "select",
+          "category": "model_config",
+          "current": "off",
+          "options": [
+            "off",
+            "on"
+          ],
+          "note": "1.5x 速度，用量增加"
+        }
       },
-      "windows": { "works": true, "note": "Node 22 直跑，App Server 正常启动" },
+      "windows": {
+        "works": true,
+        "note": "Node 22 直跑，App Server 正常启动"
+      },
       "open_questions": [
         "prompt 往返需 auth（OPENAI_API_KEY 或 ChatGPT 登录）",
         "subagents 事件形状、goal extension 未测"
@@ -155,12 +298,30 @@
         "stderr_separation": "答案走 stdout，诊断走 stderr",
         "prompt_roundtrip_tested": true
       },
-      "windows": { "works": "partially", "note": "CLI/launch OK；PTY 相关能力 Windows 受限（官方已知）；headless 不需要 PTY，预期可用待实测" },
+      "windows": {
+        "works": "partially",
+        "note": "CLI/launch OK；PTY 相关能力 Windows 受限（官方已知）；headless 不需要 PTY，预期可用待实测"
+      },
       "install_notes": "依赖树巨大（499 包，含 libreoffice-kit 等），且曾触发沙箱 safe-delete shim（联装时）；单独安装成功",
       "open_questions": [
         "--json 事件的具体 schema（status/text/thinking/tool_call/tool_result/final）",
         "Windows 下 headless 端到端跑通（需 DeepSeek key）"
       ]
+    }
+  },
+  "external_backends": {
+    "plasma-fractal": {
+      "version_tested": "1.3.0",
+      "status": "not-viable-native-windows",
+      "evidence": "CLI import chain fails at module level: fractal/core/{config,node,worktree}.py hard-import Unix-only fcntl (flock used for kernel-level concurrency locks); tmux referenced in core/loop.py and 5 more files",
+      "decision": "No no-op shim (would break its own concurrency-safety guarantees). Core value (worktree isolation, budget, tree batching) implemented natively in Control Plane; WSL2 revisit possible via a future Driver.",
+      "tested": "2026-10-07"
+    },
+    "awslabs-cli-agent-orchestrator": {
+      "status": "not-viable-native-windows",
+      "evidence": "tmux hard dependency; requires WSL2",
+      "decision": "documented-only; revisit with WSL2 if whole-session handoff semantics are needed",
+      "tested": "not-installed; based on official docs"
     }
   }
 }

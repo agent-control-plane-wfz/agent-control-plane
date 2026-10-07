@@ -170,6 +170,7 @@ Change the port with `ACP_WEB_PORT`.
 | `ACP_DAILY_TOKENS` | unlimited | Daily token cap |
 | `ACP_MATRIX_FILE` | `registry/capability-matrix.json` | Overrides where the **declared** facts matrix is read from (probes do not write here — see `ACP_OBSERVED_FILE`) |
 | `ACP_OBSERVED_FILE` | `$ACP_STATE_DIR/capability-observed.json` | Where **observed** probe facts are written; the Registry reads declared-then-observed |
+| `OPENCODE_BIN` | `opencode` (PATH) | opencode executable path; a bare name is resolved against PATH at spawn time (on Windows npm ships a `.cmd` shim, which must go through the interpreter — see below) |
 | `DSH_BIN` | derived from `WORKSPACE_DIR` | Path to the `dsh` entry `bin.js`; fails loudly when neither is set instead of guessing |
 | `DSH_NODE` | `process.execPath` | Node executable used to run `dsh` |
 
@@ -207,7 +208,8 @@ registry/      capability-matrix.json — the registry's first machine-readable 
 
 - `registry/capability-matrix.json` is a **measurement snapshot from one machine**, and the entry paths in it usually do not exist elsewhere.
   On a new machine, re-handshake via the **Probe capabilities** button in the settings center — probe results are written to
-  `state/capability-observed.json` (untracked) and merged over these declared facts, so the repository is never modified
+  `state/capability-observed.json` (untracked) and merged over these declared facts, so the repository is never modified.
+  It is a **fact record only** and no longer acts as a configuration source — agent commands come from the settings page or the environment
 
 - **A worktree is not a sandbox** — it isolates git branches only, not the filesystem, network or credentials. Agent processes can run arbitrary
   commands; use this only on trusted repositories, keep sensitive directories out of the workspace, and never expose keys to an agent unsupervised

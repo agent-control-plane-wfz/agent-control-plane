@@ -154,6 +154,13 @@ WORKSPACE_DIR=C:\Users\me\.workbuddy\binaries\node\workspace npm run web
 > 某台机器的绝对路径）；需要时用环境变量 `OPENCODE_BIN` 覆盖（同 dsh 的 `DSH_BIN`）。
 > 其余三家走 WORKSPACE_DIR 下的 node_modules，本机路径差异请写进 `state/control-plane-config.json`
 > （设置页保存，已 gitignore），不要改 tracked 的 matrix。
+>
+> **Windows 上的 PATH 壳**：npm 全局安装的 `opencode` 是 `opencode`（无扩展名脚本）+
+> `opencode.cmd` + `opencode.ps1` **三件套，没有 `opencode.exe`**。而 `spawn('opencode')`
+> 会 ENOENT、直接 spawn `opencode.cmd` 会 EINVAL —— 只有经解释器（`cmd /c ...`）或真 `.exe`
+> 才能跑。所以裸名在 **spawn 时**由 `src/core/resolve-cli.ts` 按 PATH 解析（优先 `.exe`，
+> 其次 `.cmd`/`.bat` 并包一层解释器），解析不到就带修复提示报错。配置里因此可以保持可移植的
+> `opencode`，不必写死机器路径。
 
 - REST API：`GET /api/status`、`GET/POST /api/jobs`、`POST /api/jobs/clear`、`POST /api/ask`、`POST /api/parallel`
 - **实时事件流**：driver 层 `onEvent` 回调 → 作业事件（模型输出块 / 工具调用 / 子任务完成）

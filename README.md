@@ -164,6 +164,7 @@ WORKSPACE_DIR=/path/to/workspace npm run web
 | `ACP_DAILY_TOKENS` | 不限 | 每日 token 上限 |
 | `ACP_MATRIX_FILE` | `registry/capability-matrix.json` | 覆盖**声明事实**矩阵的读取位置（探测不会写这里，见 `ACP_OBSERVED_FILE`） |
 | `ACP_OBSERVED_FILE` | `$ACP_STATE_DIR/capability-observed.json` | 探测产生的**观测事实**落盘位置；Registry 读「声明→观测」合并 |
+| `OPENCODE_BIN` | `opencode`（PATH） | opencode 可执行文件路径；裸名会在 spawn 时按 PATH 解析（Windows 上 npm 装的是 `.cmd` 壳，须经解释器，见下） |
 | `DSH_BIN` | 由 `WORKSPACE_DIR` 推导 | `dsh` 入口 `bin.js` 路径；两者都缺时**报错**而非猜路径 |
 | `DSH_NODE` | `process.execPath` | 运行 `dsh` 的 Node 可执行文件路径 |
 
@@ -199,7 +200,8 @@ registry/      capability-matrix.json —— 能力注册表的首份机器可�
 
 - `registry/capability-matrix.json` 是**某台机器的实测快照**，其中的入口路径在别的机器上通常不存在。
   换机器请用设置中心的「🔌 探测能力」重新握手 —— 探测结果写进 `state/capability-observed.json`（不受版本控制），
-  与本文件「声明事实」合并生效，不会改动仓库
+  与本文件「声明事实」合并生效，不会改动仓库。
+  它只是**事实记录**，不再充当配置源 —— agent 的命令来自设置页 / 环境变量
 
 - **`worktree` 不是沙箱** —— 它只隔离 git 分支，不隔离文件系统、网络与凭据。agent 进程可以执行任意命令，
   只在可信仓库使用，敏感目录不要进 workspace，绝不在无监督下把密钥暴露给 agent

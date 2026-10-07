@@ -1,6 +1,7 @@
 // ACP driver — one implementation, configured per agent (opencode/claude/codex).
 // Verified against Phase 0: all three expose model/effort as session configOptions.
 import { JsonRpcStdio } from '../core/jsonrpc.ts';
+import { resolveCli } from '../core/resolve-cli.ts';
 import type { AgentId, ConfigOption } from '../core/types.ts';
 
 export interface AcpAgentConfig {
@@ -36,7 +37,10 @@ export class AcpDriver {
   }
 
   async connect(cwd: string, extraEnv?: Record<string, string>): Promise<JsonRpcStdio> {
-    const rpc = new JsonRpcStdio(this.cfg.command, this.cfg.args, cwd, `acp:${this.cfg.agent}`, extraEnv);
+    // A portable configured command (`opencode`) has to be resolved to something spawn()
+    // can execute — on Windows a PATH shim is a `.cmd`, which spawn rejects outright.
+    const cli = resolveCli(this.cfg.command);
+    const rpc = new JsonRpcStdio(cli.command, [...cli.prefixArgs, ...this.cfg.args], cwd, `acp:${this.cfg.agent}`, extraEnv);
     const init = await rpc.request('initialize', {
       protocolVersion: 1,
       clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },

@@ -49,6 +49,17 @@ export interface RoutingSettings {
   llmRouter?: boolean;
 }
 
+/**
+ * Review-orchestration team slots (issue #10). Each slot is an agent id or 'auto' (let the Router
+ * fill it, i.e. today's behaviour). `verifier` is intentionally NOT a slot: the objective gate is
+ * the neutral command runner (review/verify.ts), not an agent verdict.
+ */
+export interface TeamTemplate {
+  implementer?: string;
+  reviewer?: string;
+  arbiter?: string;
+}
+
 export interface BudgetSettings { dailyRequests?: number; dailyTokens?: number }
 export interface WorkspaceSettings { recentCwds?: string[]; worktreeBaseDir?: string | null }
 
@@ -57,6 +68,8 @@ export interface AppSettings {
   routing: RoutingSettings;
   budget: BudgetSettings;
   workspace: WorkspaceSettings;
+  /** Named review-team templates (issue #10). */
+  teams?: Record<string, TeamTemplate>;
   /** First-run wizard bookkeeping (issue #7). Absent = this machine predates the feature. */
   setup?: { completedAt?: string | null };
 }
@@ -188,6 +201,7 @@ export function getMerged(): AppSettings {
       recentCwds: config.workspace?.recentCwds ?? [],
       worktreeBaseDir: config.workspace?.worktreeBaseDir ?? null,
     },
+    teams: config.teams ?? {},
     setup: config.setup ?? {},
   };
 }
@@ -278,6 +292,19 @@ function validate(patch: Partial<AppSettings>): string | null {
     }
   }
   if (patch.workspace?.worktreeBaseDir !== undefined && patch.workspace.worktreeBaseDir !== null && typeof patch.workspace.worktreeBaseDir !== 'string') return 'workspace.worktreeBaseDir: 必须是字符串或 null';
+  if (patch.teams) {
+    for (const [name, t] of Object.entries(patch.teams)) {
+      if (!isValidAgentId(name)) return `teams.${name}: 模板名非法（字母/数字/下划线/连字符）`;
+      if (!t || typeof t !== 'object') return `teams.${name}: 必须是对象`;
+      for (const slot of ['implementer', 'reviewer', 'arbiter'] as const) {
+        const v = (t as any)[slot];
+        if (v === undefined) continue;
+        if (typeof v !== 'string' || (v !== 'auto' && !isValidAgentId(v))) {
+          return `teams.${name}.${slot}: 只能是 'auto' 或合法 agent id`;
+        }
+      }
+    }
+  }
   if (patch.setup?.completedAt !== undefined && patch.setup.completedAt !== null && typeof patch.setup.completedAt !== 'string') return 'setup.completedAt: 必须是 ISO 字符串或 null';
   return null;
 }
@@ -312,6 +339,7 @@ export function saveSettings(patch: Partial<AppSettings>): AppSettings {
     },
     budget: { ...(cur.budget ?? {}), ...(patch.budget ?? {}) },
     workspace: { ...(cur.workspace ?? {}), ...(patch.workspace ?? {}) },
+    teams: { ...(cur.teams ?? {}), ...(patch.teams ?? {}) },
     setup: { ...(cur.setup ?? {}), ...(patch.setup ?? {}) },
   };
   mkdirSync(dirname(USER_CONFIG_FILE), { recursive: true });
@@ -320,19 +348,20 @@ export function saveSettings(patch: Partial<AppSettings>): AppSettings {
 }
 
 /** Remove a whole section (or one agent) from the user layer — 恢复默认. */
-export function resetSettings(section: 'agents' | 'routing' | 'budget' | 'workspace', sub?: string): AppSettings {
+export function resetSettings(section: 'agents' | 'routing' | 'budget' | 'workspace' | 'teams', sub?: string): AppSettings {
   const cur = loadUserConfig().config;
-  if (section === 'agents' && sub) {
-    // F10 (issue #2): only delete an OWN key — a bare `delete agents[sub]` with sub='__proto__'
+  if ((section === 'agents' || section === 'teams') && sub) {
+    const key = section === 'teams' ? 'teams' : 'agents';
+    const bag = { ...((cur as any)[key] ?? {}) };
+    // F10 (issue #2): only delete an OWN key — a bare `delete bag[sub]` with sub='__proto__'
     // (or 'constructor') would otherwise reach into the prototype chain.
-    const agents = { ...(cur.agents ?? {}) };
-    if (Object.prototype.hasOwnProperty.call(agents, sub)) delete agents[sub];
-    atomicWrite(USER_CONFIG_FILE, JSON.stringify({ ...cur, agents }, null, 2));
-  } else {
-    const next = { ...cur } as Record<string, unknown>;
-    delete next[section];
-    atomicWrite(USER_CONFIG_FILE, JSON.stringify(next, null, 2));
+    if (Object.prototype.hasOwnProperty.call(bag, sub)) delete bag[sub];
+    atomicWrite(USER_CONFIG_FILE, JSON.stringify({ ...cur, [key]: bag }, null, 2));
+    return getMerged();
   }
+  const next = { ...cur } as Record<string, unknown>;
+  delete next[section];
+  atomicWrite(USER_CONFIG_FILE, JSON.stringify(next, null, 2));
   return getMerged();
 }
 

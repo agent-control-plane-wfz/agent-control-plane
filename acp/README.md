@@ -125,6 +125,29 @@
   - **集成**：一键生成并复制 MCP 接入片段（给 Claude Code / Codex 的 .mcp.json，含 env）
 - 设计对标 DeepSeek Harness 的设置页（原则提取自其官方包文档，见计划文档 §1）
 
+## 评审团队槽位（issue #10）
+
+`hetero_review` 的分工从隐式变为**可配置**。模板按名字保存在用户配置里，派单时用 `team` 指定：
+
+```json
+{ "teams": { "strict": { "implementer": "codex", "reviewer": "claude", "arbiter": "auto" } } }
+```
+
+| 槽位 | 职责 | 约束 |
+|---|---|---|
+| `implementer` | 产出实现 | — |
+| `reviewer` | 交叉评审 | **与实现者实际厂商异构**（fail-closed） |
+| `arbiter` | 分歧仲裁 | 与**双方**都不同厂商（只看两份 verdict） |
+
+- 未填/填 `auto` 的槽位 = 由 Router 按既有规则填充，**行为与当前完全一致**（不回归）。
+- `verifier` **不是槽位**：客观终验是中性命令闸（`review/verify.ts`，exit 0 才算通过），不是 agent 评审。
+- 指定的槽位必须**已确认启用**（issue #7 的确认门同样适用于模板）。
+- 指定的 reviewer 与实现者同厂商、或自身厂商 `unknown` → **明确报错**：不静默改道，也不降级为自评。
+- **预检在任何派单之前**：同厂商的模板会在实现者跑之前就被拒绝——否则错误会在已经花掉一次调用之后才出现。
+
+不做「LLM leader 动态指派」：Router 本身是确定性规则路由，套一层领导者要么重复它、要么把不可验证的
+判断变成新的单点（正是 issue #6 的教训）。
+
 ## dsh 运行形态（issue #9）
 
 `--profile` 不再是硬编码字面量，默认仍是 `headless`：

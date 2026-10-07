@@ -81,6 +81,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        team: { type: 'string', description: 'issue #10: saved team template name; unset slots = auto' },
         task: { type: 'string' },
         cwd: { type: 'string', description: 'Project directory (git repo if workspaceMode=worktree)' },
         implementer: { type: 'string', enum: ['opencode', 'claude', 'codex', 'dsh'] },
@@ -195,6 +196,7 @@ async function callTool(name: string, args: any): Promise<{ content: any[]; isEr
       case 'hetero_review': {
         const r = await plane.heteroReview({
           task: args.task, cwd: args.cwd,
+          team: args.team,
           implementer: args.implementer as AgentId | undefined,
           implementerModel: args.implementerModel, implementerEffort: args.implementerEffort,
           implementerMode: args.implementerMode, reviewerEffort: args.reviewerEffort,

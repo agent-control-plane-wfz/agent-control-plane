@@ -237,7 +237,7 @@ const server = createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/settings/reset') {
       const body = await readBody(req);
       const section = body.section;
-      if (!['agents', 'routing', 'budget', 'workspace'].includes(section)) {
+      if (!['agents', 'routing', 'budget', 'workspace', 'teams'].includes(section)) {
         json(res, 400, { error: `unknown section: ${section}` });
         return;
       }

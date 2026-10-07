@@ -45,3 +45,25 @@ test('fallback chain preserves route order minus the picked agent', () => {
   assert.equal(d.agent, 'opencode');
   assert.deepEqual(d.fallbackChain, ['codex', 'claude', 'dsh']);
 });
+
+// F9 (issue #2): the fallback order was a hardcoded builtin list, so a custom agent could
+// never be a fallback candidate. It must now be derived from the registry.
+test('F9: a custom agent is reachable as a fallback candidate', async () => {
+  const { mkdtempSync, readFileSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+
+  const modelsPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'registry', 'models.json');
+  const declared = JSON.parse(readFileSync(join(dirname(modelsPath), '..', '..', '..', 'registry', 'capability-matrix.json'), 'utf8'));
+  declared.agents.myagent = { transport: 'acp', auth: { status: 'authenticated (test)' } };
+
+  const dir = mkdtempSync(join(tmpdir(), 'acp-router-'));
+  const matrixPath = join(dir, 'matrix.json');
+  writeFileSync(matrixPath, JSON.stringify(declared), 'utf8');
+
+  const { Registry } = await import('../../src/registry/registry.ts');
+  const reg2 = new Registry(matrixPath, modelsPath, join(dir, 'observed.json'));
+  const d = route(reg2, { taskType: 'quick' });
+  assert.ok(d.fallbackChain.includes('myagent'), `custom agent must be a fallback candidate, chain=${JSON.stringify(d.fallbackChain)}`);
+});

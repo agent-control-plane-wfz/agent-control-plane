@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AgentId, AgentResult, TokenUsage, ConfigApplyRecord } from '../core/types.ts';
 import { verdictInstruction, extractVerdict, VERDICT_RETRY_PROMPT, type Verdict } from '../core/verdict.ts';
+import { isTransportError } from '../core/transport-error.ts';
 import { AcpDriver, type AcpSession } from '../drivers/acp-driver.ts';
 import { DshDriver } from '../drivers/dsh-driver.ts';
 import { Registry } from '../registry/registry.ts';
@@ -32,10 +33,8 @@ function resolveAgentConfig(id: string): AcpAgentConfig {
 }
 
 // D2: transport/auth-class failures are eligible for fallback; content failures are not.
-function isTransportError(err?: string): boolean {
-  if (!err) return false;
-  return /timeout|exited|MODULE_NOT_FOUND|ENOENT|ECONN|ENOTFOUND|EACCES|spawn|not found|auth|unauthor|credential|login/i.test(err);
-}
+// (F8, issue #2: the matcher moved to core/transport-error.ts so it is unit-testable and
+// no longer treats "author" as an auth failure — imported at the top of this file.)
 
 export interface AskOptions {
   task: string;
@@ -163,11 +162,14 @@ export class ControlPlane {
       // every candidate failed at transport level
       r = {
         agent: decision.agent, ok: false, text: '',
-        error: `all fallback candidates failed — ${attempts.join(' | ')}`,
+        error: 'all fallback candidates failed',
         toolCalls: 0, durationMs: Date.now() - t0,
       };
     }
-    if (attempts.length) r.error = [r.error, `fallback trail: ${attempts.join(' | ')}`].filter(Boolean).join(' || ');
+    // F3 (issue #2): the fallback trail is diagnostic, never the job's error. A successful
+    // job (r.ok) must not carry `error` — the console renders it in red and consumers key
+    // off it to judge the result. The trail lives in its own field.
+    if (attempts.length) r.fallbackTrail = attempts.join(' | ');
 
     r.workspace = ws
       ? { kind: ws.kind, path: ws.path, branch: ws.branch }
@@ -237,10 +239,21 @@ export class ControlPlane {
   }
 
   async stop(agent: AgentId, sessionId: string): Promise<{ stopped: boolean }> {
-    const s = this.sessions.get(`${agent}:${sessionId}`);
+    // dsh is a one-shot process: there is no live child to cancel, but "stopping" it means
+    // dropping the resume handle so send() can no longer continue that session.
+    if (agent === 'dsh') {
+      const had = this.dshSessions.delete(sessionId);
+      return { stopped: had };
+    }
+    const key = `${agent}:${sessionId}`;
+    const s = this.sessions.get(key);
     if (!s) return { stopped: false };
     const d = this.acpDriver(agent);
-    await d.cancel(s);
+    try { await d.cancel(s); } catch { /* best-effort cancel */ }
+    // F1 (issue #2): a kept session is now owned by stop() — cancel AND reclaim it,
+    // else the child process leaks and listSessions() would report a dead session.
+    this.sessions.delete(key);
+    try { await s.rpc.close(); } catch { /* noop */ }
     return { stopped: true };
   }
 
@@ -380,7 +393,12 @@ export class ControlPlane {
           usage: outcome.usage, applied, verdict, verdictError,
         };
       } finally {
-        if (session) {
+        // F1 (issue #2): honour keepSession — a kept session must stay in the map and
+        // keep its child process alive, otherwise spawn_agent/send_agent/stop_agent are
+        // all unreachable. Teardown is then owned by stop() / shutdown().
+        if (session && o.keep) {
+          // Intentionally left live. The caller (or shutdown) owns it now.
+        } else if (session) {
           this.sessions.delete(`${agent}:${session.sessionId}`);
           await rpc.close();
         } else {

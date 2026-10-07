@@ -1,9 +1,11 @@
 // Settings (v3): four-layer config precedence, highest first —
 //   ① user config   state/control-plane-config.json  (written by the Settings UI; gitignored)
 //   ② env           deployment-level (WORKSPACE_DIR, ACP_DAILY_*, ACP_LLM_ROUTER)
-//   ③ measured      registry/capability-matrix.json  (facts from probes — users edit via probe, not by hand)
+//   ③ measured      registry/capability-matrix.json  (DECLARED facts, checked in)
+//                   + state/capability-observed.json (OBSERVED on this machine; F2, issue #2)
 //   ④ code defaults (this file)
-// Facts and preferences stay separate: the UI edits layer ①, the probe button writes layer ③.
+// Facts and preferences stay separate: the UI edits layer ①, the probe button writes
+// observed facts into layer ③'s state half — never into the tracked matrix.
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -134,7 +136,9 @@ export function getMerged(): AppSettings {
   const agents: Record<string, AgentSettings> = {};
   for (const id of BUILTIN_IDS) agents[id] = mergeAgent(defaults[id], config.agents?.[id]);
   for (const [id, cfg] of Object.entries(config.agents ?? {})) {
-    if (!agents[id]) agents[id] = mergeAgent(undefined, cfg); // custom agents
+    // F10 (issue #2): hasOwnProperty, not a truthiness check — `agents['__proto__']` would
+    // be truthy on any object and silently swallow a (now-rejected) reserved id.
+    if (!Object.prototype.hasOwnProperty.call(agents, id)) agents[id] = mergeAgent(undefined, cfg); // custom agents
   }
   const env = envLayer();
   return {
@@ -152,10 +156,18 @@ export function getMerged(): AppSettings {
 }
 
 // --- validation: save is refused with a field-level reason; nothing is written otherwise.
+// F10 (issue #2): the id space must be an allowlist. `[\s/\\]` let `__proto__`,
+// `constructor` and `prototype` through; today getMerged()'s `if (!agents[id])` happens to
+// block them (all three are truthy on {}), but that is an accident, not a guarantee.
+const RESERVED_IDS = ['__proto__', 'constructor', 'prototype'];
+export function isValidAgentId(id: string): boolean {
+  return /^[A-Za-z0-9_-]+$/.test(id) && !RESERVED_IDS.includes(id);
+}
+
 function validate(patch: Partial<AppSettings>): string | null {
   if (patch.agents) {
     for (const [id, a] of Object.entries(patch.agents)) {
-      if (!id || /[\s/\\]/.test(id)) return `agents.${id}: 非法 id`;
+      if (!isValidAgentId(id)) return `agents.${id}: 非法 id（只允许字母/数字/下划线/连字符，且不得为保留名）`;
       if (!a || typeof a !== 'object') return `agents.${id}: 必须是对象`;
       if (a.enabled !== undefined && typeof a.enabled !== 'boolean') return `agents.${id}.enabled: 必须是布尔`;
       if (a.transport !== undefined && !['acp', 'json-process'].includes(a.transport)) return `agents.${id}.transport: 只能是 acp 或 json-process`;
@@ -216,8 +228,10 @@ export function saveSettings(patch: Partial<AppSettings>): AppSettings {
 export function resetSettings(section: 'agents' | 'routing' | 'budget' | 'workspace', sub?: string): AppSettings {
   const cur = loadUserConfig().config;
   if (section === 'agents' && sub) {
+    // F10 (issue #2): only delete an OWN key — a bare `delete agents[sub]` with sub='__proto__'
+    // (or 'constructor') would otherwise reach into the prototype chain.
     const agents = { ...(cur.agents ?? {}) };
-    delete agents[sub];
+    if (Object.prototype.hasOwnProperty.call(agents, sub)) delete agents[sub];
     atomicWrite(USER_CONFIG_FILE, JSON.stringify({ ...cur, agents }, null, 2));
   } else {
     const next = { ...cur } as Record<string, unknown>;

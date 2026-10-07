@@ -1,5 +1,7 @@
-// Capability Registry v0 — single source of truth = capability-matrix.json (Phase 0 measured data).
-import { readFileSync } from 'node:fs';
+// Capability Registry v0 — declared facts from capability-matrix.json (Phase 0 measured
+// data, checked in) merged with observed facts from the state dir (F2, issue #2: probe
+// results are machine-local, so they must not be written into a tracked file).
+import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AgentId, AgentStatusSummary } from '../core/types.ts';
@@ -30,18 +32,46 @@ export class Registry {
   models: { models: Record<string, ModelEntry>; agentDefaults: Record<string, { model?: string; effort?: string | null; vendorPool?: string }> };
   private matrixPath: string;
   private modelsPath: string;
+  private observedPath: string;
+  private observed: Record<string, Partial<AgentEntry>> = {};
 
-  constructor(matrixPath?: string, modelsPath?: string) {
+  constructor(matrixPath?: string, modelsPath?: string, observedPath?: string) {
     this.matrixPath = matrixPath ?? process.env.ACP_MATRIX_FILE ?? join(here, '..', '..', '..', 'registry', 'capability-matrix.json');
     this.modelsPath = modelsPath ?? join(here, 'models.json');
+    this.observedPath = observedPath ?? process.env.ACP_OBSERVED_FILE
+      ?? join(process.env.ACP_STATE_DIR ?? join(here, '..', '..', '..', 'state'), 'capability-observed.json');
     this.matrix = JSON.parse(readFileSync(this.matrixPath, 'utf8'));
     this.models = JSON.parse(readFileSync(this.modelsPath, 'utf8'));
+    this.loadObserved();
+    this.applyObserved();
   }
 
-  /** Re-read matrix + models after a probe has written new observations. */
+  private loadObserved(): void {
+    try {
+      if (existsSync(this.observedPath)) {
+        this.observed = (JSON.parse(readFileSync(this.observedPath, 'utf8')) as { agents?: Record<string, Partial<AgentEntry>> }).agents ?? {};
+      }
+    } catch { /* corrupt/unreadable -> declared facts only */ }
+  }
+
+  /** Declared-then-observed: observed fields win only where the probe actually recorded something. */
+  private applyObserved(): void {
+    for (const [id, obs] of Object.entries(this.observed)) {
+      const declared = this.matrix.agents[id] ?? { transport: (obs as AgentEntry).transport ?? 'acp' };
+      const merged: AgentEntry = { ...declared };
+      if (obs.auth) merged.auth = obs.auth;
+      if (obs.configOptions_observed) merged.configOptions_observed = obs.configOptions_observed;
+      if (obs.command) merged.command = obs.command;
+      this.matrix.agents[id] = merged;
+    }
+  }
+
+  /** Re-read matrix + models + observed after a probe has written new observations. */
   reload(): void {
     this.matrix = JSON.parse(readFileSync(this.matrixPath, 'utf8'));
     this.models = JSON.parse(readFileSync(this.modelsPath, 'utf8'));
+    this.loadObserved();
+    this.applyObserved();
   }
 
   get(agentId: AgentId): AgentEntry | undefined {

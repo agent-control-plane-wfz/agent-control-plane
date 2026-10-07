@@ -52,8 +52,16 @@ export function route(reg: Registry, hints: TaskHints, rulesOverride?: Record<st
     });
   }
 
-  // 2. Candidate chain from task-type rule, then generic fallback order.
-  const FALLBACK: AgentId[] = ['codex', 'claude', 'opencode', 'dsh'];
+  // 2. Candidate chain from task-type rule, then the generic fallback order.
+  // F9 (issue #2): derive the fallback order from the registry instead of a hardcoded
+  // builtin list — otherwise a custom agent could never be a fallback candidate. Builtins
+  // keep their stable, tuned order; custom agents follow, sorted for determinism.
+  const BUILTIN_ORDER: AgentId[] = ['codex', 'claude', 'opencode', 'dsh'];
+  const registered = Object.keys(reg.matrix.agents) as AgentId[];
+  const FALLBACK: AgentId[] = [
+    ...BUILTIN_ORDER.filter((a) => registered.includes(a)),
+    ...registered.filter((a) => !BUILTIN_ORDER.includes(a)).sort(),
+  ];
   const activeRule = hints.taskType ? ruleFor(hints.taskType) : undefined;
   const ordered: AgentId[] = activeRule ? [activeRule.agent, ...FALLBACK] : FALLBACK;
   const candidates: AgentId[] = [];

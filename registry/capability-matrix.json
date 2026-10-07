@@ -3,7 +3,7 @@
   "_meta": {
     "generated": "2026-10-07T15:45+08:00",
     "method": "Phase 0 实测（smoke-acp.mjs 握手）+ Phase 2 setter 探针（probe-setters.ts）+ adapter 源码核实",
-    "note": "Each entry from measurement or official docs with source; unmeasured fields are TBD/claimed, never guessed. external_backends added 2026-10-07 (Phase 5 feasibility).",
+    "note": "Each entry from measurement or official docs with source; unmeasured fields are TBD/claimed, never guessed. external_backends added 2026-10-07 (Phase 5 feasibility). Probe results are NOT written here (F2, issue #2): they go to state/capability-observed.json, which Registry merges over these declared facts.",
     "setter_fact": "session/set_config_option { sessionId, configId, value } 三家统一（源码核实 claude-agent-acp 0.86.0 / codex-acp 2.1.1，实测含 opencode 2.0.22），8/8 设置+恢复成功；codex 的 effort 项 id 为 reasoning_effort"
   },
   "agents": {

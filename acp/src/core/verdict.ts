@@ -53,15 +53,17 @@ export function extractVerdict(text: string): VerdictExtract {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const candidates: string[] = [];
   if (fenced) candidates.push(fenced[1]);
-  // 2) first balanced {...} scanning from each '{'
-  const start = text.indexOf('{');
-  if (start >= 0) {
+  // 2) every balanced {...} block — F7 (issue #2): the old code only tried the FIRST `{`,
+  //    so a leading example like `示例 {a: 1} 说明` shadowed the real verdict that follows
+  //    and burned a retry turn. Scan from each `{` instead.
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== '{') continue;
     let depth = 0;
-    for (let i = start; i < text.length; i++) {
-      if (text[i] === '{') depth++;
-      else if (text[i] === '}') {
+    for (let k = i; k < text.length; k++) {
+      if (text[k] === '{') depth++;
+      else if (text[k] === '}') {
         depth--;
-        if (depth === 0) { candidates.push(text.slice(start, i + 1)); break; }
+        if (depth === 0) { candidates.push(text.slice(i, k + 1)); i = k; break; }
       }
     }
   }

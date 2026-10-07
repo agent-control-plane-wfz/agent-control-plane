@@ -65,3 +65,21 @@ test('verdict prompt contract: instruction demands JSON only, retry prompt repea
   assert.match(VERDICT_RETRY_PROMPT('bad shape'), /bad shape/);
   assert.match(VERDICT_RETRY_PROMPT('bad shape'), /ONLY the JSON/);
 });
+
+// F7 (issue #2): a leading example block must not shadow the real verdict that follows.
+test('extractVerdict: F7 — scans past an earlier brace block to find the verdict', () => {
+  const text = '示例 {a: 1} 说明。\n{"conclusion":"ok","risks":["r1"]}';
+  const r = extractVerdict(text);
+  assert.equal(r.ok, true, 'the verdict after the example block must be found');
+  if (!r.ok) return;
+  assert.equal(r.verdict.conclusion, 'ok');
+  assert.deepEqual(r.verdict.risks, ['r1']);
+});
+
+test('extractVerdict: F7 — nested braces in the verdict are handled', () => {
+  const text = 'notes {unrelated}\n{"conclusion":"c","risks":["a"],"changedFiles":["x"]}';
+  const r = extractVerdict(text);
+  assert.equal(r.ok, true);
+  if (!r.ok) return;
+  assert.equal(r.verdict.conclusion, 'c');
+});

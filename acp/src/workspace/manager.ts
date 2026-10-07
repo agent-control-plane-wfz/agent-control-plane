@@ -51,6 +51,10 @@ export async function prepareWorkspace(opts: WorkspaceOptions): Promise<Prepared
       } catch {
         await git(opts.repoDir, ['worktree', 'prune']).catch(() => {});
       }
+      // F5 (issue #2): reclaim the branch we just created. `worktree remove` only drops the
+      // checkout — without this, every ask({workspaceMode:'worktree'}) leaks one branch
+      // into the user's repo. -D is safe: the branch is ours and unmerged by construction.
+      await git(opts.repoDir, ['branch', '-D', branch]).catch(() => { /* already gone / not ours */ });
     },
   };
 }
@@ -73,7 +77,10 @@ export async function selfTest(): Promise<{ ok: boolean; detail: string }> {
   const br = (await git(ws.path, ['rev-parse', '--abbrev-ref', 'HEAD'])).stdout.trim();
   await ws.cleanup();
   const gone = !fs.existsSync(ws.path);
+  // F5 (issue #2): cleanup must also reclaim the branch, not just the worktree dir.
+  const branches = (await git(repo, ['branch', '--list', 'acp/probe/*'])).stdout.trim();
+  const branchGone = branches === '';
   try { fs.rmSync(repo, { recursive: true, force: true }); } catch { /* tolerate */ }
-  const ok = okDir && br.startsWith('acp/probe/') && gone;
-  return { ok, detail: `worktreeCreated=${okDir} branch=${br} cleanedUp=${gone}` };
+  const ok = okDir && br.startsWith('acp/probe/') && gone && branchGone;
+  return { ok, detail: `worktreeCreated=${okDir} branch=${br} cleanedUp=${gone} branchReclaimed=${branchGone}` };
 }

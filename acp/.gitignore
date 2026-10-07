@@ -1,1 +1,6 @@
+# test scratch state (each E2E run creates these next to the tests)
+tests/.settings-state/
 tests/.p4-scratch-repo/
+tests/.p4-tmp/
+tests/.wt-scratch-repo/
+tests/.acp-worktrees/

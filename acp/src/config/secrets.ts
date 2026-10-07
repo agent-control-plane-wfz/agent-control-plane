@@ -48,12 +48,30 @@ export function getCredential(name: string): { value: string; source: 'env' | 's
 /** Write-only store. Empty value deletes the entry (dsh: empty field + save = reset). */
 export function setCredential(name: string, value: string): void {
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error(`invalid credential name: ${name}`);
-  const lines = existsSync(SECRETS_FILE) ? readFileSync(SECRETS_FILE, 'utf8').split(/\r?\n/) : [];
-  const filtered = lines.filter((l) => l.trim() && !l.trim().startsWith('#') && l.indexOf('=') > 0 && l.slice(0, l.indexOf('=')).trim() !== name);
-  if (value && value.trim()) filtered.push(`${name}=${value.trim()}`);
+  const raw = existsSync(SECRETS_FILE) ? readFileSync(SECRETS_FILE, 'utf8') : '';
+  const lines = raw.length ? raw.split(/\r?\n/) : [];
+  // Drop only the final empty line that a trailing newline produces; we add one back.
+  if (lines.length && lines[lines.length - 1] === '') lines.pop();
+  const wantSet = !!(value && value.trim());
+  const out: string[] = [];
+  let replaced = false;
+  // F6 (issue #2): preserve every unrelated line verbatim — the old code rebuilt the file
+  // from a filter that dropped comments and blank lines, silently destroying them.
+  for (const line of lines) {
+    const t = line.trim();
+    const eq = t.indexOf('=');
+    const key = eq > 0 ? t.slice(0, eq).trim() : '';
+    if (key === name) {
+      if (wantSet) out.push(`${name}=${value.trim()}`);
+      replaced = true;
+      continue;                        // value deleted when wantSet is false
+    }
+    out.push(line);
+  }
+  if (!replaced && wantSet) out.push(`${name}=${value.trim()}`);
   mkdirSync(dirname(SECRETS_FILE), { recursive: true });
   const tmp = `${SECRETS_FILE}.tmp`;
-  writeFileSync(tmp, filtered.join('\n') + '\n', 'utf8');
+  writeFileSync(tmp, out.join('\n') + '\n', 'utf8');
   renameSync(tmp, SECRETS_FILE);
 }
 

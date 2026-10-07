@@ -6,36 +6,63 @@ import { fileURLToPath } from 'node:url';
 import type { TokenUsage } from '../core/types.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
+// Where the per-day ledger lives. ACP_BUDGET_DIR / ACP_STATE_DIR let tests (and other
+// deployments) keep the ledger out of the repo; default unchanged (acp/state).
+const BUDGET_DIR = process.env.ACP_BUDGET_DIR ?? process.env.ACP_STATE_DIR ?? join(here, '..', '..', 'state');
 
 export interface BudgetOptions {
   dailyTokens?: number;    // sum(input+output) cap per day; 0/undefined = unlimited
   dailyRequests?: number;  // request count cap per day; 0/undefined = unlimited
+  now?: () => Date;        // injectable clock (tests / F4 rollover coverage)
 }
 
 interface DayRecord { date: string; requests: number; tokensIn: number; tokensOut: number; perAgent?: Record<string, number> }
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
+// F4 (issue #2): the daily cap must follow the LOCAL day. toISOString() is UTC, so in
+// UTC+8 a "daily" cap was resetting at 08:00 local, not midnight.
+export function localDay(d: Date = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 export class Budget {
   private file: string;
   private rec: DayRecord;
   private opts: BudgetOptions;
+  private day: string;
+  private clock: () => Date;
 
   constructor(opts: BudgetOptions = {}) {
     this.opts = opts;
-    this.file = join(here, '..', '..', 'state', `budget-${today()}.json`);
+    this.clock = opts.now ?? (() => new Date());
+    this.day = localDay(this.clock());
+    this.file = this.fileFor(this.day);
+    mkdirSync(dirname(this.file), { recursive: true });
+    this.rec = this.load();
+  }
+
+  private fileFor(day: string): string {
+    return join(BUDGET_DIR, `budget-${day}.json`);
+  }
+
+  // F4 (issue #2): a long-running server opened its file at startup and never re-checked
+  // the date, so the cap never rolled over until restart. Roll over on every entry point.
+  private rollOver(): void {
+    const d = localDay(this.clock());
+    if (d === this.day) return;
+    this.day = d;
+    this.file = this.fileFor(d);
     mkdirSync(dirname(this.file), { recursive: true });
     this.rec = this.load();
   }
 
   private load(): DayRecord {
-    const fallback: DayRecord = { date: today(), requests: 0, tokensIn: 0, tokensOut: 0, perAgent: {} };
+    const day = localDay(this.clock());
+    const fallback: DayRecord = { date: day, requests: 0, tokensIn: 0, tokensOut: 0, perAgent: {} };
     try {
       if (existsSync(this.file)) {
         const r = JSON.parse(readFileSync(this.file, 'utf8')) as DayRecord;
-        if (r.date === today()) return { perAgent: {}, ...r };
+        if (r.date === day) return { perAgent: {}, ...r };
       }
     } catch { /* corrupt file -> fresh */ }
     return fallback;
@@ -47,10 +74,11 @@ export class Budget {
 
   /** Live-apply new caps from the Settings UI (takes effect on the next checkRequest). */
   update(opts: BudgetOptions): void {
-    this.opts = opts;
+    this.opts = { ...opts, now: this.clock };   // keep the injected clock
   }
 
   checkRequest(): void {
+    this.rollOver();
     if (this.opts.dailyRequests && this.rec.requests >= this.opts.dailyRequests) {
       throw new Error(`budget: daily request cap reached (${this.rec.requests}/${this.opts.dailyRequests})`);
     }
@@ -60,6 +88,7 @@ export class Budget {
   }
 
   record(usage: TokenUsage | undefined, agent?: string): void {
+    this.rollOver();
     this.rec.requests += 1;
     if (agent) {
       this.rec.perAgent = this.rec.perAgent ?? {};
@@ -74,11 +103,13 @@ export class Budget {
 
   /** Settings UI: wipe today's counters (kept requests history intact otherwise). */
   resetDay(): void {
-    this.rec = { date: today(), requests: 0, tokensIn: 0, tokensOut: 0, perAgent: {} };
+    this.rollOver();
+    this.rec = { date: localDay(this.clock()), requests: 0, tokensIn: 0, tokensOut: 0, perAgent: {} };
     this.persist();
   }
 
   stats(): DayRecord & { caps: BudgetOptions } {
+    this.rollOver();
     return { ...this.rec, caps: this.opts };
   }
 }

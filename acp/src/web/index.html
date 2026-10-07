@@ -515,7 +515,11 @@ function renderBody(j){
     const v=r.verdict?`<div class="verdict"><b>verdict：</b>${esc(r.verdict.recommendation||r.verdict.conclusion||'')}
       ${(r.verdict.risks||[]).length?`<ul>${r.verdict.risks.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}</div>`:'';
     const u=r.usage?`<span>tokens <b>${fmtN(r.usage.input||0)}入/${fmtN(r.usage.output||0)}出</b></span>`:'';
-    return`${r.error?`<div class="reply" style="color:var(--err)">${esc(r.error)}</div>`:''}
+    // F3 (issue #2): a successful result must never render in red — only surface `error`
+    // when the job actually failed. The fallback trail is a muted diagnostic note.
+    const err=r.ok?'' : (r.error?`<div class="reply" style="color:var(--err)">${esc(r.error)}</div>`:'');
+    const trail=r.fallbackTrail?`<div class="reply" style="color:var(--faint);font-size:12px">fallback：${esc(r.fallbackTrail)}</div>`:'';
+    return`${err}${trail}
       <div class="reply">${esc(r.text||'(空回复)')}</div>${v}
       <div class="rrow">${u}<span>工具调用 <b>${r.toolCalls??0}</b></span><span>agent <b>${esc(r.agent||'')}</b>${r.model?` · ${esc(r.model)}`:''}${r.effort?` · ${esc(r.effort)}`:''}</span>
       ${r.workspace?.kind==='worktree'?`<span>worktree <b>${esc(r.workspace.branch||'')}</b></span>`:''}

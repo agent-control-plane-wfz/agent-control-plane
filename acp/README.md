@@ -191,11 +191,34 @@ src/mcp/       server.ts（手写 MCP stdio server）
 tests/         e2e-opencode.ts / mcp-smoke.mjs
 ```
 
+## 外部审计修复（issue #2，2026-10-07）
+
+队友在第二台 Windows 机器上对 `f651fcf` 做了验证，提了 10 条（F1–F10），全部核实成立并修复：
+
+| # | 严重度 | 问题 | 修复 |
+|---|---|---|---|
+| F1 | P1 | `keepSession` 被接受后从未使用——`runAcp` 的 `finally` 无条件销毁会话，`spawn_agent`/`send_agent`/`stop_agent` 对 ACP agent 完全不可达 | `finally` 尊重 `keep`；`stop()` 负责 cancel + 回收（dsh 的 `stop` 也改为丢弃 resume 句柄） |
+| F2 | P1 | 探测把观测结果写进**受版本控制**的矩阵，且失败也写、`command` 只留裸可执行文件（丢 argv） | declared/observed 分层：可观测事实写 `state/capability-observed.json`（gitignored），Registry 读 declared→observed；仅成功时写，且保留完整命令行 |
+| F3 | P2 | 成功的作业仍渲染红色错误块（fallback trail 被塞进 `error`），all-failed 路径还重复打印 | trail 移入独立的 `fallbackTrail` 字段；前端只在 `!ok` 时渲染错误 |
+| F4 | P2 | 每日预算用 **UTC 日**（UTC+8 下 08:00 重置），且长驻进程从不跨天滚动 | 改用本地日 + 在每个入口（checkRequest/record/stats/resetDay）做 `rollOver()` |
+| F5 | P2 | worktree 清理只删目录不删分支，每次运行泄漏一个 `acp/<agent>/<ts>` | cleanup 追加 `git branch -D`（`keep:true` 时保留） |
+| F6 | P3 | `setCredential` 重建 `secrets.env`，抹掉所有注释与空行 | 逐行保留，仅替换/删除目标键 |
+| F7 | P3 | `extractVerdict` 只试第一个 `{...}`，前置示例块会遮蔽真正的 verdict 并浪费一次重试 | 扫描每个 `{` 的平衡块 |
+| F8 | P3 | `isTransportError` 的 `/auth/i` 也匹配 `author`，内容级失败被误判为传输失败并跨厂商重试 | 收紧为 `\bauth\b`，并独立成 `src/core/transport-error.ts`（可单测） |
+| F9 | P3 | `FALLBACK` 是硬编码内置列表，自定义 agent 永远无法成为 fallback 候选 | fallback 顺序从 registry 派生（内置保持稳定序，自定义 agent 其后） |
+| F10 | P3 | agent id 校验只挡空白/斜杠，`__proto__`/`constructor`/`prototype` 可通过 | 白名单 `^[A-Za-z0-9_-]+$` + 保留名拒绝；`resetSettings` 只删自有键 |
+
+回归：`test:unit` **47/47**（新增 F1 会话生命周期、F2/F4/F5/F6/F7/F8/F10 的锁定测试）、`tsc` 干净，
+`e2e-settings` / `e2e-web` / `mcp-smoke` / `e2e-send` / `e2e-phase3` / `e2e-phase4` / `e2e-phase5` 全绿。
+F1 用 `tests/fixtures/stub-acp-agent.mjs`（最小 ACP 桩，无凭据无网络）驱动，确保这条链不会再静默失效。
+
 ## 已知边界（Phase 3）
 
-- dsh 端到端未验证（需 DeepSeek key）；`--json` 事件 schema 为宽容解析，实测后收紧
-- codex / claude 的真实 prompt 往返需各自凭据（claude 本机已有，走的是 DeepSeek 映射）
+- dsh 端到端**已验证**（DeepSeek key 实测，`--json` 事件 schema 已收敛）
+- codex / claude 的真实 prompt 往返已实测（claude 本机走的是 DeepSeek 映射）
 - `session/set_config_option` 已收敛为 `{ sessionId, configId, value }`（三家源码+实测确认）；
   codex 的 effort 项 id 是 `reasoning_effort`，plane 按 category 动态解析
 - opencode 免费池不回报 token usage（usage 字段为空）；预算按请求计数兜底
 - worktree 只隔离 git 分支；`@automatalabs/codex-acp` 的 `_meta.outputSchema` 待 OPENAI key 实测后替换 prompt 约束方案
+- 显式 `agent` 提示仍是硬约束（不可用即报错），因此其 `fallbackChain` 为空——这是刻意保留的
+  安全属性（B5 审计决策），与 F9 修的是两件事

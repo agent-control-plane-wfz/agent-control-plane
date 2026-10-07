@@ -2,10 +2,11 @@
 // Local only — binds 127.0.0.1. Zero deps; Node 22 --experimental-strip-types.
 // Run: WORKSPACE_DIR=<node workspace with adapter packages> npm run web
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import { homedir } from 'node:os';
 import { ControlPlane } from '../control/plane.ts';
 import { getMerged, saveSettings, resetSettings, loadUserConfig, type AppSettings } from '../config/settings.ts';
 import { describeCredential, setCredential, deleteCredential, storedNames } from '../config/secrets.ts';
@@ -91,6 +92,63 @@ async function runJob(job: Job): Promise<void> {
 function json(res: ServerResponse, code: number, body: unknown): void {
   res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(body));
+}
+
+// --- directory picker -------------------------------------------------------------------
+// Why the server enumerates rather than the browser: no browser API returns an absolute path.
+// `showDirectoryPicker()` yields a FileSystemDirectoryHandle and `<input webkitdirectory>`
+// yields only `webkitRelativePath` — both deliberately withhold the real path from page JS.
+// Since this server runs on the caller's own machine it can list directories itself and hand
+// back absolute paths. Directories only: file names are never returned, so the endpoint says
+// nothing about file contents. Same trust boundary as the rest of this console, which already
+// spawns agents with the caller's privileges, and binds 127.0.0.1 only.
+const DIR_CAP = 500;
+
+interface DirListing {
+  path: string;
+  parent: string | null;
+  entries: { name: string; path: string }[];
+  roots: { name: string; path: string }[];
+  truncated: boolean;
+}
+
+function driveRoots(): { name: string; path: string }[] {
+  const out: { name: string; path: string }[] = [];
+  if (process.platform === 'win32') {
+    for (let c = 65; c <= 90; c++) {
+      const p = `${String.fromCharCode(c)}:\\`;
+      if (existsSync(p)) out.push({ name: p, path: p });
+    }
+  } else {
+    out.push({ name: '/', path: '/' });
+  }
+  const home = homedir();
+  if (home && !out.some((r) => r.path === home)) out.push({ name: `~ ${home}`, path: home });
+  return out;
+}
+
+/** List the sub-directories of `raw`; empty `raw` falls back to the home directory. */
+function listDirs(raw: string): DirListing | { error: string } {
+  const roots = driveRoots();
+  const target = raw.trim() || homedir() || roots[0]?.path || process.cwd();
+  try {
+    const dirs: { name: string; path: string }[] = [];
+    for (const d of readdirSync(target, { withFileTypes: true })) {
+      if (!d.isDirectory()) continue;                 // directories only — never file names
+      dirs.push({ name: d.name, path: join(target, d.name) });
+    }
+    dirs.sort((a, b) => a.name.localeCompare(b.name));
+    const parent = dirname(target);
+    return {
+      path: target,
+      parent: parent === target ? null : parent,       // null at a filesystem root
+      entries: dirs.slice(0, DIR_CAP),
+      roots,
+      truncated: dirs.length > DIR_CAP,
+    };
+  } catch (e: any) {
+    return { error: `无法读取 ${target}：${String(e?.message ?? e).slice(0, 160)}` };
+  }
 }
 
 // --- v3 settings helpers ---------------------------------------------------------------
@@ -191,6 +249,12 @@ const server = createServer(async (req, res) => {
         'cache-control': 'max-age=86400',
       });
       res.end(readFileSync(p));
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/fs/dirs') {
+      const r = listDirs(url.searchParams.get('path') ?? '');
+      if ('error' in r) { json(res, 400, r); return; }
+      json(res, 200, r);
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/status') {

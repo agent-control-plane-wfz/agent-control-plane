@@ -8,7 +8,7 @@
 // observed facts into layer ③'s state half — never into the tracked matrix.
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { USER_CONFIG_FILE, REPO_ROOT } from './paths.ts';
+import { USER_CONFIG_FILE } from './paths.ts';
 
 export { USER_CONFIG_FILE };
 
@@ -54,19 +54,20 @@ function workspaceDir(): string {
   return ws;
 }
 
-// Layer ④: code defaults for builtin agents (derived from the same sources plane used before).
-function matrixOpencodeCommand(): string {
-  try {
-    const m = JSON.parse(readFileSync(join(REPO_ROOT, 'registry', 'capability-matrix.json'), 'utf8'));
-    const c = m.agents?.opencode?.command as string | undefined;
-    return c ? c.split(' acp')[0] : 'opencode';
-  } catch { return 'opencode'; }
+// Layer ④: code defaults for builtin agents.
+// opencode is a CLI that lives on PATH. We deliberately do NOT read a developer's absolute
+// path out of capability-matrix.json and treat it as the default: that path exists on exactly
+// one machine, so every other machine gets a spawn failure. Same rule the dsh-driver adopted
+// in the PR #1 follow-ups (no fallback to a developer machine path). Per-machine override:
+// OPENCODE_BIN, or the Settings page.
+function opencodeCommand(): string {
+  return process.env.OPENCODE_BIN || 'opencode';
 }
 
 export function builtinDefaults(): Record<string, AgentSettings> {
   const out: Record<string, AgentSettings> = {
     opencode: {
-      enabled: true, transport: 'acp', command: matrixOpencodeCommand(), args: ['acp'],
+      enabled: true, transport: 'acp', command: opencodeCommand(), args: ['acp'],
       credentialRef: null, credentialNative: 'opencode 内置账号（本机已登录）',
       defaults: {}, limits: {},
     },

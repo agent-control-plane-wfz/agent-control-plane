@@ -131,11 +131,29 @@
 派单任务与批量任务（含 agent/model/effort/taskType/verdict/worktree/工具上限全部参数）、
 实时作业列表（点开看回复原文、verdict、usage、原始 JSON）、今日预算用量。
 
+**一键启动（推荐）**：双击 `acp/start-web.cmd`。它自动探测装有 adapter 包的 node workspace
+（优先级 `WORKSPACE_DIR` > `acp/node_modules` > `%APPDATA%\npm` > managed node workspace >
+仓库根；判据是该目录 `node_modules/` 下存在 `@agentclientprotocol` 或 `@deepseek-ai/dsh`），
+启动服务，并在端口就绪后自动打开浏览器 —— 不需要手动设任何环境变量。
+
 ```bash
-# 启动（需要 WORKSPACE_DIR 指向装有 adapter 包的 node workspace）
+# 命令行等价用法（在 acp/ 目录下）
+node scripts/start-web.mjs                      # 自动探测 WORKSPACE_DIR + 自动开浏览器
+ACP_WEB_PORT=8888 node scripts/start-web.mjs    # 换端口
+ACP_NO_OPEN=1 node scripts/start-web.mjs        # 只起服务，不开浏览器
+
+# 想让四家 agent 全可用（自包含安装）：在 acp/ 里装一次依赖
+npm install                                     # 装 optionalDependencies 里的三个 adapter
+
+# 原始方式（自己指定 WORKSPACE_DIR）
 WORKSPACE_DIR=C:\Users\me\.workbuddy\binaries\node\workspace npm run web
-# 打开 http://127.0.0.1:7777（端口可用 ACP_WEB_PORT 改）
+# 控制台地址 http://127.0.0.1:7777（端口可用 ACP_WEB_PORT 改）
 ```
+
+> opencode 是 PATH 上的 CLI，默认命令就是 `opencode`（不再从 capability-matrix.json 读
+> 某台机器的绝对路径）；需要时用环境变量 `OPENCODE_BIN` 覆盖（同 dsh 的 `DSH_BIN`）。
+> 其余三家走 WORKSPACE_DIR 下的 node_modules，本机路径差异请写进 `state/control-plane-config.json`
+> （设置页保存，已 gitignore），不要改 tracked 的 matrix。
 
 - REST API：`GET /api/status`、`GET/POST /api/jobs`、`POST /api/jobs/clear`、`POST /api/ask`、`POST /api/parallel`
 - **实时事件流**：driver 层 `onEvent` 回调 → 作业事件（模型输出块 / 工具调用 / 子任务完成）

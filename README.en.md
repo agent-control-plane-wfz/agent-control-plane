@@ -178,6 +178,7 @@ Change the port with `ACP_WEB_PORT`.
 | `ACP_DAILY_TOKENS` | unlimited | Daily token cap |
 | `ACP_MATRIX_FILE` | `registry/capability-matrix.json` | Overrides where the **declared** facts matrix is read from (probes do not write here — see `ACP_OBSERVED_FILE`) |
 | `ACP_OBSERVED_FILE` | `$ACP_STATE_DIR/capability-observed.json` | Where **observed** probe facts are written; the Registry reads declared-then-observed |
+| `DSH_PROFILE` | `headless` | dsh run form (issue #9); also configurable in the console |
 | `OPENCODE_BIN` | `opencode` (PATH) | opencode executable path; a bare name is resolved against PATH at spawn time (on Windows npm ships a `.cmd` shim, which must go through the interpreter — see below) |
 | `DSH_BIN` | derived from `WORKSPACE_DIR` | Path to the `dsh` entry `bin.js`; fails loudly when neither is set instead of guessing |
 | `DSH_NODE` | `process.execPath` | Node executable used to run `dsh` |

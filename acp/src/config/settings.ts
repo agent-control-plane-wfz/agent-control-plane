@@ -31,6 +31,12 @@ export interface AgentSettings {
   transport?: Transport;
   command?: string;
   args?: string[];
+  /**
+   * Run form for JSON-process agents (issue #9): dsh ships several profiles (desktop/headless/web)
+   * and ACP can only drive one with a stable event stream, so the default is headless — but it is
+   * configurable rather than a literal. Deployment override: DSH_PROFILE.
+   */
+  profile?: string;
   credentialRef?: string | null;   // env-var NAME only; the value lives in secrets.env / env
   credentialNative?: string;       // description of the agent's own auth (e.g. ~/.codex/auth.json)
   defaults?: { model?: string; effort?: string; mode?: string };
@@ -113,6 +119,7 @@ export function builtinDefaults(): Record<string, AgentSettings> {
       enabled: true, transport: 'json-process', command: node,
       args: [join(nm, '@deepseek-ai', 'dsh', 'lib', 'bin.js')],
       credentialRef: 'DEEPSEEK_API_KEY', credentialNative: '~/.dsh/.credentials.yaml',
+      profile: 'headless',
       defaults: {}, limits: {},
     };
   }
@@ -126,7 +133,11 @@ function envLayer(): Partial<AppSettings> {
   const budget: BudgetSettings = {};
   if (process.env.ACP_DAILY_REQUESTS) budget.dailyRequests = Number(process.env.ACP_DAILY_REQUESTS) || undefined;
   if (process.env.ACP_DAILY_TOKENS) budget.dailyTokens = Number(process.env.ACP_DAILY_TOKENS) || undefined;
-  return { routing, budget };
+  const agents: Record<string, AgentSettings> = {};
+  // issue #9: DSH_PROFILE sits at layer ② — it overrides the code default but a value saved in the
+  // console (layer ①) still wins, which is the documented precedence.
+  if (process.env.DSH_PROFILE) agents.dsh = { profile: process.env.DSH_PROFILE };
+  return { routing, budget, agents };
 }
 
 export function loadUserConfig(): { config: Partial<AppSettings>; error?: string } {
@@ -152,7 +163,13 @@ function mergeAgent(base: AgentSettings | undefined, over: AgentSettings | undef
 
 export function getMerged(): AppSettings {
   const { config } = loadUserConfig();
+  const env = envLayer();
   const defaults = builtinDefaults();
+  // Layer ② sits between the code defaults and the user config: apply it to the defaults first,
+  // so a value saved in the console still wins over the environment.
+  for (const [id, patch] of Object.entries(env.agents ?? {})) {
+    if (defaults[id]) defaults[id] = mergeAgent(defaults[id], patch);
+  }
   const agents: Record<string, AgentSettings> = {};
   for (const id of BUILTIN_IDS) agents[id] = mergeAgent(defaults[id], config.agents?.[id]);
   for (const [id, cfg] of Object.entries(config.agents ?? {})) {
@@ -160,7 +177,6 @@ export function getMerged(): AppSettings {
     // be truthy on any object and silently swallow a (now-rejected) reserved id.
     if (!Object.prototype.hasOwnProperty.call(agents, id)) agents[id] = mergeAgent(undefined, cfg); // custom agents
   }
-  const env = envLayer();
   return {
     agents,
     routing: { llmRouter: env.routing?.llmRouter ?? true, rules: config.routing?.rules ?? {} },
@@ -233,6 +249,14 @@ function validate(patch: Partial<AppSettings>): string | null {
       if (a.transport !== undefined && !['acp', 'json-process'].includes(a.transport)) return `agents.${id}.transport: 只能是 acp 或 json-process`;
       if (a.command !== undefined && typeof a.command !== 'string') return `agents.${id}.command: 必须是字符串`;
       if (a.args !== undefined && (!Array.isArray(a.args) || a.args.some((x) => typeof x !== 'string'))) return `agents.${id}.args: 必须是字符串数组`;
+      // issue #9: one source of truth for the run form. The driver appends --profile itself, so a
+      // copy in args would produce two conflicting flags — refuse it instead of guessing.
+      if (a.args?.some((x) => x === '--profile' || x.startsWith('--profile='))) {
+        return `agents.${id}.args: 不要在参数里写 --profile，请用 profile 字段（避免出现两个互相冲突的 --profile）`;
+      }
+      if (a.profile !== undefined && a.profile !== null && (typeof a.profile !== 'string' || !/^[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(a.profile))) {
+        return `agents.${id}.profile: 只能是字母/数字/下划线/连字符，且不得以连字符开头（如 headless、web）`;
+      }
       if (a.credentialRef !== undefined && a.credentialRef !== null && (typeof a.credentialRef !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(a.credentialRef))) return `agents.${id}.credentialRef: 必须是合法环境变量名或 null`;
       if (a.limits?.maxToolCalls !== undefined && a.limits.maxToolCalls !== null && (typeof a.limits.maxToolCalls !== 'number' || a.limits.maxToolCalls < 1)) return `agents.${id}.limits.maxToolCalls: 必须 >= 1`;
       if (a.limits?.timeoutMs !== undefined && a.limits.timeoutMs !== null && (typeof a.limits.timeoutMs !== 'number' || a.limits.timeoutMs < 1000)) return `agents.${id}.limits.timeoutMs: 必须 >= 1000`;

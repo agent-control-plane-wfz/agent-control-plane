@@ -804,7 +804,7 @@ function agentRowHtml(a){
   const exp=EXPECTED_VENDOR[a.id];
   const warn=(vn&&vn!=='unknown'&&exp&&vn!==exp)?`⚠ 实际跑 ${esc(vn)}（非 ${esc(exp)}）`:'';
   const d=DRAFT[a.id]??(DRAFT[a.id]={enabled:a.enabled,transport:a.transport,command:a.command||'',
-    argsText:(a.args||[]).join('\n'),credentialRef:a.credentialRef||'',credentialValue:'',
+    argsText:(a.args||[]).join('\n'),profile:a.profile||'',credentialRef:a.credentialRef||'',credentialValue:'',
     model:a.defaults?.model||'',effort:a.defaults?.effort||'',mode:a.defaults?.mode||'',
     maxToolCalls:a.limits?.maxToolCalls??'',timeoutMs:a.limits?.timeoutMs??''});
   const models=(STATUS?.agents?.find(x=>x.agent===a.id)?.models)||[];
@@ -829,6 +829,8 @@ function agentRowHtml(a){
       </div>
       <label>命令</label><input value="${esc(d.command)}" oninput="upd('${esc(a.id)}','command',this.value)">
       <label>参数（每行一个）</label><textarea style="min-height:52px" oninput="upd('${esc(a.id)}','argsText',this.value)">${esc(d.argsText)}</textarea>
+      <div class="grid2"><div><label>运行形态 profile（issue #9 · 仅 JSON-process，如 dsh）</label>
+        <input value="${esc(d.profile)}" placeholder="留空使用默认（dsh 为 headless）" oninput="upd('${esc(a.id)}','profile',this.value)"></div><div></div></div>
       <div class="grid3">
         <div><label>默认模型</label><input value="${esc(d.model)}" list="dl-m-${esc(a.id)}" placeholder="agent 自身默认" oninput="upd('${esc(a.id)}','model',this.value)">
           <datalist id="dl-m-${esc(a.id)}">${models.map(m=>`<option value="${esc(m)}">`).join('')}</datalist></div>
@@ -870,6 +872,8 @@ async function saveAgent(id){
     const args=d.argsText.split('\n').map(s=>s.trim()).filter(Boolean);
     if(JSON.stringify(args)!==JSON.stringify(srv.args||[]))patch.args=args;
     if((d.credentialRef||null)!==(srv.credentialRef||null))patch.credentialRef=d.credentialRef||null;
+    // issue #9: only send a non-empty change — empty means "keep the default/current run form".
+    if((d.profile||'')!==(srv.profile||'')&&(d.profile||'').trim())patch.profile=d.profile.trim();
     const defaults={};
     if((d.model||undefined)!==(srv.defaults?.model||undefined))defaults.model=d.model||undefined;
     if((d.effort||undefined)!==(srv.defaults?.effort||undefined))defaults.effort=d.effort||undefined;
@@ -976,6 +980,8 @@ function wizCard(c){
       <div id="w-valwrap-${esc(c.id)}" style="display:none"><label>凭据值（只写不回显）</label>
         <input type="password" id="w-val-${esc(c.id)}" autocomplete="new-password" placeholder="粘贴后保存，界面不会回显"></div>
     </div>
+    ${c.transport==='json-process'?`<div class="grid2" style="margin-top:8px"><div><label>运行形态 profile（如 dsh 的 headless/web）</label>
+      <input id="w-prof-${esc(c.id)}" value="${esc(c.profile||'')}" placeholder="留空使用默认（headless）"></div><div></div></div>`:''}
     <div class="wdet" style="margin-top:6px">它自身的凭据位置：${esc(c.credentialNative||credNote)}${c.nativeAuth?` · ${esc(c.nativeAuth.detail)}`:''}</div>
     <div class="wprobe" id="w-probe-${esc(c.id)}"></div>
   </div>`;
@@ -1013,6 +1019,8 @@ async function finishSetup(){
       const args=argsTxt.split(/[\r\n]+/).map(x=>x.trim()).filter(Boolean);
       if(JSON.stringify(args)!==JSON.stringify(c.args||[]))e.args=args;
     }
+    const prof=$('w-prof-'+c.id);
+    if(prof){const v=(prof.value||'').trim();if(v&&v!==(c.profile||''))e.profile=v;}
     if(src!=='native')e.credentialRef=($('w-ref-'+c.id)?.value||'').trim()||null;
     if(src==='value'){const v=$('w-val-'+c.id)?.value;if(v)e.credentialValue=v;}
     agents[c.id]=e;

@@ -170,6 +170,7 @@ WORKSPACE_DIR=/path/to/workspace npm run web
 | `ACP_DAILY_TOKENS` | 不限 | 每日 token 上限 |
 | `ACP_MATRIX_FILE` | `registry/capability-matrix.json` | 覆盖**声明事实**矩阵的读取位置（探测不会写这里，见 `ACP_OBSERVED_FILE`） |
 | `ACP_OBSERVED_FILE` | `$ACP_STATE_DIR/capability-observed.json` | 探测产生的**观测事实**落盘位置；Registry 读「声明→观测」合并 |
+| `DSH_PROFILE` | `headless` | dsh 运行形态（issue #9）；也可在设置页配置 |
 | `OPENCODE_BIN` | `opencode`（PATH） | opencode 可执行文件路径；裸名会在 spawn 时按 PATH 解析（Windows 上 npm 装的是 `.cmd` 壳，须经解释器，见下） |
 | `DSH_BIN` | 由 `WORKSPACE_DIR` 推导 | `dsh` 入口 `bin.js` 路径；两者都缺时**报错**而非猜路径 |
 | `DSH_NODE` | `process.execPath` | 运行 `dsh` 的 Node 可执行文件路径 |

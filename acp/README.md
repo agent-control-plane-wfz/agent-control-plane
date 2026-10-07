@@ -125,6 +125,26 @@
   - **集成**：一键生成并复制 MCP 接入片段（给 Claude Code / Codex 的 .mcp.json，含 env）
 - 设计对标 DeepSeek Harness 的设置页（原则提取自其官方包文档，见计划文档 §1）
 
+## dsh 运行形态（issue #9）
+
+`--profile` 不再是硬编码字面量，默认仍是 `headless`：
+
+| 优先级 | 来源 |
+|---|---|
+| ① 用户配置 | 设置页 Agents → dsh 的「运行形态 profile」，或首启向导里的同名输入 |
+| ② 环境变量 | `DSH_PROFILE` |
+| ③ 代码默认 | `headless` |
+
+- profile 名在 spawn **之前**校验（字母/数字/`_`/`-`，且不得以 `-` 开头——否则 `--json` 这类 flag
+  会落进 `--profile` 的值槽）。名字非法直接报错，不静默回退。
+- 未知 profile 交给 dsh 自己拒绝，其报错**原样上抛**（不偷偷换回 headless）。
+- 参数里**不要**再写 `--profile`：驱动会自己追加，重复会出现两个冲突的 flag，保存时即被拒绝。
+
+**明确不支持**：用 `desktop` / `web` profile 驱动 dsh。这两个形态面向人类交互（GUI / 浏览器前端），
+没有受 ACP 控制、可稳定管道化的结构化输出，接进 driver 只会引入脆弱的抓取层。若诉求是
+「复用桌面版 dsh 已登录的账号 / 已有会话」，那属于凭据来源问题，应走 `src/config/auth-evidence.ts`
+的原生登录态通道（见 issue #6），而不是换 profile。
+
 ## 首启向导与「确认」语义（issue #7）
 
 **默认值反过来了**：装好 adapter 包不再等于同意运行它。本项目会真实 spawn 子进程、消耗额度、

@@ -1,5 +1,6 @@
 // DeepSeek Harness driver — JSONProcessDriver per plan v2.1.
-// dsh --profile headless [--json] [--session-id <id>] "task"
+// dsh --profile <profile> [--json] [--session-id <id>] "task"
+//   <profile> defaults to headless and is configurable (issue #9) — see DEFAULT_DSH_PROFILE.
 // Event schema VERIFIED 2026-10-07 (dsh 0.2.0-rc.2, phase0/dsh-e2e.txt):
 //   {"type":"session","sessionId":...,"cwd":...}
 //   {"type":"status","phase":"turn_start"|"step_start"|"step_end"|"turn_end",...}
@@ -43,18 +44,56 @@ export function dshArgs(): string[] {
   return [dshBinPath()];
 }
 
+// issue #9: the run form was hard-coded as `--profile headless`. dsh ships several profiles
+// (desktop / headless / web on this machine), and ACP can only ever drive one that produces a
+// stable, pipeable event stream — so the DEFAULT stays headless, but it is no longer a literal:
+// it comes from config (Agents page) with DSH_PROFILE as the deployment override.
+//
+// Deliberately NOT supported: driving the desktop/web profiles. Those are human-facing front ends
+// with no structured stdout contract, so wrapping them would mean adding a brittle scraping layer.
+// (If the real goal is "reuse the desktop app's login/sessions", that belongs to the credential
+// evidence channel — see config/auth-evidence.ts — not to the profile.)
+export const DEFAULT_DSH_PROFILE = 'headless';
+
+/**
+ * Reject a profile name before it can reach argv: no spaces, no path separators, and it may not
+ * START with "-" — otherwise a flag such as "--json" would pass a naive character-class check and
+ * land in the value slot of --profile.
+ */
+export function assertProfileName(profile: string): void {
+  if (!/^[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(profile)) {
+    throw new Error(
+      `invalid dsh profile name: ${JSON.stringify(profile)} `
+      + '(must start with a letter, digit or "_", then letters/digits/"_"/"-" only)',
+    );
+  }
+}
+
+/**
+ * The exact argv this driver spawns. Exported so tests can assert the profile/argv contract
+ * without spawning anything (see tests/unit/dsh-argv.test.ts).
+ */
+export function dshArgv(opts: { profile?: string; sessionId?: string; task?: string } = {}): string[] {
+  const profile = opts.profile ?? DEFAULT_DSH_PROFILE;
+  assertProfileName(profile);
+  const args = [dshBinPath(), '--profile', profile, '--json'];
+  if (opts.sessionId) args.push('--session-id', opts.sessionId);
+  if (opts.task !== undefined) args.push(opts.task);
+  return args;
+}
+
 export class DshDriver {
   // One-shot run (headless is stateless apart from --session-id adoption).
   static async run(
     task: string,
     opts: {
-      cwd: string; sessionId?: string; timeoutMs?: number;
+      cwd: string; sessionId?: string; timeoutMs?: number; profile?: string;
       onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void;
     },
   ): Promise<DshRunOutcome> {
-    const args = [...dshArgs(), '--profile', 'headless', '--json'];
-    if (opts.sessionId) args.push('--session-id', opts.sessionId);
-    args.push(task);
+    // issue #9: no hard-coded profile — see dshArgv(). An unknown profile is passed through and
+    // dsh's own failure is surfaced verbatim (never a silent fallback to headless).
+    const args = dshArgv({ profile: opts.profile, sessionId: opts.sessionId, task });
 
     return new Promise((resolve) => {
       const cred = getCredential('DEEPSEEK_API_KEY');

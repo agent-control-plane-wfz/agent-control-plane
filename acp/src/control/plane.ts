@@ -5,7 +5,7 @@ import type { AgentId, AgentResult, TokenUsage, ConfigApplyRecord } from '../cor
 import { verdictInstruction, extractVerdict, VERDICT_RETRY_PROMPT, type Verdict } from '../core/verdict.ts';
 import { isTransportError } from '../core/transport-error.ts';
 import { AcpDriver, type AcpSession } from '../drivers/acp-driver.ts';
-import { DshDriver } from '../drivers/dsh-driver.ts';
+import { DshDriver, DEFAULT_DSH_PROFILE } from '../drivers/dsh-driver.ts';
 import { Registry } from '../registry/registry.ts';
 import { route, type TaskHints } from '../router/router.ts';
 import { classifyTask } from '../router/llm-router.ts';
@@ -31,6 +31,11 @@ function resolveAgentConfig(id: string): AcpAgentConfig {
   const a = agentSettingsOf(id);
   if (!a?.command || !a.args) throw new Error(`agent ${id} 未配置命令（设置 → Agents 里探测或填写）`);
   return { command: a.command, args: a.args, credentialRef: a.credentialRef ?? null };
+}
+
+/** Resolved dsh run form (issue #9). Precedence lives in settings.ts: user config > DSH_PROFILE > default. */
+function dshProfileOf(): string {
+  return agentSettingsOf('dsh')?.profile ?? DEFAULT_DSH_PROFILE;
 }
 
 // D2: transport/auth-class failures are eligible for fallback; content failures are not.
@@ -232,7 +237,7 @@ export class ControlPlane {
           toolCalls: 0, durationMs: Date.now() - t0,
         };
       }
-      const r = await DshDriver.run(task, { cwd, sessionId, timeoutMs: timeoutMs ?? 300_000 });
+      const r = await DshDriver.run(task, { cwd, sessionId, timeoutMs: timeoutMs ?? 300_000, profile: dshProfileOf() });
       const out: AgentResult = {
         agent, sessionId,
         ok: r.exitCode === 0, text: r.text || `(dsh exit=${r.exitCode}) ${r.stderr.slice(-500)}`,
@@ -323,7 +328,7 @@ export class ControlPlane {
 
   private async runDsh(task: string, o: { cwd: string; timeoutMs?: number; onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void }, t0: number,
     decision: { effort?: string; model?: string }): Promise<AgentResult> {
-    const r = await DshDriver.run(task, { cwd: o.cwd, timeoutMs: o.timeoutMs, onEvent: o.onEvent });
+    const r = await DshDriver.run(task, { cwd: o.cwd, timeoutMs: o.timeoutMs, onEvent: o.onEvent, profile: dshProfileOf() });
     if (r.sessionId && r.exitCode === 0) this.dshSessions.set(r.sessionId, o.cwd);
     return {
       agent: 'dsh',

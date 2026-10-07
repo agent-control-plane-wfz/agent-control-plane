@@ -113,6 +113,7 @@ function agentRows() {
       transport: a.transport ?? 'acp',
       command: a.command,
       args: a.args,
+      profile: a.profile ?? null,
       credentialRef: a.credentialRef ?? null,
       credentialNative: a.credentialNative,
       credential: cred ? { configured: cred.configured, source: cred.source } : null,

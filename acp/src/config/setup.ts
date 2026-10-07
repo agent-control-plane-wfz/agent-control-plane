@@ -24,6 +24,8 @@ export interface SetupCandidate {
   transport: string;
   command?: string;
   args?: string[];
+  /** Run form for JSON-process agents (issue #9); undefined = driver default. */
+  profile?: string;
   /** Can this machine run it at all? (machine fact) */
   detected: boolean;
   detection: string;
@@ -53,6 +55,7 @@ export function setupView(): SetupView {
       transport: a.transport ?? 'acp',
       command: a.command,
       args: a.args,
+      profile: a.profile,
       detected: detection.detected,
       detection: detection.detail,
       credentialRef: a.credentialRef ?? null,
@@ -71,6 +74,8 @@ export interface SetupChoice {
   confirm: boolean;
   command?: string;
   args?: string[];
+  /** issue #9: run form, e.g. dsh's headless/web. */
+  profile?: string;
   credentialRef?: string | null;
   /** write-only; stored into state/secrets.env. Empty string clears it. */
   credentialValue?: string;
@@ -98,6 +103,12 @@ export function completeSetup(choices: Record<string, SetupChoice>): AppSettings
         throw new SetupError(`agents.${id}.args: 必须是字符串数组`);
       }
       entry.args = choice.args.map(String);
+    }
+    if (choice.profile !== undefined) {
+      if (!/^[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(String(choice.profile))) {
+        throw new SetupError(`agents.${id}.profile: 只能是字母/数字/下划线/连字符，且不得以连字符开头`);
+      }
+      entry.profile = String(choice.profile);
     }
     if (choice.credentialRef !== undefined) entry.credentialRef = choice.credentialRef;
 

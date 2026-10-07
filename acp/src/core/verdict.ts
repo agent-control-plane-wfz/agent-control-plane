@@ -20,6 +20,15 @@ export function verdictInstruction(): string {
   ].join('\n');
 }
 
+// B2 (audit): retry happens while the session is alive — this prompt is sent as a follow-up turn.
+export function VERDICT_RETRY_PROMPT(prevError: string): string {
+  return [
+    `Your previous reply did not satisfy the required JSON output (${prevError}).`,
+    'Reply again. IMPORTANT: output ONLY the JSON object described before — no prose, no markdown, no analysis.',
+    '你上一条回复不符合要求的 JSON 输出。请重新回答，只输出那个 JSON 对象本身，不要任何分析或解释。',
+  ].join('\n');
+}
+
 export type VerdictExtract = { ok: true; verdict: Verdict } | { ok: false; error: string; raw: string };
 
 function coerceVerdict(obj: any): Verdict | null {

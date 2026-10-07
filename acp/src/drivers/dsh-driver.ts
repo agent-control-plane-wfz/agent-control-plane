@@ -48,7 +48,7 @@ export class DshDriver {
       const child = spawn(dshCommand(), args, {
         cwd: opts.cwd,
         windowsHide: true,
-        env: { ...process.env, DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY ?? '' },
+        env: { ...process.env, ...(process.env.DEEPSEEK_API_KEY ? { DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY } : {}) },
       });
       const rl = createInterface({ input: child.stdout });
       const events: any[] = [];

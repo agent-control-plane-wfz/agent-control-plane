@@ -22,6 +22,9 @@ export function llmRouterEnabled(): boolean {
 
 export async function classifyTask(plane: ControlPlane, task: string, cwd: string): Promise<{ taskType: TaskType; reason: string } | null> {
   if (!llmRouterEnabled()) return null;
+  // C9 (audit): short-circuit when the classifier agent has no credentials — otherwise
+  // every ambiguous task would burn its full timeout before doing real work.
+  if (plane.registry.requiresAuth('opencode') === true) return null;
   try {
     // Guard against recursion: this call routes through the RULES path (taskType: quick).
     const r = await plane.ask({
@@ -29,7 +32,7 @@ export async function classifyTask(plane: ControlPlane, task: string, cwd: strin
       taskType: 'quick',
       cwd,
       task: `${PROMPT}\n${task.slice(0, 2000)}`,
-      timeoutMs: 60_000,
+      timeoutMs: 20_000, // C9: classification must be cheap — never block a real task for a minute
     });
     if (!r.ok || !r.text) return null;
     const m = r.text.match(/\{[\s\S]*\}/);

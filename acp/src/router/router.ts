@@ -1,6 +1,6 @@
-// Router v0 — rules only (LLM stub left for Phase 2).
-// Order: explicit hints -> capability filter -> heterogeneity constraint -> fallback chain.
-import type { AgentId, RouteDecision, Registry as IRegistry } from '../core/types.ts';
+// Router v0.2 — rules first (LLM fallback lives in llm-router.ts).
+// Order: explicit hints -> capability filter -> heterogeneity constraint (fail-closed) -> fallback chain.
+import type { AgentId, RouteDecision } from '../core/types.ts';
 import type { Registry } from '../registry/registry.ts';
 
 export interface TaskHints {
@@ -12,7 +12,7 @@ export interface TaskHints {
   requirements?: { differentVendorFrom?: string[] };
 }
 
-const RULES: Record<NonNullable<TaskHints['taskType']>, { agent: AgentId; tier?: string; effort?: string; note: string }> = {
+const RULES: Record<NonNullable<TaskHints['taskType']>, { agent: AgentId; effort?: string; note: string }> = {
   quick:     { agent: 'opencode', effort: 'default', note: 'cheap/fast pool for mechanical work' },
   code:      { agent: 'codex',    effort: 'medium',  note: 'workhorse coding model' },
   reasoning: { agent: 'codex',    effort: 'xhigh',   note: 'deep reasoning for hard analysis' },
@@ -23,66 +23,65 @@ const FALLBACK: AgentId[] = ['codex', 'claude', 'opencode', 'dsh'];
 
 export function route(reg: Registry, hints: TaskHints): RouteDecision {
   const chain: AgentId[] = [];
-  const push = (d: RouteDecision) => ({ ...d, fallbackChain: chain.slice() });
+  const push = (d: Omit<RouteDecision, 'fallbackChain'>) => ({ ...d, fallbackChain: chain.slice() });
 
-  // 1. Explicit agent hint wins (validated against matrix).
+  // 1. Explicit agent hint is a HARD constraint (B5, audit): if the user asked for a
+  //    specific agent and it is unavailable, that is an error — never a silent swap.
   if (hints.agent) {
     if (!reg.get(hints.agent)) throw new Error(`unknown agent: ${hints.agent}`);
     if (reg.requiresAuth(hints.agent) === true) {
-      chain.push(hints.agent);
-    } else {
-      return push({
-        agent: hints.agent,
-        model: hints.model ?? reg.defaultModel(hints.agent),
-        effort: hints.effort ?? reg.defaultEffort(hints.agent),
-        mode: hints.mode,
-        reason: 'explicit agent hint',
-      });
+      throw new Error(
+        `agent '${hints.agent}' was explicitly requested but has no working credentials `
+        + `(registry status: ${reg.get(hints.agent)?.auth?.status ?? 'unknown'}). `
+        + 'Configure its credentials or omit the agent hint to allow routing.',
+      );
     }
+    return push({
+      agent: hints.agent,
+      model: hints.model ?? reg.defaultModel(hints.agent),
+      effort: hints.effort ?? reg.defaultEffort(hints.agent),
+      mode: hints.mode,
+      reason: 'explicit agent hint',
+    });
   }
 
-  // 2. Heterogeneity constraint: exclude agents whose ACTUAL vendor is in the exclusion list.
-  let excludeVendors = hints.requirements?.differentVendorFrom ?? [];
-  const candidates: AgentId[] = [];
+  // 2. Candidate chain from task-type rule, then generic fallback order.
   const ordered: AgentId[] = hints.taskType && RULES[hints.taskType]
     ? [RULES[hints.taskType].agent, ...FALLBACK]
     : FALLBACK;
-  for (const a of ordered) {
-    if (!candidates.includes(a)) candidates.push(a);
-  }
+  const candidates: AgentId[] = [];
+  for (const a of ordered) if (!candidates.includes(a)) candidates.push(a);
+
+  // 3. B4 (audit): heterogeneity is FAIL-CLOSED. An agent whose actual vendor is
+  //    'unknown' can never satisfy a differentVendorFrom constraint — otherwise the
+  //    "implementer != reviewer" guarantee silently degrades to guesswork.
+  const excludeVendors = hints.requirements?.differentVendorFrom ?? [];
+  const okVendor = (a: AgentId, m?: string) => {
+    const v = reg.actualVendor(a, m);
+    return v !== 'unknown' && !excludeVendors.includes(v);
+  };
+
   const viable = candidates.filter((a) => {
-    const entry = reg.get(a);
-    if (!entry) return false;
-    if (reg.requiresAuth(a) === true) return false;          // no creds -> not viable now
-    if (excludeVendors.length && reg.agentsExcludingVendors([]).includes(a)) {
-      // check vendor after picking model (actual vendor depends on model)
-    }
+    if (!reg.get(a)) return false;
+    if (reg.requiresAuth(a) === true) return false;
+    if (excludeVendors.length && !okVendor(a, hints.model ?? reg.defaultModel(a))) return false;
     return true;
   });
 
   const pick = viable[0];
   if (!pick) {
-    throw new Error(`no viable agent (all filtered: auth/heterogeneity). excludeVendors=${JSON.stringify(excludeVendors)}`);
+    const why = excludeVendors.length
+      ? ` (heterogeneity excludeVendors=${JSON.stringify(excludeVendors)} — agents with unknown vendor are excluded by fail-closed policy)`
+      : '';
+    throw new Error(`no viable agent available${why}`);
   }
 
-  // 3. Heterogeneity: if the picked agent's actual vendor collides, walk the fallback chain.
-  let chosen = pick;
-  let model = hints.model ?? reg.defaultModel(chosen);
+  const chosen = pick;
+  const model = hints.model ?? reg.defaultModel(chosen);
   let reason = hints.taskType ? `rule:${hints.taskType} (${RULES[hints.taskType].note})` : 'fallback order';
-  if (excludeVendors.length) {
-    const okVendor = (a: AgentId, m?: string) => !excludeVendors.includes(reg.actualVendor(a, m));
-    let found = false;
-    for (const a of viable) {
-      const m = hints.model ?? reg.defaultModel(a);
-      if (okVendor(a, m)) { chosen = a; model = m; found = true; break; }
-      chain.push(a);
-    }
-    if (!found) throw new Error(`heterogeneity unsatisfiable: every candidate vendor in ${JSON.stringify(excludeVendors)}`);
-    reason += ` + differentVendorFrom(${JSON.stringify(excludeVendors)})`;
-  } else {
-    // build chain for reporting
-    for (const a of viable.slice(1)) chain.push(a);
-  }
+  if (excludeVendors.length) reason += ` + differentVendorFrom(${JSON.stringify(excludeVendors)}) [fail-closed]`;
+
+  for (const a of viable.slice(1)) chain.push(a);
 
   return push({
     agent: chosen,

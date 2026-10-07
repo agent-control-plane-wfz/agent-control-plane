@@ -43,6 +43,7 @@ export interface AgentResult {
   verdict?: import('./verdict.ts').Verdict;   // present when ask(verdict:true)
   verdictError?: string;
   workspace?: { kind: 'shared' | 'worktree'; path: string; branch?: string };
+  workspaceNote?: string;  // present when a requested worktree fell back to shared cwd
 }
 
 export interface RouteDecision {

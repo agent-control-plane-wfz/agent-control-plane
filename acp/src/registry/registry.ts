@@ -50,12 +50,12 @@ export class Registry {
   }
 
   // Vendor of the model the agent would ACTUALLY run (Phase 0 lesson: adapter name != vendor).
+  // D2 (audit): returns 'unknown' when the model is not in the table — callers must treat
+  // unknown as unsatisfiable for heterogeneity constraints (fail-closed in router.ts).
   actualVendor(agentId: AgentId, model?: string): string {
     const key = model ? `${agentId}/${model}` : `${agentId}/${this.defaultModel(agentId) ?? ''}`;
     const entry = this.models.models[key];
-    if (entry) return entry.vendor;
-    const e = this.get(agentId);
-    return e?.configOptions_observed?.model ? 'unknown' : 'unknown';
+    return entry ? entry.vendor : 'unknown';
   }
 
   effortOptions(agentId: AgentId, model?: string): string[] {

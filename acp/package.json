@@ -1,11 +1,22 @@
 {
   "name": "agent-control-plane",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "private": true,
-  "description": "Agent Control Plane: route tasks to coding-agent harnesses (opencode/claude/codex/dsh) with model+effort control. Zero runtime deps, Node 22 type-stripping.",
+  "description": "Agent Control Plane: route tasks to coding-agent harnesses (opencode/claude/codex/dsh) with model+effort control. Control-plane code has zero npm deps; the harness adapters it drives are optional peers.",
+  "engines": { "node": ">=22.6" },
   "scripts": {
-    "mcp": "node --experimental-strip-types src/mcp/server.ts",
-    "e2e": "node --experimental-strip-types tests/e2e-opencode.ts"
+    "typecheck": "tsc --noEmit",
+    "test:unit": "node --test --experimental-strip-types tests/unit/",
+    "mcp": "node --experimental-strip-types src/mcp/server.ts"
+  },
+  "optionalDependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.86.0",
+    "@agentclientprotocol/codex-acp": "2.1.1",
+    "@deepseek-ai/dsh": "0.2.0-rc.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.6"
   }
 }

@@ -3,6 +3,35 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
+// C5 (audit): children get a filtered environment, never a full dump of the parent's env.
+const BASE_ENV_KEYS = [
+  'ALLUSERSPROFILE', 'APPDATA', 'COMPUTERNAME', 'COMSPEC', 'CommonProgramFiles', 'CommonProgramFiles(x86)',
+  'HOMEDRIVE', 'HOMEPATH', 'LOCALAPPDATA', 'NUMBER_OF_PROCESSORS', 'OS', 'PATHEXT', 'PROCESSOR_ARCHITECTURE',
+  'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'PROMPT', 'PSModulePath', 'PUBLIC',
+  'SESSIONNAME', 'SystemDrive', 'SystemRoot', 'TEMP', 'TMP', 'USERDOMAIN', 'USERPROFILE',
+  'windir', 'PATH', 'USERNAME', 'DRIVERDATA', 'EFC_',
+];
+// Keys an agent may legitimately need, passed through when present.
+const PASSTHROUGH_ENV_KEYS = [
+  'DEEPSEEK_API_KEY', 'OPENAI_API_KEY', 'CODEX_API_KEY', 'ANTHROPIC_API_KEY',
+  'GEMINI_API_KEY', 'OPENROUTER_API_KEY', 'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY',
+  'NODE_OPTIONS', 'DSH_HOME', 'CODEX_PATH', 'CODEX_CONFIG',
+];
+
+function buildChildEnv(extra?: Record<string, string>): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const k of BASE_ENV_KEYS) {
+    const v = process.env[k];
+    if (v !== undefined) env[k] = v;
+  }
+  for (const k of PASSTHROUGH_ENV_KEYS) {
+    const v = process.env[k];
+    if (v) env[k] = v;
+  }
+  if (extra) Object.assign(env, extra);
+  return env;
+}
+
 export class JsonRpcStdio {
   private child;
   private pending = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }>();
@@ -16,9 +45,9 @@ export class JsonRpcStdio {
 
   readonly label: string;
 
-  constructor(cmd: string, args: string[], cwd: string, label = 'jsonrpc') {
+  constructor(cmd: string, args: string[], cwd: string, label = 'jsonrpc', env?: Record<string, string>) {
     this.label = label;
-    this.child = spawn(cmd, args, { cwd, windowsHide: true });
+    this.child = spawn(cmd, args, { cwd, windowsHide: true, env: buildChildEnv(env) });
     const rl = createInterface({ input: this.child.stdout });
     rl.on('line', (line) => this.handleLine(line));
     this.child.stderr.on('data', (d) => {

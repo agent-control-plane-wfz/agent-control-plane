@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Control Plane 控制台</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1d212b; --border: #2a2f3c;
+    --text: #e6e9ef; --dim: #8b93a5; --accent: #4f8cff; --ok: #3ecf8e; --warn: #f5a623; --err: #ff5c6c;
+    --mono: 'Cascadia Code', Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.55 'Segoe UI', 'Microsoft YaHei', sans-serif; }
+  header { display: flex; align-items: center; gap: 14px; padding: 14px 22px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; letter-spacing: .5px; }
+  header .sub { color: var(--dim); font-size: 12px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--border); font-size: 12px; color: var(--dim); }
+  .chip b { color: var(--text); font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); display: inline-block; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.err { background: var(--err); }
+  main { display: grid; grid-template-columns: 400px 1fr; gap: 16px; padding: 16px 22px; max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); }
+  label { display: block; font-size: 12px; color: var(--dim); margin: 10px 0 4px; }
+  textarea, input, select { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font: 13px var(--mono); }
+  textarea { resize: vertical; min-height: 84px; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .check { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--text); }
+  .check input { width: auto; }
+  button { background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 9px 16px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 14px; width: 100%; }
+  button:hover { filter: brightness(1.1); }
+  button:disabled { opacity: .5; cursor: wait; }
+  .toggle { display: inline-flex; gap: 0; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .toggle button { margin: 0; width: auto; padding: 6px 14px; background: var(--panel2); color: var(--dim); font-size: 12px; border-radius: 0; }
+  .toggle button.on { background: var(--accent); color: #fff; }
+  .agents { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 22px; max-width: 1500px; margin: 12px auto 0; }
+  .agent { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; min-width: 170px; }
+  .agent .name { font-weight: 700; font-size: 13px; }
+  .agent .meta { color: var(--dim); margin-top: 2px; }
+  .agent .note { color: var(--warn); margin-top: 2px; font-size: 11px; }
+  #jobs { display: flex; flex-direction: column; gap: 8px; }
+  .job { border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); }
+  .job summary { list-style: none; display: flex; gap: 10px; align-items: center; padding: 10px 12px; cursor: pointer; flex-wrap: wrap; }
+  .job summary::-webkit-details-marker { display: none; }
+  .badge { padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .badge.running { background: #2b3a5e; color: #9cc0ff; }
+  .badge.ok { background: #17352a; color: var(--ok); }
+  .badge.err { background: #3d1e24; color: var(--err); }
+  .badge.parallel { background: #33284a; color: #c3a6ff; }
+  .jid { font-family: var(--mono); color: var(--dim); font-size: 12px; }
+  .jtask { flex: 1; min-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+  .jmeta { color: var(--dim); font-size: 12px; }
+  .jbody { border-top: 1px solid var(--border); padding: 12px; }
+  .jbody h3 { margin: 0 0 6px; font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; }
+  pre { background: #12151c; border: 1px solid var(--border); border-radius: 6px; padding: 10px; overflow: auto; max-height: 340px; font: 12px var(--mono); white-space: pre-wrap; word-break: break-word; margin: 0 0 12px; }
+  .empty { color: var(--dim); text-align: center; padding: 30px 0; }
+  .err-text { color: var(--err); font-family: var(--mono); font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Agent Control Plane</h1>
+  <span class="sub">把 Claude Code / Codex / OpenCode / DeepSeek 当 subagent 调度</span>
+  <span style="flex:1"></span>
+  <span class="chip" id="budget-chip">预算加载中…</span>
+  <span class="chip" id="poll-chip"><span class="dot"></span><span id="poll-text">连接中</span></span>
+</header>
+
+<div class="agents" id="agents"></div>
+
+<main>
+  <section class="card">
+    <h2>派任务</h2>
+    <div class="toggle">
+      <button id="tab-ask" class="on" onclick="setMode('ask')">单任务 ask</button>
+      <button id="tab-batch" onclick="setMode('batch')">批量 parallel</button>
+    </div>
+
+    <div id="batch-box" style="display:none">
+      <label>任务列表（每行一个任务）</label>
+      <textarea id="f-batchtasks" placeholder="每行一个任务，例如：&#10;审查 README 的措辞风险&#10;把 package.json 的描述改成英文"></textarea>
+      <label>并发数</label>
+      <input id="f-concurrency" type="number" value="3" min="1" max="8">
+    </div>
+
+    <label>任务内容</label>
+    <textarea id="f-task" placeholder="要交给 agent 的任务描述"></textarea>
+    <label>工作目录 cwd</label>
+    <input id="f-cwd" value="D:\workb\orchestrator">
+    <div class="row3">
+      <div><label>Agent</label><select id="f-agent" onchange="agentChanged()">
+        <option value="">auto（路由）</option>
+        <option value="opencode">opencode</option>
+        <option value="claude">claude</option>
+        <option value="codex">codex</option>
+        <option value="dsh">dsh</option>
+      </select></div>
+      <div><label>模型（留空默认）</label><input id="f-model" list="model-list" placeholder="auto"><datalist id="model-list"></datalist></div>
+      <div><label>思考档位</label><input id="f-effort" list="effort-list" placeholder="auto"><datalist id="effort-list"></datalist></div>
+    </div>
+    <div class="row3">
+      <div><label>任务类型</label><select id="f-tasktype">
+        <option value="">auto</option><option>quick</option><option>code</option><option>reasoning</option><option>review</option>
+      </select></div>
+      <div><label>Workspace</label><select id="f-wsmode"><option>shared</option><option>worktree</option></select></div>
+      <div><label>工具调用上限</label><input id="f-maxtools" type="number" placeholder="不限"></div>
+    </div>
+    <div class="check"><input type="checkbox" id="f-verdict"> 要求结构化 verdict（JSON 结论/风险/建议，失败自动重试一次）</div>
+    <button id="btn-submit" onclick="submitJob()">派发</button>
+    <div class="err-text" id="form-err"></div>
+  </section>
+
+  <section class="card">
+    <h2>作业（本次进程内存中）</h2>
+    <div id="jobs"><div class="empty">暂无作业 —— 左侧派一个任务试试</div></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let mode = 'ask';
+let STATUS = null;
+
+function setMode(m) {
+  mode = m;
+  $('tab-ask').classList.toggle('on', m === 'ask');
+  $('tab-batch').classList.toggle('on', m === 'batch');
+  $('batch-box').style.display = m === 'batch' ? '' : 'none';
+  $('f-task').parentElement.style.display = m === 'batch' ? 'none' : '';
+}
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.error || r.status);
+  return body;
+}
+
+function agentChanged() {
+  const a = STATUS?.agents?.find((x) => x.agent === $('f-agent').value);
+  $('model-list').innerHTML = (a?.models ?? []).map((m) => `<option value="${m}">`).join('');
+  $('effort-list').innerHTML = (a?.effortLevels ?? []).map((e) => `<option value="${e}">`).join('');
+}
+
+function renderStatus(s) {
+  STATUS = s;
+  const b = s.budget ?? {};
+  $('budget-chip').innerHTML = `预算今日 <b>${b.requests ?? 0}</b> 次 / <b>${fmtNum((b.tokensIn ?? 0) + (b.tokensOut ?? 0))}</b> tokens`;
+  $('agents').innerHTML = (s.agents ?? []).map((a) => {
+    const dot = a.authenticated === true ? 'ok' : a.authenticated === false ? 'err' : 'warn';
+    const auth = a.authenticated === true ? '已认证' : a.authenticated === false ? '未认证' : '未知';
+    return `<div class="agent">
+      <div class="name"><span class="dot ${dot}"></span> ${a.agent}</div>
+      <div class="meta">${a.transport} · ${auth} · ${a.models?.length ?? 0} 模型 · effort ${a.effortLevels?.length ?? 0} 档</div>
+      ${a.actualVendorNote ? `<div class="note">⚠ ${a.actualVendorNote}</div>` : ''}
+    </div>`;
+  }).join('');
+  agentChanged();
+}
+
+function fmtNum(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
+  return String(n ?? 0);
+}
+
+function badge(job) {
+  if (job.status === 'running') return '<span class="badge running">运行中</span>';
+  const ok = job.kind === 'ask' ? job.result?.ok : job.result?.summary?.failed === 0;
+  return job.status === 'failed' || ok === false
+    ? '<span class="badge err">失败</span>'
+    : `<span class="badge ${job.kind === 'parallel' ? 'parallel' : 'ok'}">${job.kind === 'parallel' ? '批次完成' : '完成'}</span>`;
+}
+
+function renderJobs(jobs) {
+  if (!jobs.length) { $('jobs').innerHTML = '<div class="empty">暂无作业 —— 左侧派一个任务试试</div>'; return; }
+  $('jobs').innerHTML = jobs.map((j) => {
+    const task = j.kind === 'parallel'
+      ? `批量 ${j.request.jobs.length} 个任务`
+      : String(j.request.task).slice(0, 90);
+    const meta = j.kind === 'parallel'
+      ? `并发 ${j.request.concurrency ?? 3}`
+      : `${j.request.agent || 'auto'}${j.request.model ? ' · ' + j.request.model : ''}${j.request.effort ? ' · ' + j.request.effort : ''}`;
+    const dur = j.finishedAt ? `${((j.finishedAt - j.createdAt) / 1000).toFixed(1)}s` : '';
+    return `<details class="job"><summary>
+      ${badge(j)}<span class="jid">${j.id}</span><span class="jtask">${escapeHtml(task)}</span>
+      <span class="jmeta">${meta}${dur ? ' · ' + dur : ''}</span></summary>
+      <div class="jbody">${renderBody(j)}</div></details>`;
+  }).join('');
+}
+
+function renderBody(j) {
+  if (j.status === 'failed') return `<h3>错误</h3><pre>${escapeHtml(j.error ?? '')}</pre>`;
+  if (j.status === 'running') return '<div class="empty">执行中…（agent 子进程真实工作，请稍候）</div>';
+  const r = j.result;
+  if (j.kind === 'ask') {
+    const v = r.verdict ? `<h3>Verdict</h3><pre>${escapeHtml(JSON.stringify(r.verdict, null, 2))}</pre>` : '';
+    return `${r.error ? `<div class="err-text">${escapeHtml(r.error)}</div>` : ''}
+      <h3>回复（${escapeHtml(r.agent ?? '')}${r.model ? ' · ' + escapeHtml(r.model) : ''}）</h3>
+      <pre>${escapeHtml(r.text ?? '(空)')}</pre>${v}
+      <h3>原始结果</h3><pre>${escapeHtml(JSON.stringify(r, null, 2))}</pre>`;
+  }
+  const s = r.summary ?? {};
+  const rows = (r.results ?? []).map((x) => `<li>${escapeHtml(x.id)}：${x.ok ? '✅' : '❌'} ${escapeHtml((x.result?.text ?? x.error ?? '').slice(0, 120))}</li>`).join('');
+  return `<h3>汇总</h3><pre>total=${s.total} ok=${s.ok} failed=${s.failed} 耗时=${(s.durationMs / 1000).toFixed(1)}s（并发节省 ${(s.wallVsSerialMsSaved / 1000).toFixed(1)}s） usage=${JSON.stringify(s.usage)}</pre>
+    <h3>各任务</h3><pre>${rows}</pre>
+    <h3>原始结果</h3><pre>${escapeHtml(JSON.stringify(r, null, 2))}</pre>`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function submitJob() {
+  $('form-err').textContent = '';
+  const btn = $('btn-submit');
+  btn.disabled = true;
+  try {
+    const base = {
+      cwd: $('f-cwd').value.trim(),
+      agent: $('f-agent').value || undefined,
+      model: $('f-model').value.trim() || undefined,
+      effort: $('f-effort').value.trim() || undefined,
+      taskType: $('f-tasktype').value || undefined,
+      workspaceMode: $('f-wsmode').value,
+      verdict: $('f-verdict').checked || undefined,
+      maxToolCalls: $('f-maxtools').value ? Number($('f-maxtools').value) : undefined,
+    };
+    if (mode === 'ask') {
+      const task = $('f-task').value.trim();
+      if (!task) throw new Error('任务内容不能为空');
+      await api('/api/ask', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ task, ...base }) });
+    } else {
+      const tasks = $('f-batchtasks').value.split('\n').map((t) => t.trim()).filter(Boolean);
+      if (!tasks.length) throw new Error('批量任务列表为空');
+      await api('/api/parallel', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ concurrency: Number($('f-concurrency').value) || 3, jobs: tasks.map((task, i) => ({ id: `job-${i + 1}`, task, ...base })) }) });
+    }
+    refreshJobs();
+  } catch (e) {
+    $('form-err').textContent = String(e.message ?? e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function refreshStatus() {
+  try { renderStatus(await api('/api/status')); $('poll-text').textContent = '已连接'; }
+  catch { $('poll-text').textContent = '断开'; }
+}
+async function refreshJobs() {
+  try { renderJobs(await api('/api/jobs')); } catch { /* ignore */ }
+}
+
+setMode('ask');
+refreshStatus();
+refreshJobs();
+setInterval(refreshStatus, 5000);
+setInterval(refreshJobs, 1500);
+</script>
+</body>
+</html>

@@ -82,6 +82,23 @@
   不确定的标 unknown，禁止臆测）。
 - `plane.shutdown()`：退出前关闭所有 ACP 子进程（否则 Node 事件循环挂住）。
 
+## Web 控制台（Phase 5.5）
+
+图形化操作页面：浏览器里看四家 agent 实时状态（transport / 认证 / 模型数 / 实际厂商警告）、
+派单任务与批量任务（含 agent/model/effort/taskType/verdict/worktree/工具上限全部参数）、
+实时作业列表（点开看回复原文、verdict、usage、原始 JSON）、今日预算用量。
+
+```bash
+# 启动（需要 WORKSPACE_DIR 指向装有 adapter 包的 node workspace）
+WORKSPACE_DIR=C:\Users\me\.workbuddy\binaries\node\workspace npm run web
+# 打开 http://127.0.0.1:7777（端口可用 ACP_WEB_PORT 改）
+```
+
+- REST API：`GET /api/status`、`GET/POST /api/jobs`、`POST /api/ask`、`POST /api/parallel`
+- **只绑定 127.0.0.1**（作业在服务进程内存里执行真实 agent 调用，不要暴露到局域网/公网）
+- 作业列表存内存（重启即清）；预算按天落盘不受影响
+- E2E：`tests/e2e-web.ts`（拉起子进程服务端 → 静态页 / 状态 / 400 校验 / 真实 dsh 往返）
+
 ## 运行
 
 ```bash

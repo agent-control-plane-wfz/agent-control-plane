@@ -8,7 +8,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test:unit": "node --test --experimental-strip-types tests/unit/",
-    "mcp": "node --experimental-strip-types src/mcp/server.ts"
+    "mcp": "node --experimental-strip-types src/mcp/server.ts",
+    "web": "node --experimental-strip-types src/web/server.ts"
   },
   "optionalDependencies": {
     "@agentclientprotocol/claude-agent-acp": "0.86.0",

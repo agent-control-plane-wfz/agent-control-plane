@@ -28,6 +28,22 @@
   注意 codex 的 effort 项 id 是 `reasoning_effort`（plane 按 category=thought_level 动态解析）。
 - MCP 冒烟：initialize / tools/list(6 工具) / tools/call(status) ✅
 
+## Phase 4 新增
+
+- **异构互审编排**（`src/review/review.ts` `plane.heteroReview`）：
+  实现 → 交叉评审（按 **actual vendor** 强制异构，Router 自动选）→ 中立终验 → 共识判定 →
+  分歧时第三方仲裁（仲裁者输入仅限两份 verdict，隔离上下文偏见）。
+- **中立终验**（`src/review/verify.ts`）：`verifyCommands` 全部 exit 0 才算 done——
+  LLM 无权宣布成功。E2E 实测中它抓住了实现者的虚报（"created" 但文件不存在）。
+- MCP 新工具：`hetero_review` / `verify`（共 8 个）。
+- E2E 实录（`tests/e2e-phase4.ts`）：deepseek(claude adapter) 在隔离 worktree 里用 TDD
+  实现 calc.js → codex(openai) 实际运行测试后给出 approve verdict（还指出 NaN 规格边界）→
+  node 中立终验通过 → consensus=verified。
+
+**模型指令遵从差异（实测）**：verdict JSON 契约对 codex/openai 一次通过；deepseek-v4-flash
+(dsh) 倾向输出 markdown 分析而忽略结尾 JSON 指令（重试也难救）——verdict 场景优先路由
+到遵从度已验证的 agent，Registry 的 traits 字段未来纳入该维度。
+
 ## Phase 3 新增
 
 - **Workspace 管理**（`src/workspace/manager.ts`）：`ask(workspaceMode:'worktree')` 为 agent

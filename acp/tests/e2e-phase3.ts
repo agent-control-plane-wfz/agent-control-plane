@@ -12,9 +12,10 @@ const wt = await selfTest();
 console.log(JSON.stringify(wt));
 if (!wt.ok) failed = true;
 
-console.log('\n== ask with structured verdict (real opencode) ==');
+console.log('\n== ask with structured verdict (codex; instruction-following verified in Phase 4) ==');
 const r = await plane.ask({
-  agent: 'opencode',
+  agent: 'codex',
+  effort: 'low',
   task: '审查这段代码的风险：function add(a, b) { return a + b }  // 调用方传入字符串时无类型检查',
   cwd,
   verdict: true,

@@ -7,7 +7,7 @@ const plane = new ControlPlane();
 
 console.log('== spawn (keepSession) ==');
 const r1 = await plane.ask({
-  agent: 'opencode',
+  agent: 'dsh',   // stable instruction-following; free-pool opencode has intermittent empty replies
   task: '记住这个数字：42。只回答 OK。',
   cwd,
   keepSession: true,
@@ -20,14 +20,14 @@ if (!r1.ok || !r1.sessionId) {
 }
 
 console.log('\n== send (follow-up, same session) ==');
-const r2 = await plane.send('opencode', r1.sessionId, '我刚才让你记住的数字是多少？只回答那个数字。', 120_000);
+const r2 = await plane.send('dsh', r1.sessionId, '我刚才让你记住的数字是多少？只回答那个数字。', 120_000);
 console.log(JSON.stringify({
   ok: r2.ok, text: r2.text.slice(0, 200), stopReason: r2.stopReason,
   usage: r2.usage, durationMs: r2.durationMs, error: r2.error,
 }, null, 2));
 
 console.log('\n== cleanup ==');
-const st = await plane.stop('opencode', r1.sessionId);
+const st = await plane.stop('dsh', r1.sessionId!);
 console.log(JSON.stringify(st));
 await plane.shutdown();
 

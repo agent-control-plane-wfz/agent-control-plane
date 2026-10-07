@@ -76,6 +76,43 @@ const TOOLS = [
     },
   },
   {
+    name: 'hetero_review',
+    description: 'Phase 4 orchestration: implement -> cross-vendor review (actual vendor enforced) -> neutral verification (objective commands) -> consensus -> optional third-party arbitration.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        task: { type: 'string' },
+        cwd: { type: 'string', description: 'Project directory (git repo if workspaceMode=worktree)' },
+        implementer: { type: 'string', enum: ['opencode', 'claude', 'codex', 'dsh'] },
+        implementerModel: { type: 'string' },
+        implementerEffort: { type: 'string' },
+        implementerMode: { type: 'string', description: "e.g. 'acceptEdits' for write tasks" },
+        reviewerEffort: { type: 'string' },
+        workspaceMode: { type: 'string', enum: ['shared', 'worktree'] },
+        verifyCommands: {
+          type: 'array', description: 'Neutral gate: commands that must exit 0',
+          items: { type: 'object', properties: { cmd: { type: 'string' }, args: { type: 'array', items: { type: 'string' } } }, required: ['cmd'] },
+        },
+        arbitrateOnConflict: { type: 'boolean' },
+        timeoutMs: { type: 'number' },
+      },
+      required: ['task', 'cwd'],
+    },
+  },
+  {
+    name: 'verify',
+    description: 'Neutral verification only: run commands in cwd; all must exit 0. No LLM involved.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        cwd: { type: 'string' },
+        commands: { type: 'array', items: { type: 'object', properties: { cmd: { type: 'string' }, args: { type: 'array', items: { type: 'string' } } }, required: ['cmd'] } },
+        timeoutMs: { type: 'number' },
+      },
+      required: ['cwd', 'commands'],
+    },
+  },
+  {
     name: 'stop_agent',
     description: 'Cancel the running prompt of a session.',
     inputSchema: {
@@ -124,6 +161,22 @@ async function callTool(name: string, args: any): Promise<{ content: any[]; isEr
       }
       case 'send_agent':
         return text(await plane.send(args.agent as AgentId, args.sessionId, args.task, args.timeoutMs));
+      case 'hetero_review': {
+        const r = await plane.heteroReview({
+          task: args.task, cwd: args.cwd,
+          implementer: args.implementer as AgentId | undefined,
+          implementerModel: args.implementerModel, implementerEffort: args.implementerEffort,
+          implementerMode: args.implementerMode, reviewerEffort: args.reviewerEffort,
+          workspaceMode: args.workspaceMode, verifyCommands: args.verifyCommands,
+          arbitrateOnConflict: args.arbitrateOnConflict, timeoutMs: args.timeoutMs,
+        });
+        return text(r, r.consensus === 'failed' || r.consensus === 'verification_failed');
+      }
+      case 'verify': {
+        const { runVerification } = await import('../review/verify.ts');
+        const r = await runVerification(args.commands, args.cwd, args.timeoutMs);
+        return text(r, !r.allPassed);
+      }
       case 'stop_agent':
         return text(await plane.stop(args.agent as AgentId, args.sessionId));
       default:

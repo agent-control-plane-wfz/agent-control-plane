@@ -10,6 +10,7 @@ import { Registry } from '../registry/registry.ts';
 import { route, type TaskHints } from '../router/router.ts';
 import { classifyTask, llmRouterEnabled } from '../router/llm-router.ts';
 import { prepareWorkspace, type PreparedWorkspace } from '../workspace/manager.ts';
+import { heteroReview as runHeteroReview, type HeteroReviewOptions, type HeteroReviewOutcome } from '../review/review.ts';
 import { Budget } from '../budget/budget.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -53,6 +54,7 @@ export class ControlPlane {
   private acpConfigs = loadAcpConfigs();
   private drivers = new Map<AgentId, AcpDriver>();
   private sessions = new Map<string, AcpSession>(); // key: `${agent}:${sessionId}`
+  private dshSessions = new Map<string, string>();  // dsh sessionId -> cwd (one-shot process; resume via --session-id)
 
   constructor(registry?: Registry, budget?: Budget) {
     this.registry = registry ?? new Registry();
@@ -131,9 +133,34 @@ export class ControlPlane {
     return this.ask({ ...opts, taskType: 'review', differentVendorFrom: opts.excludeVendors, verdict: opts.verdict ?? true });
   }
 
+  // Phase 4: full implementation -> cross-vendor review -> neutral verification -> arbitration.
+  heteroReview(opts: HeteroReviewOptions): Promise<HeteroReviewOutcome> {
+    return runHeteroReview(this, opts);
+  }
+
   async send(agent: AgentId, sessionId: string, task: string, timeoutMs?: number): Promise<AgentResult> {
     const t0 = Date.now();
     this.budget.checkRequest();
+    // dsh is a one-shot process — resume via --session-id instead of a live ACP session.
+    if (agent === 'dsh') {
+      const cwd = this.dshSessions.get(sessionId);
+      if (!cwd) {
+        return {
+          agent, sessionId, ok: false, text: '',
+          error: `dsh session not found: ${sessionId}. It must come from a successful dsh ask in this process.`,
+          toolCalls: 0, durationMs: Date.now() - t0,
+        };
+      }
+      const r = await DshDriver.run(task, { cwd, sessionId, timeoutMs: timeoutMs ?? 300_000 });
+      const out: AgentResult = {
+        agent, sessionId,
+        ok: r.exitCode === 0, text: r.text || `(dsh exit=${r.exitCode}) ${r.stderr.slice(-500)}`,
+        stopReason: r.exitCode === 0 ? 'end_turn' : 'error',
+        toolCalls: 0, durationMs: Date.now() - t0, usage: r.usage,
+      };
+      this.budget.record(out.usage);
+      return out;
+    }
     const s = this.sessions.get(`${agent}:${sessionId}`);
     if (!s) {
       return {
@@ -182,6 +209,7 @@ export class ControlPlane {
 
   private async runDsh(agent: 'dsh', model?: string, effort?: string, task?: string, o: { cwd: string; timeoutMs?: number; sessionId?: string }, t0: number): Promise<AgentResult> {
     const r = await DshDriver.run(task!, { cwd: o.cwd, timeoutMs: o.timeoutMs, sessionId: o.sessionId });
+    if (r.sessionId && r.exitCode === 0) this.dshSessions.set(r.sessionId, o.cwd);
     return {
       agent, model, effort, sessionId: r.sessionId,
       ok: r.exitCode === 0, text: r.text || `(dsh exit=${r.exitCode}) ${r.stderr.slice(-500)}`,

@@ -13,9 +13,10 @@ export function verdictInstruction(): string {
   return [
     '',
     '',
-    'OUTPUT REQUIREMENT (strict): after any explanation, end your reply with a single JSON object exactly in this shape:',
-    '{"conclusion":"<one-paragraph conclusion>","risks":["<risk1>","<risk2>"],"recommendation":"<approve|fix|reject + what to do>","changedFiles":["<path>"],"testsPassed":true|false}',
-    'Omit fields you cannot determine (except conclusion and risks, which are required). Do not wrap the JSON in markdown fences if possible.',
+    'OUTPUT REQUIREMENT (STRICT / 输出硬性要求): your reply MUST end with a single JSON object in exactly this shape:',
+    '{"conclusion":"<one-paragraph conclusion / 一段话结论>","risks":["<risk1>","<risk2>"],"recommendation":"<approve|fix|reject + what to do>","changedFiles":["<path>"],"testsPassed":true|false}',
+    'Rules: conclusion and risks are REQUIRED; omit fields you cannot determine; no markdown fences around the JSON; no text after the JSON.',
+    '规则：conclusion 与 risks 必填；JSON 之后不要再输出任何内容。',
   ].join('\n');
 }
 

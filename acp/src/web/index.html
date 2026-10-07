@@ -165,24 +165,116 @@ pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;pad
 .chip-x button{background:none;border:0;color:var(--err);cursor:pointer;font-size:12px;padding:0 2px}
 .usage-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--dim);padding:4px 0;border-bottom:1px dashed var(--border)}
 .usage-row b{color:var(--text);font-family:var(--mono)}
+.sidenav{display:flex;flex-direction:column;gap:2px;margin-top:-4px}
+.navrow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:transparent;border:0;color:var(--dim);font:500 13.5px/1 Montserrat,'PingFang SC','Microsoft YaHei',sans-serif;padding:9px 11px;border-radius:var(--dsw-radius-sm);cursor:pointer;transition:background .12s}
+.navrow:hover{background:#ffffff14;color:var(--text)}
+.navrow.on{background:var(--dsw-alias-bg-layer-2);color:var(--text)}
+.navico{font-size:13px;opacity:.85;width:15px;text-align:center}
+
+/* =====================================================================================
+   dsh design system — token values copied verbatim from @deepseek-ai/dsh-client-ui-theme
+   (DeepSeek Harness, MIT License). Font: Montserrat, SIL Open Font License (fonts/).
+   We re-map our palette variables onto dsh's real tokens so the whole UI inherits its
+   look: bg-base/layer ramp, half-pixel elevation stroke, radii scale, brand blue.
+   ===================================================================================== */
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:400;font-display:swap;src:url(./fonts/montserrat-regular.woff2) format('woff2')}
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:300;font-display:swap;src:url(./fonts/montserrat-light.woff2) format('woff2')}
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:500;font-display:swap;src:url(./fonts/montserrat-medium.woff2) format('woff2')}
+
+:root{
+  /* raw palette (dsw-static-*) */
+  --dsw-neutral-bluish-950:#151517; --dsw-neutral-bluish-875:#232324;
+  --dsw-neutral-bluish-850:#2c2c2e; --dsw-neutral-bluish-800:#353638;
+  --dsw-neutral-bluish-400:#adb2b8; --dsw-neutral-bluish-600:#81858c; --dsw-neutral-bluish-700:#61666b;
+  --dsw-deepseek-500:#4176e6; --dsw-deepseek-450:#5686fe;
+  --dsw-red-400:#f25a5a; --dsw-amber:#f7ad31; --dsw-green-400:#4ed17e; --dsw-green-500:#22c55e;
+  /* alias tokens (dsw-alias-*, dark theme) */
+  --dsw-alias-bg-base:var(--dsw-neutral-bluish-950);
+  --dsw-alias-bg-layer-1:var(--dsw-neutral-bluish-875);
+  --dsw-alias-bg-layer-2:var(--dsw-neutral-bluish-850);
+  --dsw-alias-bg-layer-3:var(--dsw-neutral-bluish-800);
+  --dsw-alias-settings-card-fill:var(--dsw-alias-bg-layer-2);
+  --dsw-alias-border-l1:#ffffff0f; --dsw-alias-border-l2:#ffffff1f;
+  --dsw-alias-border-l3:#ffffff29; --dsw-alias-border-l4:#ffffff33;
+  --dsw-alias-brand-text:#f9fafb;
+  --dsw-alias-brand-primary:#4176e6;      /* deepseek-500 */
+  --dsw-alias-brand-primary-hover:#5686fe;/* deepseek-450 */
+  --dsw-alias-state-error-primary:var(--dsw-red-400);
+  --dsw-alias-state-success-primary:var(--dsw-green-500);
+  --dsw-alias-bg-hover:#ffffff14;
+  /* geometry (dsw-radius-*/ --dsw-shadow-*/ --dsw-elevation-*) */
+  --dsw-radius-xs:4px; --dsw-radius-sm:8px; --dsw-radius-md:12px;
+  --dsw-radius-lg:16px; --dsw-radius-xl:20px; --dsw-radius-panel:28px;
+  --dsw-elevation-stroke:0 0 0 .5px var(--dsw-alias-border-l3);
+  --dsw-shadow-lv1:0 2px 4px 0 #0000000d;
+  --dsw-shadow-lv2:0 4px 12px 0 #00000005, 0 2px 8px 0 #0000000a;
+  --dsw-elevation-panel:var(--dsw-elevation-stroke), 0 3px 8px 0 #00000008, 0 0 16px 0 #00000005;
+  /* re-map our palette vars onto dsh tokens */
+  --bg:var(--dsw-alias-bg-base);
+  --surface:var(--dsw-alias-settings-card-fill);
+  --surface2:var(--dsw-alias-bg-layer-1);
+  --surface3:var(--dsw-alias-bg-layer-3);
+  --border:var(--dsw-alias-border-l1);
+  --border2:var(--dsw-alias-border-l2);
+  --text:var(--dsw-alias-brand-text);
+  --dim:var(--dsw-neutral-bluish-400);
+  --faint:var(--dsw-neutral-bluish-600);
+  --acc1:var(--dsw-alias-brand-primary);
+  --acc2:var(--dsw-alias-brand-primary-hover);
+  --ok:var(--dsw-alias-state-success-primary);
+  --warn:var(--dsw-amber);
+  --err:var(--dsw-alias-state-error-primary);
+  --mono:'Cascadia Code',Consolas,'Courier New',monospace;
+}
+body{font-family:Montserrat,'PingFang SC','Microsoft YaHei',system-ui,sans-serif;letter-spacing:.012em}
+/* dsh signature: half-pixel stroke instead of solid 1px borders; real radii scale */
+.card{background:var(--dsw-alias-settings-card-fill);border:0;border-radius:var(--dsw-radius-lg);box-shadow:var(--dsw-elevation-stroke), var(--dsw-shadow-lv2)}
+aside{background:var(--dsw-alias-bg-base);border-right:0;box-shadow:var(--dsw-elevation-stroke)}
+header.main{background:linear-gradient(var(--dsw-alias-bg-base) 82%,transparent)}
+.side-card,.agentrow,.job,.credchip,.chip-x,.schip,.usage-row{box-shadow:var(--dsw-elevation-stroke)}
+.side-card{border:0;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1)}
+.agentrow,.job{border:0;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1)}
+.agentrow.open,.job.open{border-radius:var(--dsw-radius-md);box-shadow:0 0 0 1.5px var(--dsw-alias-brand-primary)}
+input,textarea,select{background:var(--dsw-alias-bg-layer-1);border:0;border-radius:var(--dsw-radius-sm);box-shadow:var(--dsw-elevation-stroke)}
+input:focus,textarea:focus,select:focus{box-shadow:0 0 0 1.5px var(--dsw-alias-brand-primary)}
+#btn-go,.brand .logo{background:var(--dsw-alias-brand-primary);background-image:none;box-shadow:none}
+#btn-go:hover{background:var(--dsw-alias-brand-primary-hover);filter:none;transform:none}
+.tabs{background:var(--dsw-alias-bg-layer-1);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm)}
+.tabs button.on,.navbtn.on,.fchip.on{background:var(--dsw-alias-bg-layer-3);color:var(--text);box-shadow:none}
+.navbtn{border-radius:var(--dsw-radius-xs)}
+.navbtn:hover{background:var(--dsw-alias-bg-hover)}
+button.ghost{background:transparent;border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm)}
+button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
+.pill,.fchip,.credchip,.chip-x,.presets button,.schip{border-radius:999px}
+.presets button{background:var(--dsw-alias-bg-layer-1);border:0;box-shadow:var(--dsw-elevation-stroke)}
+.presets button:hover{border-color:transparent;background:var(--dsw-alias-bg-layer-3)}
+.livelog,.reply,pre.rawj,.probebox{background:var(--dsw-alias-bg-base);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm)}
+.verdict{background:#22c55e14;border:0;box-shadow:0 0 0 1px #22c55e1f;border-radius:var(--dsw-radius-sm)}
+.side-title,h2.ct{letter-spacing:.08em;font-weight:500}
+.job-h:hover,.arow:hover{background:var(--dsw-alias-bg-hover)}
+.subnav{background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-md);box-shadow:var(--dsw-elevation-stroke)}
+::-webkit-scrollbar-thumb{background:#ffffff1f;border-radius:999px}
+::-webkit-scrollbar-thumb:hover{background:#ffffff29}
+.dot.ok,.dot.err,.dot.warn{box-shadow:none}
 </style>
 </head>
 <body>
 
 <aside>
-  <div class="brand"><span class="logo">◈</span> Control Plane <small>v0.2</small></div>
+  <div class="brand"><span class="logo">◈</span> Control Plane <small>v0.3</small></div>
+  <div class="sidenav">
+    <button class="navrow on" id="nav-console" onclick="switchView('console')"><span class="navico">▤</span>控制台</button>
+    <button class="navrow" id="nav-settings" onclick="switchView('settings')"><span class="navico">⚙</span>设置</button>
+  </div>
   <div class="side-card" id="budget"></div>
   <div class="side-title">AGENTS · 点击选中</div>
   <div class="side-card" style="padding:6px;display:flex;flex-direction:column;gap:2px" id="agents"></div>
-  <div class="side-foot">只绑定 127.0.0.1<br>作业：内存 + 历史文件<br>MCP 与 Web 共用同一 ControlPlane</div>
+  <div class="side-foot">只绑定 127.0.0.1<br>作业：内存 + 历史文件<br>MCP 与 Web 共用同一 ControlPlane<br>design tokens: DeepSeek Harness (MIT)</div>
 </aside>
 
 <main>
   <header class="main">
-    <div class="topnav">
-      <button class="navbtn on" id="nav-console" onclick="switchView('console')">控制台</button>
-      <button class="navbtn" id="nav-settings" onclick="switchView('settings')">设置</button>
-    </div>
+    <h1 id="view-title">控制台</h1>
     <div class="conn"><span class="dot pulse" id="conn-dot"></span><span id="conn-text">连接中…</span></div>
     <button class="ghost" id="btn-clear">清空历史</button>
   </header>
@@ -246,7 +338,6 @@ pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;pad
   </div><!-- /view-console -->
 
   <div id="view-settings" style="display:none">
-    <header class="main"><h1>设置</h1><span class="conn" id="settings-note"></span></header>
     <div class="setgrid">
       <div class="subnav card" style="padding:8px">
         <button class="navbtn on" data-s="agents" onclick="setSection('agents')">Agents</button>
@@ -461,6 +552,7 @@ function switchView(v){
   $('view-console').style.display=v==='console'?'':'none';
   $('view-settings').style.display=v==='settings'?'':'none';
   $('btn-clear').style.display=v==='console'?'':'none';
+  $('view-title').textContent=v==='console'?'控制台':'设置';
   if(v==='settings')loadSettings();
 }
 function setSection(s){

@@ -166,6 +166,18 @@ const server = createServer(async (req, res) => {
       res.end(readFileSync(join(here, 'index.html')));
       return;
     }
+    if (req.method === 'GET' && url.pathname.startsWith('/fonts/')) {
+      const name = url.pathname.slice('/fonts/'.length);
+      if (!/^[\w.-]+\.(woff2|txt)$/.test(name)) { json(res, 400, { error: 'bad font path' }); return; }
+      const p = join(here, 'fonts', name);
+      if (!existsSync(p)) { json(res, 404, { error: 'no such font' }); return; }
+      res.writeHead(200, {
+        'content-type': name.endsWith('.woff2') ? 'font/woff2' : 'text/plain; charset=utf-8',
+        'cache-control': 'max-age=86400',
+      });
+      res.end(readFileSync(p));
+      return;
+    }
     if (req.method === 'GET' && url.pathname === '/api/status') {
       json(res, 200, { agents: plane.status(), openSessions: plane.listSessions(), budget: plane.budgetStats() });
       return;

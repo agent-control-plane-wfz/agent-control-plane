@@ -45,6 +45,11 @@ export class Budget {
     try { writeFileSync(this.file, JSON.stringify(this.rec, null, 2), 'utf8'); } catch { /* best-effort */ }
   }
 
+  /** Live-apply new caps from the Settings UI (takes effect on the next checkRequest). */
+  update(opts: BudgetOptions): void {
+    this.opts = opts;
+  }
+
   checkRequest(): void {
     if (this.opts.dailyRequests && this.rec.requests >= this.opts.dailyRequests) {
       throw new Error(`budget: daily request cap reached (${this.rec.requests}/${this.opts.dailyRequests})`);

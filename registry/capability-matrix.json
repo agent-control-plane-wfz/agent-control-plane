@@ -88,11 +88,11 @@
     },
     "claude": {
       "transport": "acp",
-      "command": "node <workspace>/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js",
+      "command": "C:\\Users\\wfz\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe C:\\Users\\wfz\\.workbuddy\\binaries\\node\\workspace\\node_modules\\@agentclientprotocol\\claude-agent-acp\\dist\\index.js",
       "version_tested": "0.86.0",
       "tested_at": "2026-10-07",
       "auth": {
-        "status": "authenticated (本机 ~/.claude 已有登录态)",
+        "status": "authenticated (probe 2026-10-07)",
         "methods_advertised": [],
         "note": "未显式登录但 session/new 成功；无需 wfz 再登录"
       },
@@ -121,42 +121,117 @@
         "promptQueueing": true
       },
       "configOptions_observed": {
-        "model": {
-          "type": "select",
-          "category": "model",
-          "current": "sonnet",
-          "warning": "本机已把 opus/sonnet/haiku 重映射为 deepseek-v4-flash（自定义模型映射），仅 fable-5 为真 Claude",
-          "heterogeneity_impact": "异构评审约束必须基于实际模型厂商判断，不能看 adapter 名"
-        },
-        "effort": {
-          "type": "select",
-          "category": "thought_level",
-          "current": "xhigh",
+        "mode": {
+          "category": "mode",
+          "currentValue": "default",
           "options": [
-            "default",
-            "low",
-            "medium",
-            "high",
-            "xhigh",
-            "max"
+            {
+              "value": "default",
+              "name": "Manual",
+              "description": "Always ask before making changes"
+            },
+            {
+              "value": "acceptEdits",
+              "name": "Accept edits",
+              "description": "Automatically accept all file edits"
+            },
+            {
+              "value": "plan",
+              "name": "Plan",
+              "description": "Create a plan before making changes"
+            },
+            {
+              "value": "auto",
+              "name": "Auto",
+              "description": "Claude handles permission decisions"
+            },
+            {
+              "value": "bypassPermissions",
+              "name": "Bypass permissions",
+              "description": "Accepts all permissions"
+            }
           ]
         },
-        "mode": {
-          "type": "select",
-          "category": "mode",
-          "current": "default",
+        "model": {
+          "category": "model",
+          "currentValue": "sonnet",
           "options": [
-            "default",
-            "acceptEdits",
-            "plan",
-            "auto",
-            "bypassPermissions"
+            {
+              "value": "default",
+              "name": "Default (recommended)",
+              "description": "deepseek-v4-flash[1m]"
+            },
+            {
+              "value": "opus",
+              "name": "deepseek-v4-flash",
+              "description": "Custom Opus model"
+            },
+            {
+              "value": "claude-fable-5[1m]",
+              "name": "Fable 5",
+              "description": "Fable 5 · Most capable for your hardest and longest-running tasks"
+            },
+            {
+              "value": "sonnet",
+              "name": "deepseek-v4-flash",
+              "description": "Custom Sonnet model"
+            },
+            {
+              "value": "haiku",
+              "name": "deepseek-v4-flash",
+              "description": "Custom Haiku model"
+            }
+          ]
+        },
+        "effort": {
+          "category": "thought_level",
+          "currentValue": "xhigh",
+          "options": [
+            {
+              "value": "default",
+              "name": "Default"
+            },
+            {
+              "value": "low",
+              "name": "Low"
+            },
+            {
+              "value": "medium",
+              "name": "Medium"
+            },
+            {
+              "value": "high",
+              "name": "High"
+            },
+            {
+              "value": "xhigh",
+              "name": "Xhigh"
+            },
+            {
+              "value": "max",
+              "name": "Max"
+            }
           ]
         },
         "agent": {
-          "type": "select",
-          "current": "default",
-          "note": "可选择 agent persona（本机已有 code-simplifier、task-orchestrator 等定义）"
+          "currentValue": "default",
+          "options": [
+            {
+              "value": "default",
+              "name": "Default",
+              "description": "Standard Claude Code agent"
+            },
+            {
+              "value": "code-simplifier:code-simplifier",
+              "name": "code-simplifier:code-simplifier",
+              "description": "Simplifies and refines code for clarity, consistency, and maintainability while preserving all functionality. Focuses on recently modified code unless instructed otherwise."
+            },
+            {
+              "value": "task-orchestrator",
+              "name": "task-orchestrator",
+              "description": "Use this agent when any non-trivial development task is being undertaken that requires structured planning, execution tracking, and quality assurance. This includes scenarios where: (1) a multi-step development task is started and needs supervised execution to prevent missed steps or goal drift; (2) the original plan encounters obstacles, environment changes, or deadlocks requiring dynamic re-planning; (3) code has been written and needs comprehensive syntax checking, logic validation, dependency compatibility verification, and runtime debugging; (4) a project needs end-to-end quality assurance from task execution through code verification and bug fixing.\n\n<example>\nContext: The user asks to implement a new feature involving multiple files and dependencies.\nuser: \"请帮我实现用户登录功能，包括前端表单、后端接口和数据库表\"\nassistant: \"我将使用 task-orchestrator Agent 来规划并监督整个实现过程。\"\n<commentary>\nSince this is a multi-step feature implementation requiring structured planning and cross-module coordination, use the task-orchestrator agent to plan, execute, and verify each step systematically.\n</commentary>\n</example>\n\n<example>\nContext: During development, the user encounters an unexpected error or the original approach is blocked.\nuser: \"按照之前的方案无法实现，第三方API返回的数据格式变了\"\nassistant: \"我将使用 task-orchestrator Agent 重新评估现状并制定新的执行方案。\"\n<commentary>\nWhen the original plan is blocked by external changes, use the task-orchestrator agent to autonomously assess the situation and create a new adapted plan.\n</commentary>\n</example>\n\n<example>\nContext: After writing significant code, the user wants comprehensive verification.\nuser: \"代码写好了，帮我全面检查一下有没有问题\"\nassistant: \"我将使用 task-orchestrator Agent 进行全量代码查验，包括语法、逻辑和依赖兼容性检查。\"\n<commentary>\nWhen code needs thorough inspection including syntax, logic, and dependency checks, use the task-orchestrator agent for comprehensive verification.\n</commentary>\n</example>\n\n<example>\nContext: Code is running with errors and needs debugging.\nuser: \"运行报错了，帮我排查修复\"\nassistant: \"我将使用 task-orchestrator Agent 定位错误根源、修复Bug并验证修复效果。\"\n<commentary>\nWhen runtime errors need systematic debugging and fix verification, use the task-orchestrator agent.\n</commentary>\n</example>"
+            }
+          ]
         }
       },
       "windows": {

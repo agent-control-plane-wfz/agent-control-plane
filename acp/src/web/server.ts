@@ -7,6 +7,10 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { ControlPlane } from '../control/plane.ts';
+import { getMerged, saveSettings, resetSettings, loadUserConfig, type AppSettings } from '../config/settings.ts';
+import { describeCredential, setCredential, deleteCredential, storedNames } from '../config/secrets.ts';
+import { probeAgent } from '../config/probe.ts';
+import { homedir } from 'node:os';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.ACP_WEB_PORT ?? 7777);
@@ -83,6 +87,49 @@ function json(res: ServerResponse, code: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
+// --- v3 settings helpers ---------------------------------------------------------------
+
+const NATIVE_AUTH: Record<string, () => boolean> = {
+  opencode: () => true, // 内置账号
+  claude: () => existsSync(join(homedir(), '.claude')),
+  codex: () => existsSync(join(homedir(), '.codex', 'auth.json')),
+  dsh: () => existsSync(join(homedir(), '.dsh', '.credentials.yaml')),
+};
+
+function agentRows() {
+  const merged = getMerged();
+  return Object.entries(merged.agents).map(([id, a]) => {
+    const cred = a.credentialRef ? describeCredential(a.credentialRef) : null;
+    const native = a.credentialNative ? (NATIVE_AUTH[id]?.() ?? false) : false;
+    const configured = a.enabled === false
+      ? false
+      : (cred?.configured ?? false) || native;
+    return {
+      id,
+      enabled: a.enabled !== false,
+      transport: a.transport ?? 'acp',
+      command: a.command,
+      args: a.args,
+      credentialRef: a.credentialRef ?? null,
+      credentialNative: a.credentialNative,
+      credential: cred ? { configured: cred.configured, source: cred.source } : null,
+      nativeAuthPresent: a.credentialNative ? native : null,
+      authState: a.enabled === false ? 'disabled' : (cred?.configured || native) ? 'ok' : 'missing',
+      defaults: a.defaults ?? {},
+      limits: a.limits ?? {},
+      modelOverrides: a.modelOverrides ?? {},
+    };
+  });
+}
+
+function allCredentialNames(): string[] {
+  const merged = getMerged();
+  const names = new Set<string>(['DEEPSEEK_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY']);
+  for (const a of Object.values(merged.agents)) if (a.credentialRef) names.add(a.credentialRef);
+  for (const n of storedNames()) names.add(n);
+  return [...names];
+}
+
 function readBody(req: IncomingMessage): Promise<any> {
   return new Promise((resolve, reject) => {
     let size = 0;
@@ -120,6 +167,71 @@ const server = createServer(async (req, res) => {
       for (const [id, j] of jobs) if (j.status !== 'running') jobs.delete(id);
       try { writeFileSync(HISTORY_FILE, '', 'utf8'); } catch { /* best-effort */ }
       json(res, 200, { cleared: true });
+      return;
+    }
+
+    // --- v3 settings & agents -----------------------------------------------------------
+    if (req.method === 'GET' && url.pathname === '/api/settings') {
+      const { config, error } = loadUserConfig();
+      json(res, 200, { merged: getMerged(), user: config, userError: error });
+      return;
+    }
+    if (req.method === 'PUT' && url.pathname === '/api/settings') {
+      const body = await readBody(req);
+      try {
+        const merged = saveSettings(body as Partial<AppSettings>);
+        plane.applyBudget(merged.budget);
+        json(res, 200, { merged });
+      } catch (e: any) {
+        // Validation failures are client errors (400), with the field-level reason.
+        json(res, 400, { error: String(e?.message ?? e) });
+      }
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/settings/reset') {
+      const body = await readBody(req);
+      const section = body.section;
+      if (!['agents', 'routing', 'budget', 'workspace'].includes(section)) {
+        json(res, 400, { error: `unknown section: ${section}` });
+        return;
+      }
+      const merged = resetSettings(section, body.sub);
+      plane.applyBudget(merged.budget);
+      json(res, 200, { merged });
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/agents') {
+      json(res, 200, { agents: agentRows() });
+      return;
+    }
+    const mProbe = url.pathname.match(/^\/api\/agents\/([\w-]+)\/test$/);
+    if (req.method === 'POST' && mProbe) {
+      const id = mProbe[1];
+      const a = getMerged().agents[id];
+      if (!a) { json(res, 404, { error: `unknown agent: ${id}` }); return; }
+      if (a.enabled === false) { json(res, 400, { error: `agent ${id} 已禁用，先启用再探测` }); return; }
+      const result = await probeAgent(id, { transport: a.transport, command: a.command, args: a.args });
+      plane.registry.reload();
+      json(res, 200, result);
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/credentials') {
+      // Status only — values never leave the server (dsh credential seam).
+      json(res, 200, { credentials: allCredentialNames().map(describeCredential) });
+      return;
+    }
+    const mCred = url.pathname.match(/^\/api\/credentials\/([A-Za-z_][A-Za-z0-9_]*)$/);
+    if (mCred && (req.method === 'PUT' || req.method === 'DELETE')) {
+      const name = mCred[1];
+      if (req.method === 'DELETE') {
+        deleteCredential(name);
+        json(res, 200, describeCredential(name));
+        return;
+      }
+      const body = await readBody(req);
+      if (typeof body.value !== 'string') { json(res, 400, { error: 'value (string) is required' }); return; }
+      setCredential(name, body.value);
+      json(res, 200, describeCredential(name));
       return;
     }
     const m = url.pathname.match(/^\/api\/jobs\/([\w-]+)$/);

@@ -1,5 +1,4 @@
-// ControlPlane — composes Registry + Router + Drivers + Workspace + Budget + Verdict.
-import { readFileSync } from 'node:fs';
+// ControlPlane — composes Registry + Router + Drivers + Workspace + Budget + Verdict + Settings.
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AgentId, AgentResult, TokenUsage, ConfigApplyRecord } from '../core/types.ts';
@@ -8,36 +7,28 @@ import { AcpDriver, type AcpSession } from '../drivers/acp-driver.ts';
 import { DshDriver } from '../drivers/dsh-driver.ts';
 import { Registry } from '../registry/registry.ts';
 import { route, type TaskHints } from '../router/router.ts';
-import { classifyTask, llmRouterEnabled } from '../router/llm-router.ts';
+import { classifyTask } from '../router/llm-router.ts';
 import { prepareWorkspace, type PreparedWorkspace } from '../workspace/manager.ts';
 import { heteroReview as runHeteroReview, type HeteroReviewOptions, type HeteroReviewOutcome } from '../review/review.ts';
 import { Budget } from '../budget/budget.ts';
 import { runParallel, type ParallelJob, type ParallelOutcome } from '../batch/parallel.ts';
+import { getMerged, type AgentSettings } from '../config/settings.ts';
+import { getCredential } from '../config/secrets.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-interface AcpAgentConfig { command: string; args: string[] }
+interface AcpAgentConfig { command: string; args: string[]; credentialRef?: string | null }
 
-function loadAcpConfigs(): Record<string, AcpAgentConfig> {
-  const matrixPath = join(here, '..', '..', '..', 'registry', 'capability-matrix.json');
-  const matrix = JSON.parse(readFileSync(matrixPath, 'utf8'));
-  // A1 (audit): no silent fallback to a personal path — fail loudly with instructions.
-  const wsDir = process.env.WORKSPACE_DIR;
-  if (!wsDir) {
-    throw new Error(
-      'WORKSPACE_DIR is not set. Point it to the directory containing the harness packages '
-      + '(@agentclientprotocol/claude-agent-acp, @agentclientprotocol/codex-acp, @deepseek-ai/dsh under node_modules/). '
-      + 'Example: WORKSPACE_DIR=C:\\Users\\me\\.workbuddy\\binaries\\node\\workspace',
-    );
-  }
-  const ws = join(wsDir, 'node_modules');
-  const node = process.execPath;
-  const out: Record<string, AcpAgentConfig> = {};
-  const oc = matrix.agents.opencode?.command as string | undefined;
-  if (oc) out.opencode = { command: oc.split(' acp')[0], args: ['acp'] };
-  out.claude = { command: node, args: [join(ws, '@agentclientprotocol', 'claude-agent-acp', 'dist', 'index.js')] };
-  out.codex = { command: node, args: [join(ws, '@agentclientprotocol', 'codex-acp', 'dist', 'index.js')] };
-  return out;
+// v3: agent command/args/credential come from merged settings (user > env > matrix > defaults).
+// Re-read per call — a small file, and gives live-apply right after Settings saves.
+function agentSettingsOf(id: string): AgentSettings | undefined {
+  return getMerged().agents[id];
+}
+
+function resolveAgentConfig(id: string): AcpAgentConfig {
+  const a = agentSettingsOf(id);
+  if (!a?.command || !a.args) throw new Error(`agent ${id} 未配置命令（设置 → Agents 里探测或填写）`);
+  return { command: a.command, args: a.args, credentialRef: a.credentialRef ?? null };
 }
 
 // D2: transport/auth-class failures are eligible for fallback; content failures are not.
@@ -67,7 +58,6 @@ export interface AskOptions {
 export class ControlPlane {
   readonly registry: Registry;
   readonly budget: Budget;
-  private acpConfigs = loadAcpConfigs();
   private drivers = new Map<AgentId, AcpDriver>();
   private sessions = new Map<string, AcpSession>(); // key: `${agent}:${sessionId}`
   private dshSessions = new Map<string, string>();  // dsh sessionId -> cwd (one-shot process; resume via --session-id)
@@ -75,10 +65,12 @@ export class ControlPlane {
 
   constructor(registry?: Registry, budget?: Budget) {
     this.registry = registry ?? new Registry();
-    this.budget = budget ?? new Budget({
-      dailyRequests: Number(process.env.ACP_DAILY_REQUESTS ?? 0) || undefined,
-      dailyTokens: Number(process.env.ACP_DAILY_TOKENS ?? 0) || undefined,
-    });
+    this.budget = budget ?? new Budget(getMerged().budget);
+  }
+
+  /** Live-apply budget caps after a Settings save. */
+  applyBudget(opts: { dailyRequests?: number; dailyTokens?: number }): void {
+    this.budget.update(opts);
   }
 
   route(hints: TaskHints) {
@@ -91,12 +83,22 @@ export class ControlPlane {
 
   async ask(opts: AskOptions): Promise<AgentResult> {
     const t0 = Date.now();
+    const settings = getMerged();
+
+    // v3: disabled agents fail loudly on explicit hints (no silent reroute)...
+    if (opts.agent && settings.agents[opts.agent]?.enabled === false) {
+      return {
+        agent: opts.agent, ok: false, text: '',
+        error: `agent ${opts.agent} 已在设置中禁用（设置 → Agents）`,
+        toolCalls: 0, durationMs: Date.now() - t0,
+      };
+    }
     this.budget.checkRequest();
 
     // LLM routing for ambiguous tasks: no explicit agent AND no matching rule hint.
     let taskType = opts.taskType;
     let llmReason: string | undefined;
-    if (!taskType && !opts.agent && !opts.model && llmRouterEnabled()) {
+    if (!taskType && !opts.agent && !opts.model && settings.routing.llmRouter !== false) {
       const cls = await classifyTask(this, opts.task, opts.cwd);
       if (cls) { taskType = cls.taskType; llmReason = `llm:${cls.reason}`; }
     }
@@ -109,6 +111,14 @@ export class ControlPlane {
       requirements: { differentVendorFrom: opts.differentVendorFrom },
     });
     if (llmReason) decision.reason = `${decision.reason} [${llmReason}]`;
+
+    // v3: user-configured per-agent defaults outrank matrix defaults; explicit per-call hints win over both.
+    const agS = settings.agents[decision.agent];
+    if (agS?.defaults) {
+      if (!opts.model && agS.defaults.model) decision.model = agS.defaults.model;
+      if (!opts.effort && agS.defaults.effort) decision.effort = agS.defaults.effort;
+      if (!opts.mode && agS.defaults.mode) decision.mode = agS.defaults.mode;
+    }
 
     // Workspace (Phase 3): shared cwd or isolated per-agent git worktree.
     // B5/C8 (audit): worktree failures are NOT silent — either error out (explicit request) or record why.
@@ -128,9 +138,11 @@ export class ControlPlane {
     const finalTask = opts.verdict ? opts.task + verdictInstruction() : opts.task;
 
     // D2: fallback chain — retry transport-class failures on the next candidate.
+    // v3: disabled agents are skipped in fallback chains (...and never silently chosen).
+    const isEnabled = (a: AgentId) => settings.agents[a]?.enabled !== false;
     const useFallback = opts.fallback ?? true;
-    const chain: AgentId[] = [decision.agent];
-    if (useFallback) for (const a of decision.fallbackChain) if (a !== decision.agent && !chain.includes(a)) chain.push(a);
+    const chain: AgentId[] = isEnabled(decision.agent) ? [decision.agent] : [];
+    if (useFallback) for (const a of decision.fallbackChain) if (a !== decision.agent && !chain.includes(a) && isEnabled(a)) chain.push(a);
 
     let r: AgentResult | undefined;
     const attempts: string[] = [];
@@ -259,9 +271,8 @@ export class ControlPlane {
   private acpDriver(agent: AgentId): AcpDriver {
     let d = this.drivers.get(agent);
     if (!d) {
-      const cfg = this.acpConfigs[agent];
-      if (!cfg) throw new Error(`no ACP config for agent ${agent}`);
-      d = AcpDriver.from({ agent, ...cfg });
+      const cfg = resolveAgentConfig(agent);
+      d = AcpDriver.from({ agent, command: cfg.command, args: cfg.args });
       this.drivers.set(agent, d);
     }
     return d;
@@ -292,7 +303,11 @@ export class ControlPlane {
     try {
       let rpc;
       try {
-        rpc = await driver.connect(o.cwd);
+        // v3: inject the agent's resolved credential (secrets.env / env) into the child env —
+        // only the referenced name, per the audit's env whitelist.
+        const cfg = resolveAgentConfig(agent);
+        const cred = cfg.credentialRef ? getCredential(cfg.credentialRef) : undefined;
+        rpc = await driver.connect(o.cwd, cred && cfg.credentialRef ? { [cfg.credentialRef]: cred.value } : undefined);
       } catch (e: any) {
         // C7 (audit): connect() failure must not leak the spawned child process.
         throw e;
@@ -323,7 +338,12 @@ export class ControlPlane {
           applied.push({ id, value, ...(await driver.setConfig(session, id, value)) });
         }
 
-        const outcome = await driver.run(session, task, { timeoutMs: o.opts.timeoutMs ?? 300_000, maxToolCalls: o.opts.maxToolCalls, onEvent: o.opts.onEvent });
+        const lim = agentSettingsOf(agent)?.limits;
+        const outcome = await driver.run(session, task, {
+          timeoutMs: o.opts.timeoutMs ?? lim?.timeoutMs ?? 300_000,
+          maxToolCalls: o.opts.maxToolCalls ?? lim?.maxToolCalls ?? undefined,
+          onEvent: o.opts.onEvent,
+        });
         let text = outcome.text;
         let verdict: Verdict | undefined;
         let verdictError: string | undefined;

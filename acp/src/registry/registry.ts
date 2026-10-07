@@ -26,14 +26,22 @@ export interface ModelEntry {
 }
 
 export class Registry {
-  readonly matrix: { agents: Record<string, AgentEntry> };
-  readonly models: { models: Record<string, ModelEntry>; agentDefaults: Record<string, { model?: string; effort?: string | null; vendorPool?: string }> };
+  matrix: { agents: Record<string, AgentEntry> };
+  models: { models: Record<string, ModelEntry>; agentDefaults: Record<string, { model?: string; effort?: string | null; vendorPool?: string }> };
+  private matrixPath: string;
+  private modelsPath: string;
 
   constructor(matrixPath?: string, modelsPath?: string) {
-    const mp = matrixPath ?? join(here, '..', '..', '..', 'registry', 'capability-matrix.json');
-    const dp = modelsPath ?? join(here, 'models.json');
-    this.matrix = JSON.parse(readFileSync(mp, 'utf8'));
-    this.models = JSON.parse(readFileSync(dp, 'utf8'));
+    this.matrixPath = matrixPath ?? join(here, '..', '..', '..', 'registry', 'capability-matrix.json');
+    this.modelsPath = modelsPath ?? join(here, 'models.json');
+    this.matrix = JSON.parse(readFileSync(this.matrixPath, 'utf8'));
+    this.models = JSON.parse(readFileSync(this.modelsPath, 'utf8'));
+  }
+
+  /** Re-read matrix + models after a probe has written new observations. */
+  reload(): void {
+    this.matrix = JSON.parse(readFileSync(this.matrixPath, 'utf8'));
+    this.models = JSON.parse(readFileSync(this.modelsPath, 'utf8'));
   }
 
   get(agentId: AgentId): AgentEntry | undefined {

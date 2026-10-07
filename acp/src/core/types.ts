@@ -1,6 +1,8 @@
 // Core types — Phase 1. Only erasable syntax (no enum/namespace) for Node 22 --experimental-strip-types.
 
-export type AgentId = 'opencode' | 'claude' | 'codex' | 'dsh';
+// Builtin ids keep autocomplete; arbitrary ids allow user-configured custom agents (v3 settings).
+export type BuiltinAgentId = 'opencode' | 'claude' | 'codex' | 'dsh';
+export type AgentId = BuiltinAgentId | (string & {});
 
 export interface SpawnSpec {
   agent: AgentId;

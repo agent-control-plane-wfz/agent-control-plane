@@ -11,6 +11,7 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getCredential } from '../config/secrets.ts';
 
 export interface DshRunOutcome {
   sessionId?: string;
@@ -48,10 +49,11 @@ export class DshDriver {
     args.push(task);
 
     return new Promise((resolve) => {
+      const cred = getCredential('DEEPSEEK_API_KEY');
       const child = spawn(dshCommand(), args, {
         cwd: opts.cwd,
         windowsHide: true,
-        env: { ...process.env, ...(process.env.DEEPSEEK_API_KEY ? { DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY } : {}) },
+        env: { ...process.env, ...(cred ? { DEEPSEEK_API_KEY: cred.value } : {}) },
       });
       const rl = createInterface({ input: child.stdout });
       const events: any[] = [];

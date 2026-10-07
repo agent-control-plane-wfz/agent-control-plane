@@ -35,8 +35,8 @@ export class AcpDriver {
     return new AcpDriver(cfg);
   }
 
-  async connect(cwd: string): Promise<JsonRpcStdio> {
-    const rpc = new JsonRpcStdio(this.cfg.command, this.cfg.args, cwd, `acp:${this.cfg.agent}`);
+  async connect(cwd: string, extraEnv?: Record<string, string>): Promise<JsonRpcStdio> {
+    const rpc = new JsonRpcStdio(this.cfg.command, this.cfg.args, cwd, `acp:${this.cfg.agent}`, extraEnv);
     const init = await rpc.request('initialize', {
       protocolVersion: 1,
       clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },

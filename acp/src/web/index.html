@@ -133,6 +133,30 @@ pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;pad
 .schip.err{border-color:rgba(248,113,113,.4);color:var(--err)}
 .schip.run{border-color:rgba(91,124,250,.4);color:#9db4ff}
 .empty{color:var(--faint);text-align:center;padding:44px 0;font-size:13px}
+.topnav{display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:3px}
+.navbtn{border:0;background:transparent;color:var(--dim);font-size:13px;font-weight:600;padding:6px 16px;border-radius:8px;cursor:pointer;transition:.15s}
+.navbtn.on{background:linear-gradient(135deg,var(--acc1),var(--acc2));color:#fff;box-shadow:0 2px 10px rgba(91,124,250,.35)}
+.setgrid{display:grid;grid-template-columns:170px 1fr;gap:14px;align-items:start}
+@media(max-width:900px){.setgrid{grid-template-columns:1fr}}
+.subnav{display:flex;flex-direction:column;gap:4px;position:sticky;top:64px}
+.subnav .navbtn{text-align:left}
+.subnav .tag{float:right;font-size:10px;color:var(--faint);font-weight:400}
+.credstrip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.credchip{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-size:12px;color:var(--dim);display:flex;gap:7px;align-items:center}
+.agentrow{border:1px solid var(--border);border-radius:11px;background:var(--surface2);margin-bottom:8px;overflow:hidden}
+.agentrow .arow{display:flex;align-items:center;gap:10px;padding:11px 13px;cursor:pointer;flex-wrap:wrap}
+.agentrow .arow:hover{background:var(--surface3)}
+.agentrow.open{border-color:var(--acc1)}
+.agentrow .aedit{display:none;border-top:1px solid var(--border);padding:13px}
+.agentrow.open .aedit{display:block}
+.badge-dis{background:#3a2f1c;color:var(--warn);border-radius:99px;padding:1px 9px;font-size:11px;font-weight:700}
+.probebox{background:#0c0e13;border:1px solid var(--border);border-radius:9px;padding:9px 11px;font:12px var(--mono);margin-top:9px;white-space:pre-wrap;word-break:break-all}
+.switch{position:relative;width:34px;height:19px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:var(--surface3);border:1px solid var(--border2);border-radius:99px;cursor:pointer;transition:.2s}
+.switch span::after{content:'';position:absolute;width:13px;height:13px;border-radius:50%;background:var(--dim);top:2px;left:2px;transition:.2s}
+.switch input:checked+span{background:rgba(52,211,153,.25);border-color:var(--ok)}
+.switch input:checked+span::after{background:var(--ok);transform:translateX(15px)}
 </style>
 </head>
 <body>
@@ -147,11 +171,15 @@ pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;pad
 
 <main>
   <header class="main">
-    <h1>任务控制台</h1>
+    <div class="topnav">
+      <button class="navbtn on" id="nav-console" onclick="switchView('console')">控制台</button>
+      <button class="navbtn" id="nav-settings" onclick="switchView('settings')">设置</button>
+    </div>
     <div class="conn"><span class="dot pulse" id="conn-dot"></span><span id="conn-text">连接中…</span></div>
     <button class="ghost" id="btn-clear">清空历史</button>
   </header>
 
+  <div id="view-console">
   <section class="card">
     <h2 class="ct">发起任务</h2>
     <div class="tabs">
@@ -207,6 +235,21 @@ pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;pad
     </div>
     <div id="jobs"><div class="empty">暂无作业</div></div>
   </section>
+  </div><!-- /view-console -->
+
+  <div id="view-settings" style="display:none">
+    <header class="main"><h1>设置</h1><span class="conn" id="settings-note"></span></header>
+    <div class="setgrid">
+      <div class="subnav card" style="padding:8px">
+        <button class="navbtn on" data-s="agents" onclick="setSection('agents')">Agents</button>
+        <button class="navbtn" data-s="routing" onclick="setSection('routing')">Routing</button>
+        <button class="navbtn" data-s="budget" onclick="setSection('budget')">Budget</button>
+        <button class="navbtn" data-s="workspace" onclick="setSection('workspace')">Workspace</button>
+        <button class="navbtn" data-s="integr" onclick="setSection('integr')">集成</button>
+      </div>
+      <div id="settings-body"></div>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -398,6 +441,162 @@ document.querySelectorAll('.fchip').forEach(c=>c.onclick=()=>{
   FILTER=c.dataset.f;renderJobs(JOBS);});
 $('f-agent-filter').onchange=e=>{FAGENT=e.target.value;renderJobs(JOBS)};
 $('f-search').oninput=e=>{FSEARCH=e.target.value.toLowerCase();renderJobs(JOBS)};
+
+/* ---------- settings view (v3) ---------- */
+let SETSECTION='agents',AGENTS=[],CREDENTIALS=[];
+const DRAFT={};   // per-agent staged draft; discarded when the card closes without saving
+const OPENID={};  // which agent card stays expanded
+
+function switchView(v){
+  $('nav-console').classList.toggle('on',v==='console');
+  $('nav-settings').classList.toggle('on',v==='settings');
+  $('view-console').style.display=v==='console'?'':'none';
+  $('view-settings').style.display=v==='settings'?'':'none';
+  $('btn-clear').style.display=v==='console'?'':'none';
+  if(v==='settings')loadSettings();
+}
+function setSection(s){
+  SETSECTION=s;
+  document.querySelectorAll('.subnav .navbtn').forEach(b=>b.classList.toggle('on',b.dataset.s===s));
+  renderSettings();
+}
+async function loadSettings(){
+  try{
+    const [a,c]=await Promise.all([api('/api/agents'),api('/api/credentials')]);
+    AGENTS=a.agents;CREDENTIALS=c.credentials;
+    renderSettings();
+  }catch(e){$('settings-body').innerHTML=`<div class="card"><div class="empty">加载失败：${esc(String(e.message??e))}</div></div>`}
+}
+function renderSettings(){
+  if(SETSECTION==='agents'){$('settings-body').innerHTML=renderAgents();}
+  else{
+    const labels={routing:'Routing（路由规则）',budget:'Budget（预算）',workspace:'Workspace（工作区）',integr:'集成（MCP 片段）'};
+    $('settings-body').innerHTML=`<div class="card"><h2 class="ct">${labels[SETSECTION]}</h2><div class="empty">P2 内容 —— 设计见 docs/WEB-V3-SETTINGS-PLAN.md</div></div>`;
+  }
+}
+function renderAgents(){
+  const creds=CREDENTIALS.map(c=>`<span class="credchip"><span class="dot ${c.configured?'ok':'err'}"></span>${esc(c.name)}<span style="color:var(--faint)">· ${c.configured?esc(c.source):'未配置'}</span></span>`).join('');
+  const rows=AGENTS.map(a=>agentRowHtml(a)).join('');
+  return`<div class="card"><h2 class="ct">凭据（值只写不回显 · 环境变量优先，其次 secrets.env）</h2><div class="credstrip">${creds}</div>
+    <h2 class="ct" style="margin-top:6px">Agents · 点击行展开编辑（一次一张卡）</h2>${rows}</div>`;
+}
+function agentRowHtml(a){
+  const open=OPENID[a.id]?'open':'';
+  const dot=a.authState==='ok'?'ok':a.authState==='missing'?'err':'warn';
+  const warn=a.id==='claude'&&a.credentialNative?'⚠ 本机重映射到 DeepSeek':'';
+  const d=DRAFT[a.id]??(DRAFT[a.id]={enabled:a.enabled,transport:a.transport,command:a.command||'',
+    argsText:(a.args||[]).join('\n'),credentialRef:a.credentialRef||'',credentialValue:'',
+    model:a.defaults?.model||'',effort:a.defaults?.effort||'',mode:a.defaults?.mode||'',
+    maxToolCalls:a.limits?.maxToolCalls??'',timeoutMs:a.limits?.timeoutMs??''});
+  const models=(STATUS?.agents?.find(x=>x.agent===a.id)?.models)||[];
+  const efforts=(STATUS?.agents?.find(x=>x.agent===a.id)?.effortLevels)||[];
+  return`<div class="agentrow ${open}" id="ag-${esc(a.id)}">
+    <div class="arow" onclick="toggleAgent('${esc(a.id)}')">
+      <span class="dot ${dot}"></span><b style="min-width:76px">${esc(a.id)}</b>
+      <span class="jid">${esc(a.transport)}</span>
+      ${a.enabled?'':'<span class="badge-dis">已禁用</span>'}
+      <span class="jtask" style="flex:1;color:var(--faint)">${esc(d.command||'')}${warn?` · ${warn}`:''}</span>
+      <span class="jmeta">${a.credential?`凭据 ${a.credential.configured?'✓ '+esc(a.credential.source):'✕ 未配置'}`:(a.nativeAuthPresent?'凭据 ✓ 原生':'')}</span>
+    </div>
+    <div class="aedit">
+      <div class="grid3">
+        <div><label>启用</label><label class="switch" style="margin-top:6px"><input type="checkbox" ${d.enabled?'checked':''} oninput="upd('${esc(a.id)}','enabled',this.checked)"><span></span></label></div>
+        <div><label>传输方式</label><select oninput="upd('${esc(a.id)}','transport',this.value)">
+          <option value="acp"${d.transport==='acp'?' selected':''}>ACP</option>
+          <option value="json-process"${d.transport==='json-process'?' selected':''}>JSON-process</option></select></div>
+        <div><label>凭据引用名</label><input value="${esc(d.credentialRef)}" placeholder="如 OPENAI_API_KEY" oninput="upd('${esc(a.id)}','credentialRef',this.value)"></div>
+      </div>
+      <label>命令</label><input value="${esc(d.command)}" oninput="upd('${esc(a.id)}','command',this.value)">
+      <label>参数（每行一个）</label><textarea style="min-height:52px" oninput="upd('${esc(a.id)}','argsText',this.value)">${esc(d.argsText)}</textarea>
+      <div class="grid3">
+        <div><label>默认模型</label><input value="${esc(d.model)}" list="dl-m-${esc(a.id)}" placeholder="agent 自身默认" oninput="upd('${esc(a.id)}','model',this.value)">
+          <datalist id="dl-m-${esc(a.id)}">${models.map(m=>`<option value="${esc(m)}">`).join('')}</datalist></div>
+        <div><label>默认思考档位</label><input value="${esc(d.effort)}" list="dl-e-${esc(a.id)}" placeholder="auto" oninput="upd('${esc(a.id)}','effort',this.value)">
+          <datalist id="dl-e-${esc(a.id)}">${efforts.map(e=>`<option value="${esc(e)}">`).join('')}</datalist></div>
+        <div><label>默认模式</label><input value="${esc(d.mode)}" placeholder="如 acceptEdits" oninput="upd('${esc(a.id)}','mode',this.value)"></div>
+      </div>
+      <div class="grid3">
+        <div><label>工具调用上限</label><input type="number" value="${esc(String(d.maxToolCalls))}" placeholder="不限" oninput="upd('${esc(a.id)}','maxToolCalls',this.value)"></div>
+        <div><label>超时 ms</label><input type="number" value="${esc(String(d.timeoutMs))}" placeholder="300000" oninput="upd('${esc(a.id)}','timeoutMs',this.value)"></div>
+        <div><label>新凭据值（只写）</label>
+          <div style="display:flex;gap:6px"><input type="password" autocomplete="new-password" id="credval-${esc(a.id)}" placeholder="${a.credential?.configured?'已配置 · '+esc(a.credential.source):'未配置'}">
+          <button class="ghost" style="margin:0" onclick="saveCredential('${esc(a.id)}')">存</button></div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="ghost" style="flex:1;margin:0" onclick="probe('${esc(a.id)}')">🔌 探测能力</button>
+        <button class="ghost" style="flex:1;margin:0" onclick="resetAgent('${esc(a.id)}')">恢复默认</button>
+        <button id="btn-save-${esc(a.id)}" style="flex:1.4;margin:0;margin-top:0" onclick="saveAgent('${esc(a.id)}')">保存修改</button>
+      </div>
+      <div class="probebox" id="probe-${esc(a.id)}" style="display:none"></div>
+    </div>
+  </div>`;
+}
+function toggleAgent(id){
+  const el=$('ag-'+id);const wasOpen=el.classList.contains('open');
+  document.querySelectorAll('.agentrow.open').forEach(x=>x.classList.remove('open'));
+  if(!wasOpen){el.classList.add('open');OPENID[id]=true;}
+  else delete OPENID[id];
+}
+function upd(id,k,v){if(DRAFT[id])DRAFT[id][k]=v}
+async function saveAgent(id){
+  const btn=$('btn-save-'+id);btn.disabled=true;
+  try{
+    const srv=AGENTS.find(a=>a.id===id);const d=DRAFT[id];
+    const patch={};
+    if(d.enabled!==srv.enabled)patch.enabled=d.enabled;
+    if(d.transport!==srv.transport)patch.transport=d.transport;
+    if(d.command!==srv.command)patch.command=d.command;
+    const args=d.argsText.split('\n').map(s=>s.trim()).filter(Boolean);
+    if(JSON.stringify(args)!==JSON.stringify(srv.args||[]))patch.args=args;
+    if((d.credentialRef||null)!==(srv.credentialRef||null))patch.credentialRef=d.credentialRef||null;
+    const defaults={};
+    if((d.model||undefined)!==(srv.defaults?.model||undefined))defaults.model=d.model||undefined;
+    if((d.effort||undefined)!==(srv.defaults?.effort||undefined))defaults.effort=d.effort||undefined;
+    if((d.mode||undefined)!==(srv.defaults?.mode||undefined))defaults.mode=d.mode||undefined;
+    if(Object.keys(defaults).length)patch.defaults=defaults;
+    const limits={};
+    if(String(d.maxToolCalls??'')!==String(srv.limits?.maxToolCalls??''))limits.maxToolCalls=d.maxToolCalls===''||d.maxToolCalls===null?null:Number(d.maxToolCalls);
+    if(String(d.timeoutMs??'')!==String(srv.limits?.timeoutMs??''))limits.timeoutMs=d.timeoutMs===''||d.timeoutMs===null?null:Number(d.timeoutMs);
+    if(Object.keys(limits).length)patch.limits=limits;
+    if(!Object.keys(patch).length){showProbe(id,'没有改动，无需保存。');return}
+    await api('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({agents:{[id]:patch}})});
+    showProbe(id,'✓ 已保存并即时生效。');
+    await loadSettings();refreshStatus();
+  }catch(e){showProbe(id,'✕ 保存失败：'+String(e.message??e))}
+  finally{btn.disabled=false}
+}
+async function resetAgent(id){
+  try{
+    await api('/api/settings/reset',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({section:'agents',sub:id})});
+    delete DRAFT[id];delete OPENID[id];
+    await loadSettings();refreshStatus();
+  }catch(e){showProbe(id,'✕ 重置失败：'+String(e.message??e))}
+}
+async function probe(id){
+  const box=$('probe-'+id);box.style.display='';box.textContent='探测中…（initialize + session/new，不消耗 token）';
+  try{
+    const r=await api(`/api/agents/${id}/test`,{method:'POST'});
+    box.textContent=r.ok
+      ?`✓ ${r.detail||'探测成功'} · ${(r.durationMs/1000).toFixed(1)}s\n模型: ${(r.models||[]).slice(0,12).join(', ')||'(未上报)'}\n档位: ${(r.efforts||[]).join(', ')||'(未上报)'}`
+      :`✕ 探测失败（${(r.durationMs/1000).toFixed(1)}s）：${r.error||r.detail||'未知原因'}`;
+    refreshStatus();
+  }catch(e){box.textContent='✕ 探测失败：'+String(e.message??e)}
+}
+async function saveCredential(id){
+  const a=AGENTS.find(x=>x.id===id);
+  const ref=(DRAFT[id]?.credentialRef||a?.credentialRef||'').trim();
+  if(!ref){showProbe(id,'✕ 先填写凭据引用名（环境变量名）');return}
+  const val=$('credval-'+id).value;
+  if(!val){showProbe(id,'✕ 凭据值为空（留空即删除请用删除语义——这里不做空写）');return}
+  try{
+    await api(`/api/credentials/${ref}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({value:val})});
+    $('credval-'+id).value='';
+    showProbe(id,`✓ 凭据 ${ref} 已写入 secrets.env（立即生效，值不会回显）`);
+    const c=await api('/api/credentials');CREDENTIALS=c.credentials;
+    await loadSettings();
+  }catch(e){showProbe(id,'✕ 写入失败：'+String(e.message??e))}
+}
+function showProbe(id,text){const b=$('probe-'+id);if(b){b.style.display='';b.textContent=text}}
 
 /* ---------- polling ---------- */
 async function refreshStatus(){

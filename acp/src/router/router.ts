@@ -37,10 +37,13 @@ export function route(reg: Registry, hints: TaskHints, rulesOverride?: Record<st
   if (hints.agent) {
     if (!reg.get(hints.agent)) throw new Error(`unknown agent: ${hints.agent}`);
     if (reg.requiresAuth(hints.agent) === true) {
+      // Issue #6: cite the actual basis — credential evidence — instead of the declared matrix
+      // field, which no longer takes part in this decision.
       throw new Error(
-        `agent '${hints.agent}' was explicitly requested but has no working credentials `
-        + `(registry status: ${reg.get(hints.agent)?.auth?.status ?? 'unknown'}). `
-        + 'Configure its credentials or omit the agent hint to allow routing.',
+        `agent '${hints.agent}' was explicitly requested but has no working credentials: `
+        + 'no credential evidence found on this machine '
+        + '(checked its credentialRef env var / state/secrets.env and its own login files). '
+        + 'Configure its credentials, or omit the agent hint to allow routing.',
       );
     }
     return push({

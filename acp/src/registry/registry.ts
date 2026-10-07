@@ -1,13 +1,18 @@
 // Capability Registry v0 — declared facts from capability-matrix.json (Phase 0 measured
 // data, checked in) merged with observed facts from the state dir (F2, issue #2: probe
 // results are machine-local, so they must not be written into a tracked file).
+//
+// Issue #6: authentication is answered from credential EVIDENCE, not from a probe's
+// `reachable` verdict — a handshake does not validate credentials. See requiresAuth().
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AgentId, AgentStatusSummary } from '../core/types.ts';
-import { OBSERVED_FILE } from '../config/paths.ts';
+import { OBSERVED_FILE, MODELS_OBSERVED_FILE } from '../config/paths.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
+
+export type AuthEvidenceState = 'present' | 'absent' | 'unknown';
 
 export interface AgentEntry {
   transport: 'acp' | 'json-process' | 'cli-process';
@@ -34,16 +39,45 @@ export class Registry {
   private matrixPath: string;
   private modelsPath: string;
   private observedPath: string;
+  private modelsObservedPath: string;
   private observed: Record<string, Partial<AgentEntry>> = {};
+  private authEvidence?: (id: AgentId) => AuthEvidenceState | undefined;
 
-  constructor(matrixPath?: string, modelsPath?: string, observedPath?: string) {
+  constructor(matrixPath?: string, modelsPath?: string, observedPath?: string, modelsObservedPath?: string) {
     this.matrixPath = matrixPath ?? process.env.ACP_MATRIX_FILE ?? join(here, '..', '..', '..', 'registry', 'capability-matrix.json');
     this.modelsPath = modelsPath ?? join(here, 'models.json');
     this.observedPath = observedPath ?? process.env.ACP_OBSERVED_FILE ?? OBSERVED_FILE;
+    this.modelsObservedPath = modelsObservedPath ?? process.env.ACP_MODELS_OBSERVED_FILE ?? MODELS_OBSERVED_FILE;
     this.matrix = JSON.parse(readFileSync(this.matrixPath, 'utf8'));
     this.models = JSON.parse(readFileSync(this.modelsPath, 'utf8'));
+    this.loadModelsObserved();
     this.loadObserved();
     this.applyObserved();
+  }
+
+  /**
+   * Inject machine-local credential evidence (issue #6). The ControlPlane wires this to
+   * config/auth-evidence.ts so that "does this agent need auth" reflects what is true HERE
+   * rather than a snapshot recorded on someone else's machine — and so a successful handshake
+   * can never be mistaken for authentication.
+   */
+  setAuthEvidence(fn: ((id: AgentId) => AuthEvidenceState | undefined) | undefined): void {
+    this.authEvidence = fn;
+  }
+
+  /** The injected credential evidence for this agent ('unknown' when no channel can decide). */
+  authEvidenceState(agentId: AgentId): AuthEvidenceState {
+    return this.authEvidence?.(agentId) ?? 'unknown';
+  }
+
+  /** Per-machine model overlay (e.g. an adapter remapped to another vendor) over the declared table. */
+  private loadModelsObserved(): void {
+    try {
+      if (!existsSync(this.modelsObservedPath)) return;
+      const obs = JSON.parse(readFileSync(this.modelsObservedPath, 'utf8')) as Partial<Registry['models']>;
+      this.models.models = { ...this.models.models, ...(obs.models ?? {}) };
+      this.models.agentDefaults = { ...this.models.agentDefaults, ...(obs.agentDefaults ?? {}) };
+    } catch { /* corrupt/unreadable -> declared table only */ }
   }
 
   private loadObserved(): void {
@@ -70,6 +104,7 @@ export class Registry {
   reload(): void {
     this.matrix = JSON.parse(readFileSync(this.matrixPath, 'utf8'));
     this.models = JSON.parse(readFileSync(this.modelsPath, 'utf8'));
+    this.loadModelsObserved();
     this.loadObserved();
     this.applyObserved();
   }
@@ -109,11 +144,27 @@ export class Registry {
     return 'effort' in obs || 'reasoning_effort' in obs;
   }
 
+  /**
+   * Does this agent lack usable credentials? (false = it can authenticate, true = it cannot.)
+   *
+   * EVIDENCE ONLY (issue #6). Neither input that used to answer this question is admissible:
+   *
+   *  - the declared matrix `auth.status` is a snapshot from ONE machine (README: "某台机器的实测
+   *    快照"), so trusting it elsewhere is the same class of error as the probe rubber-stamp —
+   *    and it drifts in BOTH directions (its stale `not-configured` silently rerouted away from a
+   *    working agent; its stale `authenticated` would route to a broken one);
+   *  - a probe's `reachable` verdict only proves the process starts; `initialize` + `session/new`
+   *    do not validate credentials.
+   *
+   * So the answer comes from config/auth-evidence.ts (env/secrets + real credential files), and
+   * when no channel can decide we say 'unknown' — callers treat that as "not positively known to
+   * be broken" (the Router only excludes on `true`), so a working agent is never dropped, while a
+   * positively-missing credential IS caught before a prompt is wasted on it.
+   */
   requiresAuth(agentId: AgentId): boolean | 'unknown' {
-    const a = this.get(agentId)?.auth;
-    const s = a?.status ?? '';
-    if (s.startsWith('authenticated')) return false;
-    if (s.startsWith('not-configured')) return true;
+    const ev = this.authEvidence?.(agentId);
+    if (ev === 'present') return false;
+    if (ev === 'absent') return true;
     return 'unknown';
   }
 
@@ -143,13 +194,22 @@ export class Registry {
       .map(([k]) => k.split('/').slice(1).join('/'));
   }
 
-  // Find agents whose ACTUAL vendor differs from all given vendors (heterogeneous review).
+  /**
+   * Agents that can serve as a heterogeneous counterpart: their ACTUAL vendor is known and is
+   * not in `vendors`.
+   *
+   * FAIL-CLOSED (B4) — an unknown vendor cannot PROVE heterogeneity, so it is excluded rather
+   * than assumed different. This mirrors the router's inline `okVendor` check; the method is
+   * kept for callers that want the whole list instead of a single pick. (Before issue #6 it
+   * returned unknown-vendor agents too, which is a false-heterogeneity trap: the name invites
+   * "pick a reviewer from this list", and the vendor could then be the implementer's.)
+   */
   agentsExcludingVendors(vendors: string[]): AgentId[] {
     const out: AgentId[] = [];
     for (const [id, e] of Object.entries(this.matrix.agents)) {
       if (e.transport !== 'acp' && e.transport !== 'json-process') continue;
       const vendor = this.actualVendor(id as AgentId);
-      if (!vendors.includes(vendor)) out.push(id as AgentId);
+      if (vendor !== 'unknown' && !vendors.includes(vendor)) out.push(id as AgentId);
     }
     return out;
   }

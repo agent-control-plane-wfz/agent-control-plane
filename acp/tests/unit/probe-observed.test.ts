@@ -39,7 +39,10 @@ test('F2: observed facts go to the state file, with the full command line preser
   assert.ok(observed.agents.dsh, 'observed entry must exist');
   const cmd = observed.agents.dsh.command as string;
   assert.ok(cmd.includes('-e'), `argv must be preserved, got: ${cmd}`);
-  assert.match(observed.agents.dsh.auth.status, /^authenticated/);
+  // issue #6: a probe records `reachable`, NOT `authenticated` — initialize + session/new do
+  // not validate credentials, so the old wording let a probe rubber-stamp authentication.
+  assert.match(observed.agents.dsh.auth.status, /^reachable/);
+  assert.doesNotMatch(observed.agents.dsh.auth.status, /authenticated/);
 });
 
 test('F2: a failed probe records no command', async () => {

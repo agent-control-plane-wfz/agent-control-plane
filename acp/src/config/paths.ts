@@ -24,3 +24,9 @@ export const SECRETS_FILE = join(STATE_DIR, 'secrets.env');
 export const USER_CONFIG_FILE = join(STATE_DIR, 'control-plane-config.json');
 export const OBSERVED_FILE = process.env.ACP_OBSERVED_FILE ?? join(STATE_DIR, 'capability-observed.json');
 export const HISTORY_FILE = join(STATE_DIR, 'web-jobs.jsonl');
+
+// Machine-bound model facts (issue #6): vendor mappings that are true on ONE machine — e.g. a
+// Claude Code install remapped to a DeepSeek endpoint — must not ship in the tracked
+// registry/models.json, or every clone inherits that machine's reality. Declared defaults stay
+// in the repo; the per-machine overlay lives here and is merged over them.
+export const MODELS_OBSERVED_FILE = process.env.ACP_MODELS_OBSERVED_FILE ?? join(STATE_DIR, 'models-observed.json');

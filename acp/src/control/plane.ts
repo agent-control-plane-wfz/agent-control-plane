@@ -15,6 +15,7 @@ import { Budget } from '../budget/budget.ts';
 import { runParallel, type ParallelJob, type ParallelOutcome } from '../batch/parallel.ts';
 import { getMerged, type AgentSettings } from '../config/settings.ts';
 import { getCredential } from '../config/secrets.ts';
+import { authEvidence } from '../config/auth-evidence.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -65,6 +66,10 @@ export class ControlPlane {
   constructor(registry?: Registry, budget?: Budget) {
     this.registry = registry ?? new Registry();
     this.budget = budget ?? new Budget(getMerged().budget);
+    // Issue #6: routing viability must reflect credential evidence on THIS machine — not a
+    // declared snapshot, and never a probe's "process started". Resolved lazily per call so a
+    // credential saved in the Settings UI takes effect without a restart.
+    this.registry.setAuthEvidence((id) => authEvidence(id, agentSettingsOf(id)?.credentialRef).state);
   }
 
   /** Live-apply budget caps after a Settings save. */

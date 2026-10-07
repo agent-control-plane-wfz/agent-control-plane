@@ -25,15 +25,18 @@ test('taskType rule picks its default agent', () => {
 });
 
 test('differentVendorFrom skips agents whose ACTUAL vendor matches', () => {
-  // claude adapter runs deepseek here, so excluding deepseek must skip it and land on codex.
+  // The claude adapter's vendor is machine-dependent (it can be remapped to another endpoint),
+  // but either way it cannot satisfy "not deepseek": known-mismatch excludes it, and an unknown
+  // vendor is excluded by fail-closed. So the pick lands on codex.
   const d = route(reg, { requirements: { differentVendorFrom: ['deepseek'] } });
   assert.equal(d.agent, 'codex');
   assert.match(d.reason, /differentVendorFrom/);
-  assert.ok(!d.fallbackChain.includes('claude'), 'deepseek-vendor agent must not be a fallback');
+  assert.ok(!d.fallbackChain.includes('claude'), 'a deepseek-vendor agent must not be a fallback');
 });
 
 test('heterogeneity is FAIL-CLOSED: unknown vendor can never satisfy the constraint', () => {
-  // codex=openai, claude=deepseek, dsh=deepseek, opencode=unknown -> nothing is left.
+  // codex=openai, dsh=deepseek, opencode=unknown; claude is deepseek or unknown depending on the
+  // machine. Excluding both known vendors therefore leaves nothing on any machine.
   assert.throws(
     () => route(reg, { requirements: { differentVendorFrom: ['openai', 'deepseek'] } }),
     /no viable agent available/,

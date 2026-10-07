@@ -701,7 +701,8 @@ function copyRaw(btn){
 function renderAgents(){
   const creds=CREDENTIALS.map(c=>`<span class="credchip"><span class="dot ${c.configured?'ok':'err'}"></span>${esc(c.name)}<span style="color:var(--faint)">· ${c.configured?esc(c.source):'未配置'}</span></span>`).join('');
   const rows=AGENTS.map(a=>agentRowHtml(a)).join('');
-  const usable=AGENTS.some(a=>a.enabled&&a.authState==='ok');
+  // 只有「确认缺失」才算不可用；证据无法判定（unknown）时不报假警报。
+  const usable=AGENTS.some(a=>a.enabled&&a.authState!=='missing');
   const onboarding=usable?'':`<div class="verdict" style="margin-bottom:12px"><b>首次设置：</b>还没有任何可用的 agent 凭据。展开下面任意一个 agent，粘贴它的 API Key 并「探测能力」；或用「+ 添加自定义 Agent」接入你自己的 ACP 命令。值只写不回显。</div>`;
   return`<div class="card">${onboarding}<h2 class="ct">凭据（值只写不回显 · 环境变量优先，其次 secrets.env）</h2><div class="credstrip">${creds}</div>
     <h2 class="ct" style="margin-top:6px">Agents · 点击行展开编辑（一次一张卡）</h2>${rows}
@@ -749,10 +750,28 @@ async function addCustom(){
   }catch(e){box.textContent='✕ '+String(e.message??e)}
   finally{btn.disabled=false}
 }
+function credSummary(a){
+  // Issue #6: env/secrets 凭据与原生登录态是两个独立事实，必须并列显示。
+  // 旧版二选一既让其中一个分支成了死代码，也在「有原生登录态但没设 API Key」的机器上
+  // 报出反向误报（codex/dsh 明明可用却显示「✕ 未配置」）。
+  const p=[];
+  if(a.credential)p.push(a.credential.configured?`env/secrets ✓ ${esc(a.credential.source)}`:'env/secrets ✕');
+  if(a.nativeAuth){
+    const n=a.nativeAuth;
+    p.push(n.present===true?`原生 ✓ ${esc(n.detail)}`:n.present==='unknown'?`原生 ?`:`原生 ✕`);
+  }
+  if(!p.length)return '凭据（未配置来源）';
+  const unknown=a.nativeAuth&&a.nativeAuth.present==='unknown'&&!(a.credential&&a.credential.configured);
+  return`凭据 ${p.join(' · ')}${unknown?`<span title="${esc(a.nativeAuth.detail)}">（无法判定）</span>`:''}`;
+}
 function agentRowHtml(a){
   const open=OPENID[a.id]?'open':'';
   const dot=a.authState==='ok'?'ok':a.authState==='missing'?'err':'warn';
-  const warn=a.id==='claude'&&a.credentialNative?'⚠ 本机重映射到 DeepSeek':'';
+  // 厂商提示按「本机实际厂商 ≠ 该 adapter 的预期厂商」判定，而不是硬编码 claude —— 硬编码
+  // 在任何机器上都会对 claude 显示该提示，与该机是否真的重映射无关。
+  const vn=STATUS?.agents?.find(x=>x.agent===a.id)?.actualVendorNote;
+  const exp=EXPECTED_VENDOR[a.id];
+  const warn=(vn&&vn!=='unknown'&&exp&&vn!==exp)?`⚠ 实际跑 ${esc(vn)}（非 ${esc(exp)}）`:'';
   const d=DRAFT[a.id]??(DRAFT[a.id]={enabled:a.enabled,transport:a.transport,command:a.command||'',
     argsText:(a.args||[]).join('\n'),credentialRef:a.credentialRef||'',credentialValue:'',
     model:a.defaults?.model||'',effort:a.defaults?.effort||'',mode:a.defaults?.mode||'',
@@ -765,7 +784,7 @@ function agentRowHtml(a){
       <span class="jid">${esc(a.transport)}</span>
       ${a.enabled?'':'<span class="badge-dis">已禁用</span>'}
       <span class="jtask" style="flex:1;color:var(--faint)">${esc(d.command||'')}${warn?` · ${warn}`:''}</span>
-      <span class="jmeta">${a.credential?`凭据 ${a.credential.configured?'✓ '+esc(a.credential.source):'✕ 未配置'}`:(a.nativeAuthPresent?'凭据 ✓ 原生':'')}</span>
+      <span class="jmeta">${credSummary(a)}</span>
     </div>
     <div class="aedit">
       <div class="grid3">

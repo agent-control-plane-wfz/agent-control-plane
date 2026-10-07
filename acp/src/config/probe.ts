@@ -1,8 +1,13 @@
-// Capability probe (v3): verify an agent's command + credential by doing the cheapest
-// real thing — for ACP: initialize + session/new (measured in Phase 0: no token cost);
-// for json-process: binary presence + `--help` exit 0. On success, writes what was
-// observed back into capability-matrix.json so the Registry and the Router see the
-// CURRENT state (fixes the stale-auth silent-reroute class of bugs from v2 testing).
+// Capability probe (v3): verify an agent's command by doing the cheapest real thing — for ACP:
+// initialize + session/new (measured in Phase 0: no token cost); for json-process: binary
+// presence + `--help` exit 0. On success, writes what was observed into the state dir so the
+// Registry and the Router see the CURRENT state (fixes the stale-auth silent-reroute class of
+// bugs from v2 testing).
+//
+// Status vocabulary (issue #6): a probe records `reachable` / `unreachable`, never
+// `authenticated`. `initialize` + `session/new` do NOT validate credentials, so writing
+// `authenticated` here made the probe a rubber stamp — the Router would then pick an agent
+// with no credentials at all. Credential truth is answered by config/auth-evidence.ts.
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { AcpDriver } from '../drivers/acp-driver.ts';
@@ -80,7 +85,7 @@ export async function probeAgent(id: string, cfg: { transport?: string; command?
       // code wrote just the executable (dropping argv) and did it even when the probe failed.
       if (ok) {
         writeMatrixObserved(id, {
-          auth: `authenticated (probe ${new Date().toISOString().slice(0, 10)})`,
+          auth: `reachable (probe ${new Date().toISOString().slice(0, 10)})`,
           command: `${cmd} ${argv.join(' ')}`.trim(),
         });
       }
@@ -102,17 +107,20 @@ export async function probeAgent(id: string, cfg: { transport?: string; command?
         observed[o.id] = { category: o.category, currentValue: o.currentValue, options: o.options ?? [] };
       }
       writeMatrixObserved(id, {
-        auth: `authenticated (probe ${new Date().toISOString().slice(0, 10)})`,
+        auth: `reachable (probe ${new Date().toISOString().slice(0, 10)})`,
         configOptions: observed,
         command: `${cfg.command} ${(cfg.args ?? []).join(' ')}`.trim(),
       });
-      return { ok: true, agent: id, transport, durationMs: Date.now() - t0, models, efforts, detail: `握手成功：${models.length} 模型 / ${efforts.length} 档位` };
+      return { ok: true, agent: id, transport, durationMs: Date.now() - t0, models, efforts, detail: `握手成功：${models.length} 模型 / ${efforts.length} 档位（进程可达，不代表凭据有效）` };
     } finally {
       try { await rpc.close(); } catch { /* noop */ }
     }
   } catch (e: any) {
     const msg = String(e?.message ?? e).slice(0, 300);
-    writeMatrixObserved(id, { auth: `not-configured (probe ${new Date().toISOString().slice(0, 10)})` });
+    // `unreachable`, not `not-configured`: the process failed to start, which says nothing about
+    // whether credentials exist. Claiming "needs auth" from a spawn failure is the same category
+    // error as claiming "authenticated" from a handshake.
+    writeMatrixObserved(id, { auth: `unreachable (probe ${new Date().toISOString().slice(0, 10)})` });
     return { ok: false, agent: id, transport, durationMs: Date.now() - t0, error: msg };
   }
 }

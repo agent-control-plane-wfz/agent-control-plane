@@ -10,7 +10,7 @@ import { ControlPlane } from '../control/plane.ts';
 import { getMerged, saveSettings, resetSettings, loadUserConfig, type AppSettings } from '../config/settings.ts';
 import { describeCredential, setCredential, deleteCredential, storedNames } from '../config/secrets.ts';
 import { probeAgent } from '../config/probe.ts';
-import { homedir } from 'node:os';
+import { authEvidence, nativeAuthEvidence } from '../config/auth-evidence.ts';
 import { BUILTIN_RULES } from '../router/router.ts';
 import { HISTORY_FILE } from '../config/paths.ts';
 
@@ -92,21 +92,17 @@ function json(res: ServerResponse, code: number, body: unknown): void {
 
 // --- v3 settings helpers ---------------------------------------------------------------
 
-const NATIVE_AUTH: Record<string, () => boolean> = {
-  opencode: () => true, // 内置账号
-  claude: () => existsSync(join(homedir(), '.claude')),
-  codex: () => existsSync(join(homedir(), '.codex', 'auth.json')),
-  dsh: () => existsSync(join(homedir(), '.dsh', '.credentials.yaml')),
-};
-
+// Issue #6: this used to be (a) a directory-level guess for claude — `~/.claude` is created by
+// any adapter run, so it proved nothing — and (b) an either/or between the env/secrets seam and
+// native login, which meant a machine WITH `~/.codex/auth.json` still showed "✕ 未配置" and a
+// machine with neither showed nothing at all. Both facts are now reported side by side, each
+// tri-state, and the combined verdict comes from the evidence module.
 function agentRows() {
   const merged = getMerged();
   return Object.entries(merged.agents).map(([id, a]) => {
+    const ev = authEvidence(id, a.credentialRef);
     const cred = a.credentialRef ? describeCredential(a.credentialRef) : null;
-    const native = a.credentialNative ? (NATIVE_AUTH[id]?.() ?? false) : false;
-    const configured = a.enabled === false
-      ? false
-      : (cred?.configured ?? false) || native;
+    const native = nativeAuthEvidence(id);
     return {
       id,
       enabled: a.enabled !== false,
@@ -116,8 +112,12 @@ function agentRows() {
       credentialRef: a.credentialRef ?? null,
       credentialNative: a.credentialNative,
       credential: cred ? { configured: cred.configured, source: cred.source } : null,
-      nativeAuthPresent: a.credentialNative ? native : null,
-      authState: a.enabled === false ? 'disabled' : (cred?.configured || native) ? 'ok' : 'missing',
+      nativeAuth: { present: native.present, detail: native.detail },
+      evidence: ev,
+      authState: a.enabled === false ? 'disabled'
+        : ev.state === 'present' ? 'ok'
+        : ev.state === 'absent' ? 'missing'
+        : 'unknown',
       defaults: a.defaults ?? {},
       limits: a.limits ?? {},
       modelOverrides: a.modelOverrides ?? {},

@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agent Control Plane</title>
+<meta name="description" content="本地多 agent 控制台：把任务派给最合适的 coding harness，跨厂商评审，作业实时可见。">
+<meta name="theme-color" content="#151517">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234176e6'/%3E%3Cpath d='M16 6l2.7 7.3L26 16l-7.3 2.7L16 26l-2.7-7.3L6 16l7.3-2.7z' fill='%23fff'/%3E%3C/svg%3E">
 <style>
 :root{
   --bg:#0a0c10; --surface:#12151d; --surface2:#181c26; --surface3:#1f2432;
@@ -19,10 +22,13 @@ body{background:var(--bg);color:var(--text);font:14px/1.6 "Segoe UI","Microsoft 
 ::-webkit-scrollbar-thumb{background:#2b3244;border-radius:9px}
 ::-webkit-scrollbar-thumb:hover{background:#39415a}
 ::-webkit-scrollbar-track{background:transparent}
+::selection{background:rgba(65,118,230,.35)}
+/* Keyboard focus is a requirement, not decoration: buttons/chips previously had no ring. */
+:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
 
 /* ---------- sidebar ---------- */
 aside{width:252px;min-width:252px;height:100vh;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);padding:18px 14px;display:flex;flex-direction:column;gap:14px;position:sticky;top:0}
-.brand{font-size:15px;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;gap:8px}
+.brand{font-size:15.5px;font-weight:500;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
 .brand .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--acc1),var(--acc2));display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#fff;box-shadow:0 2px 12px rgba(91,124,250,.4)}
 .brand small{color:var(--faint);font-weight:400;margin-left:auto;font-size:11px}
 .side-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
@@ -55,7 +61,7 @@ header.main .conn{margin-left:auto;display:flex;align-items:center;gap:7px;font-
 button.ghost{background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;transition:.15s}
 button.ghost:hover{color:var(--text);border-color:var(--border2)}
 
-.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:0 4px 24px rgba(0,0,0,.25)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
 .card+.card{margin-top:16px}
 h2.ct{font-size:11px;letter-spacing:1.6px;color:var(--faint);font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
 h2.ct .n{background:var(--surface3);border-radius:99px;padding:0 8px;font-size:10px;color:var(--dim)}
@@ -81,6 +87,11 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 .pbtn:hover{filter:brightness(1.12);transform:translateY(-1px)}
 .pbtn:disabled{opacity:.6;cursor:wait;transform:none}
 .form-err{color:var(--err);font-size:12px;margin-top:8px;font-family:var(--mono);min-height:16px}
+/* Transient notice. Replaces window.alert(): blocking, unstyled, and it would also pause the
+   polling timers while the user dismisses it. */
+#toast{position:fixed;top:16px;left:50%;z-index:80;max-width:72vw;padding:9px 15px;border-radius:10px;background:var(--surface3);color:var(--text);font-size:12.5px;box-shadow:0 10px 30px rgba(0,0,0,.45);opacity:0;pointer-events:none;transform:translateX(-50%) translateY(-6px);transition:opacity .18s,transform .18s}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.err{color:var(--err)}
 
 /* ---------- console composer (dsh-style stage) ---------- */
 /* The console used to be one big parameter card. It is now a centred composer with the per-call
@@ -88,10 +99,10 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
    instead of "fill this form in". */
 /* min-height is deliberately NOT 100vh: the jobs feed sits under the stage, and a full-viewport
    stage would push every job below the fold — an empty screen that looks broken. */
-.stage{background:var(--surface);border:1px solid var(--border);border-radius:14px;min-height:clamp(340px,calc(100vh - 330px),600px);padding:32px 34px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;position:relative;box-shadow:0 4px 24px rgba(0,0,0,.25)}
+.stage{background:var(--surface);border:1px solid var(--border);border-radius:14px;min-height:clamp(340px,calc(100vh - 330px),600px);padding:32px 34px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;position:relative;box-shadow:0 16px 48px rgba(0,0,0,.28)}
 .welcome{text-align:center}
 .welcome .mark{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,var(--acc1),var(--acc2));display:inline-flex;align-items:center;justify-content:center;font-size:20px;color:#fff;margin-bottom:12px;box-shadow:0 4px 18px rgba(91,124,250,.35)}
-.welcome h3{font-size:17px;font-weight:700}
+.welcome h3{font-size:17px;font-weight:700;text-wrap:balance}
 .welcome p{color:var(--dim);font-size:13px;margin-top:6px}
 .composer{width:100%;max-width:660px;background:var(--surface2);border:1px solid var(--border2);border-radius:18px;padding:12px 14px 10px;position:relative}
 .composer:focus-within{border-color:var(--acc1);box-shadow:0 0 0 3px rgba(91,124,250,.12)}
@@ -99,16 +110,18 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 .composer textarea:focus{outline:none;border:0;box-shadow:none}
 .crow-top{display:flex;gap:7px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
 .crow-bottom{display:flex;align-items:center;gap:8px;margin-top:4px}
-.chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface3);border:1px solid var(--border);color:var(--dim);border-radius:99px;padding:4px 12px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;max-width:270px}
+.chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface3);border:1px solid var(--border);color:var(--dim);border-radius:99px;padding:4px 12px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;max-width:270px;transition:.15s}
 .chip:hover{color:var(--text);border-color:var(--acc1)}
 .chip.on{color:#fff;border-color:var(--acc1)}
 .chip .cnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .caret{font-size:10px;opacity:.75;flex-shrink:0}
-.cbtn{background:transparent;border:1px solid var(--border2);color:var(--dim);width:28px;height:28px;border-radius:50%;font:inherit;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0}
+.cbtn{background:transparent;border:1px solid var(--border2);color:var(--dim);width:28px;height:28px;border-radius:50%;font:inherit;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:.15s}
 .cbtn:hover{color:var(--text);border-color:var(--acc1)}
 .sendbtn{width:30px;height:30px;border-radius:50%;border:0;background:var(--acc1);color:#fff;font-size:15px;cursor:pointer;flex-shrink:0;padding:0;line-height:1}
 .sendbtn:hover{filter:brightness(1.12)}
 .sendbtn:disabled{opacity:.5;cursor:wait}
+/* Press feedback: a 1px sink makes a click feel physical (hover already lifts .pbtn by 1px). */
+.pbtn:active,.sendbtn:active,.chip:active,.cbtn:active,.segb:active,.newbtn:active,.navrow:active,.navbtn:active,button.ghost:active{transform:translateY(1px)}
 .grow{flex:1}
 .pop{position:absolute;left:14px;bottom:52px;width:302px;background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:8px;display:none;z-index:20;box-shadow:0 12px 32px rgba(0,0,0,.45)}
 .pop.right{left:auto;right:14px}
@@ -137,7 +150,7 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 .seg-ind{position:absolute;top:2px;bottom:2px;left:2px;width:calc((100% - 4px) / 3);background:var(--surface);border-radius:99px;transition:transform .18s cubic-bezier(.4,0,.2,1)}
 .seg[data-i="1"] .seg-ind{transform:translateX(100%)}
 .seg[data-i="2"] .seg-ind{transform:translateX(200%)}
-.segb{position:relative;z-index:1;flex:1;border:0;background:transparent;color:var(--dim);font:inherit;font-size:12px;padding:4px 11px;border-radius:99px;cursor:pointer;white-space:nowrap;text-align:center}
+.segb{position:relative;z-index:1;flex:1;border:0;background:transparent;color:var(--dim);font:inherit;font-size:12px;padding:4px 11px;border-radius:99px;cursor:pointer;white-space:nowrap;text-align:center;transition:color .15s}
 .segb:hover{color:var(--text)}
 .segb.on{color:var(--text)}
 
@@ -145,7 +158,7 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
    (agent + model + effort), which is the atomic unit: picking one half is meaningless alone. */
 .seats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 .seats:empty{display:none}
-.seat{display:inline-flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:99px;padding:3px 7px 3px 10px;font-size:12px;cursor:pointer;color:var(--dim);max-width:100%}
+.seat{display:inline-flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:99px;padding:3px 7px 3px 10px;font-size:12px;cursor:pointer;color:var(--dim);max-width:100%;transition:.15s}
 .seat:hover{border-color:var(--acc1);color:var(--text)}
 .seat .role{font-size:10px;letter-spacing:.7px;color:var(--faint);flex-shrink:0}
 .seat .val{color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -283,6 +296,8 @@ pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;pad
 .schip.err{border-color:rgba(248,113,113,.4);color:var(--err)}
 .schip.run{border-color:rgba(91,124,250,.4);color:#9db4ff}
 .empty{color:var(--faint);text-align:center;padding:44px 0;font-size:13px}
+.empty .emico{display:block;font-size:20px;opacity:.6;margin-bottom:9px}
+.empty b{display:block;color:var(--dim);font-weight:600;font-size:13.5px;margin-bottom:4px}
 /* ---- settings sheet: a centred modal with a vertical nav rail, mirroring dsh's Settings ----
    Two layers: a scrim that owns the click-outside-to-close, and the sheet itself.
    Floating surfaces carry NO border — the 0.5px hairline is the first shadow layer and
@@ -528,7 +543,7 @@ button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
       <span class="spacer"></span>
       <span class="jid" id="job-count"></span>
     </div>
-    <div id="jobs"><div class="empty">暂无作业</div></div>
+    <div id="jobs"><div class="empty"><span class="emico">◈</span><b>还没有作业</b>在上面的输入框描述任务，派发后会出现在这里</div></div>
   </section>
   </div><!-- /view-console -->
 
@@ -548,7 +563,7 @@ button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
     </div>
     <div class="setcols">
       <div class="setnav">
-        <button class="navbtn on" data-s="agents" onclick="setSection('agents')"><span class="navico">⛭</span>Agents</button>
+        <button class="navbtn on" data-s="agents" onclick="setSection('agents')"><span class="navico">⚙</span>Agents</button>
         <button class="navbtn" data-s="routing" onclick="setSection('routing')"><span class="navico">⇄</span>Routing</button>
         <button class="navbtn" data-s="budget" onclick="setSection('budget')"><span class="navico">◱</span>Budget</button>
         <button class="navbtn" data-s="workspace" onclick="setSection('workspace')"><span class="navico">▣</span>Workspace</button>
@@ -584,11 +599,11 @@ const AGENT_SHORT={opencode:'OC',claude:'CL',codex:'CX',dsh:'DS',review:'RV'};
    showed a bogus "实际厂商不同", including perfectly normal ones. */
 const EXPECTED_VENDOR={claude:'anthropic',codex:'openai',dsh:'deepseek'};
 const PRESETS=[
-  ['🔍 代码审查','审查这段代码的风险与改进点（把代码贴到下面）：\n'],
-  ['🧪 写测试','为下面的函数写单元测试，覆盖边界情况：\n'],
-  ['🐛 排查 Bug','这段代码有一个 bug（现象如下），请定位根因并给出修复 patch：\n'],
-  ['📖 解释','用简洁的中文解释下面这段代码/概念：\n'],
-  ['⚡ 快问快答',''],
+  ['代码审查','审查这段代码的风险与改进点（把代码贴到下面）：\n'],
+  ['写测试','为下面的函数写单元测试，覆盖边界情况：\n'],
+  ['排查 Bug','这段代码有一个 bug（现象如下），请定位根因并给出修复 patch：\n'],
+  ['解释','用简洁的中文解释下面这段代码/概念：\n'],
+  ['快问快答',''],
 ];
 let mode='ask',STATUS=null,FILTER='all',FAGENT='',FSEARCH='',JOBS=[];
 
@@ -1087,8 +1102,8 @@ function jobState(j){
 function evLine(e){
   const t=new Date(e.at).toLocaleTimeString('zh-CN',{hour12:false});
   const tag=e.jobId?`[${e.jobId}] `:'';
-  if(e.kind==='text')return`<div class="ev t-text"><span class="k">${t} 📝</span>${esc(tag+(e.text||'').slice(0,160))}</div>`;
-  if(e.kind==='tool')return`<div class="ev t-tool"><span class="k">${t} 🔧</span>${esc(tag)}工具：${esc((e.text||'tool').slice(0,100))}</div>`;
+  if(e.kind==='text')return`<div class="ev t-text"><span class="k">${t} ▸</span>${esc(tag+(e.text||'').slice(0,160))}</div>`;
+  if(e.kind==='tool')return`<div class="ev t-tool"><span class="k">${t} ⚙</span>${esc(tag)}工具：${esc((e.text||'tool').slice(0,100))}</div>`;
   if(e.kind==='subtask_done')return`<div class="ev t-done"><span class="k">${t} ✓</span>${esc(tag+(e.text||'子任务结束'))}</div>`;
   return`<div class="ev t-status"><span class="k">${t} ·</span>${esc(tag+(e.text||e.kind).slice(0,120))}</div>`;
 }
@@ -1099,7 +1114,9 @@ function renderJobs(list){
     if(FSEARCH&&!String(j.request.task).toLowerCase().includes(FSEARCH))return false;
     return true;});
   $('job-count').textContent=`${filtered.length}/${list.length}`;
-  if(!filtered.length){$('jobs').innerHTML='<div class="empty">没有匹配的作业</div>';return}
+  if(!filtered.length){$('jobs').innerHTML=list.length
+    ?'<div class="empty">没有符合条件的作业，换个筛选或清空搜索</div>'
+    :'<div class="empty"><span class="emico">◈</span><b>还没有作业</b>在上面的输入框描述任务，派发后会出现在这里</div>';return}
   $('jobs').innerHTML=filtered.map(j=>{
     const st=jobState(j);
     const task=j.kind==='parallel'?`批量 ${j.request.jobs.length} 个任务 · 并发 ${j.request.concurrency||3}`:String(j.request.task).slice(0,120);
@@ -1365,7 +1382,7 @@ function renderWorkspace(){
   return`<div class="card"><h2 class="ct">常用 cwd（派任务时下拉可选）</h2><div>${chips}</div>
     <h2 class="ct" style="margin-top:16px">worktree 基目录</h2>
     <label>隔离 worktree 的创建位置（不要放在含 package.json 的目录树内）</label>
-    <div class="pathrow"><input id="ws-basedir" value="${esc(w.worktreeBaseDir||'')}" placeholder="默认：<repo>/../.acp-worktrees"><button type="button" class="ghost" onclick="openDirPicker('ws-basedir')">📁 浏览…</button></div>
+    <div class="pathrow"><input id="ws-basedir" value="${esc(w.worktreeBaseDir||'')}" placeholder="默认：<repo>/../.acp-worktrees"><button type="button" class="ghost" onclick="openDirPicker('ws-basedir')">▸ 浏览…</button></div>
     <button class="pbtn" style="margin-top:12px" onclick="saveWorkspace()">保存</button><div class="form-err" id="ws-err"></div></div>`;
 }
 function rmCwd(c){
@@ -1525,7 +1542,7 @@ function agentRowHtml(a){
           <button class="ghost" style="margin:0" onclick="saveCredential('${esc(a.id)}')">存</button></div></div>
       </div>
       <div style="display:flex;gap:8px;margin-top:14px">
-        <button class="ghost" style="flex:1;margin:0" onclick="probe('${esc(a.id)}')">🔌 探测能力</button>
+        <button class="ghost" style="flex:1;margin:0" onclick="probe('${esc(a.id)}')">探测能力</button>
         <button class="ghost" style="flex:1;margin:0" onclick="resetAgent('${esc(a.id)}')">恢复默认</button>
         <button id="btn-save-${esc(a.id)}" style="flex:1.4;margin:0;margin-top:0" onclick="saveAgent('${esc(a.id)}')">保存修改</button>
       </div>
@@ -1645,7 +1662,7 @@ function renderSetup(){
     ${shown.length?`<div class="wiz">${shown.map(wizCard).join('')}</div>`
       :`<div class="wizempty">还没有添加任何 agent —— 点上面的「+ 添加」挑一个，它的命令与凭据来源会预填好，可改。</div>`}
     <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="ghost" style="flex:1;margin:0" onclick="probePicked()">🔌 探测选中的（握手，不耗 token）</button>
+      <button class="ghost" style="flex:1;margin:0" onclick="probePicked()">探测选中的（握手，不耗 token）</button>
       <button class="pbtn" style="flex:2;margin:0" id="wiz-go" onclick="finishSetup()">完成设置并写入用户配置</button>
     </div>
     <div class="form-err" id="wiz-err"></div></div>`;
@@ -1762,14 +1779,14 @@ async function rerunSetup(){
   // A fresh sitting: the wizard re-opens empty again (confirmations survive server-side).
   wizReset();
   try{await api('/api/setup/rerun',{method:'POST'});await loadSetup();switchView('setup');}
-  catch(e){alert('无法重新运行向导：'+String(e.message??e))}
+  catch(e){toast('无法重新运行向导：'+String(e.message??e),true)}
 }
 /* 快速确认单个 agent（Agents 页未确认行的捷径） */
 async function confirmAgent(id){
   try{await api('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},
     body:JSON.stringify({agents:{[id]:{confirmed:true}}})});
     await loadSettings();await loadSetup();await refreshStatus();
-  }catch(e){alert('确认失败：'+String(e.message??e))}
+  }catch(e){toast('确认失败：'+String(e.message??e),true)}
 }
 /* Anything outside the builtin list (Gemini CLI / Qwen Code / goose…) is added from
    设置 → Agents, which already owns that form and records a hand-add as consent. */
@@ -1778,6 +1795,13 @@ async function addCustomFromWizard(){
   await loadSettings();
   setSection('agents');
   toggleCustom();
+}
+
+let TOAST_T=null;
+function toast(msg,isErr){
+  const t=$('toast');if(!t)return;
+  t.textContent=msg;t.classList.toggle('err',!!isErr);t.classList.add('on');
+  clearTimeout(TOAST_T);TOAST_T=setTimeout(()=>t.classList.remove('on'),3400);
 }
 
 /* ---------- polling ---------- */
@@ -1804,5 +1828,6 @@ loadSetup().then(()=>{if(SETUP&&SETUP.phase==='pending')switchView('setup');});
 api('/api/settings').then(s=>{SETTINGS=s;fillCwdList();}).catch(()=>{});
 setInterval(refreshStatus,5000);setInterval(refreshJobs,1200);
 </script>
+<div id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

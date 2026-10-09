@@ -73,9 +73,13 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;user-select:none}
 .check input{width:15px;height:15px;accent-color:var(--acc1)}
-#btn-go{width:100%;margin-top:16px;padding:11px;border:0;border-radius:10px;background:linear-gradient(135deg,var(--acc1),var(--acc2));color:#fff;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.5px;box-shadow:0 4px 18px rgba(91,124,250,.35);transition:.15s}
-#btn-go:hover{filter:brightness(1.12);transform:translateY(-1px)}
-#btn-go:disabled{opacity:.6;cursor:wait;transform:none}
+/* Primary action button. This used to be an id selector (`#btn-go`) from the pre-rebuild console,
+   where the only such button was the full-width "start" CTA. The rebuilt console kept the id for
+   the composer's round send button, so the old rule (specificity 100) silently beat `.sendbtn`
+   (10) and stretched the send button into a full-width bar. A class cannot collide like that. */
+.pbtn{width:100%;margin-top:16px;padding:11px;border:0;border-radius:10px;background:linear-gradient(135deg,var(--acc1),var(--acc2));color:#fff;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.5px;box-shadow:0 4px 18px rgba(91,124,250,.35);transition:.15s}
+.pbtn:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.pbtn:disabled{opacity:.6;cursor:wait;transform:none}
 .form-err{color:var(--err);font-size:12px;margin-top:8px;font-family:var(--mono);min-height:16px}
 
 /* ---------- console composer (dsh-style stage) ---------- */
@@ -399,8 +403,8 @@ header.main{background:linear-gradient(var(--dsw-alias-bg-base) 82%,transparent)
 .agentrow.open,.job.open{border-radius:var(--dsw-radius-md);box-shadow:0 0 0 1.5px var(--dsw-alias-brand-primary)}
 input,textarea,select{background:var(--dsw-alias-bg-layer-1);border:0;border-radius:var(--dsw-radius-sm);box-shadow:var(--dsw-elevation-stroke)}
 input:focus,textarea:focus,select:focus{box-shadow:0 0 0 1.5px var(--dsw-alias-brand-primary)}
-#btn-go,.brand .logo{background:var(--dsw-alias-brand-primary);background-image:none;box-shadow:none}
-#btn-go:hover{background:var(--dsw-alias-brand-primary-hover);filter:none;transform:none}
+.pbtn,.brand .logo{background:var(--dsw-alias-brand-primary);background-image:none;box-shadow:none}
+.pbtn:hover{background:var(--dsw-alias-brand-primary-hover);filter:none;transform:none}
 .navbtn.on,.fchip.on{background:var(--dsw-alias-bg-layer-3);color:var(--text);box-shadow:none}
 .navbtn{border-radius:var(--dsw-radius-xs)}
 .navbtn:hover{background:var(--dsw-alias-bg-hover)}
@@ -1306,7 +1310,7 @@ function renderRouting(){
   }).join('');
   return`<div class="card"><h2 class="ct">路由规则（任务类型 → agent）</h2>${rows}
     <label class="check"><input type="checkbox" id="rt-llm" ${SETTINGS?.merged?.routing?.llmRouter!==false?'checked':''}> LLM 路由兜底（规则未命中时用便宜模型分类任务类型，可用 0 关闭）</label>
-    <button id="btn-go" onclick="saveRouting()">保存路由设置</button><div class="form-err" id="rt-err"></div></div>`;
+    <button class="pbtn" onclick="saveRouting()">保存路由设置</button><div class="form-err" id="rt-err"></div></div>`;
 }
 async function saveRouting(){
   const rules={};
@@ -1339,7 +1343,7 @@ function renderBudget(){
     </div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="ghost" style="flex:1;margin:0" onclick="resetBudget()">重置今日计数</button>
-      <button id="btn-go" style="flex:1;margin:0" onclick="saveBudget()">保存上限</button>
+      <button class="pbtn" style="flex:1;margin:0" onclick="saveBudget()">保存上限</button>
     </div><div class="form-err" id="bd-err"></div></div>`;
 }
 async function saveBudget(){
@@ -1362,7 +1366,7 @@ function renderWorkspace(){
     <h2 class="ct" style="margin-top:16px">worktree 基目录</h2>
     <label>隔离 worktree 的创建位置（不要放在含 package.json 的目录树内）</label>
     <div class="pathrow"><input id="ws-basedir" value="${esc(w.worktreeBaseDir||'')}" placeholder="默认：<repo>/../.acp-worktrees"><button type="button" class="ghost" onclick="openDirPicker('ws-basedir')">📁 浏览…</button></div>
-    <button id="btn-go" style="margin-top:12px" onclick="saveWorkspace()">保存</button><div class="form-err" id="ws-err"></div></div>`;
+    <button class="pbtn" style="margin-top:12px" onclick="saveWorkspace()">保存</button><div class="form-err" id="ws-err"></div></div>`;
 }
 function rmCwd(c){
   const list=(SETTINGS?.merged?.workspace?.recentCwds||[]).filter(x=>x!==c);
@@ -1424,7 +1428,7 @@ function customCardHtml(){
     <div><label>凭据值（只写，可留空用原生登录态）</label><input type="password" id="cu-credval" autocomplete="new-password"></div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="ghost" style="flex:1;margin:0" onclick="toggleCustom()">取消</button>
-      <button id="btn-cu" style="flex:2;margin:0" onclick="addCustom()">保存并探测</button>
+      <button class="pbtn" id="btn-cu" style="flex:2;margin:0" onclick="addCustom()">保存并探测</button>
     </div>
     <div class="probebox" id="probe-custom" style="display:none"></div>
   </div></div>`;
@@ -1642,7 +1646,7 @@ function renderSetup(){
       :`<div class="wizempty">还没有添加任何 agent —— 点上面的「+ 添加」挑一个，它的命令与凭据来源会预填好，可改。</div>`}
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="ghost" style="flex:1;margin:0" onclick="probePicked()">🔌 探测选中的（握手，不耗 token）</button>
-      <button style="flex:2;margin:0" id="wiz-go" onclick="finishSetup()">完成设置并写入用户配置</button>
+      <button class="pbtn" style="flex:2;margin:0" id="wiz-go" onclick="finishSetup()">完成设置并写入用户配置</button>
     </div>
     <div class="form-err" id="wiz-err"></div></div>`;
 }

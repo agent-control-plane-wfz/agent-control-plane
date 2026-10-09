@@ -121,6 +121,33 @@ try {
   let legacyRoute = '';
   try { legacyRoute = plane.route({ taskType: 'quick' }).agent; } catch (e: any) { legacyRoute = `ERROR: ${e?.message}`; }
   check('legacy machine: builtin routing behaves exactly as before', legacyRoute === 'opencode', `agent=${legacyRoute}`);
+  // Regression (PR #14 follow-up): the wizard must LIST the in-use agents on a legacy machine —
+  // with an empty list, clicking 完成 would have recorded all four as confirmed:false (revoked).
+  check('legacy machine: the wizard lists the in-use agents as candidates, nothing left to "add"',
+    (legacy.candidates ?? []).length >= 4 && (legacy.templates ?? []).length === 0,
+    `candidates=${(legacy.candidates ?? []).map((c: any) => c.id).join(' ')} templates=${(legacy.templates ?? []).map((c: any) => c.id).join(' ')}`);
+  const keep: Record<string, any> = {};
+  for (const c of legacy.candidates ?? []) keep[c.id] = { confirm: true };
+  await postSetup(keep);   // what the UI sends when the user just clicks 完成
+  let afterLegacy = '';
+  try { afterLegacy = plane.route({ taskType: 'quick' }).agent; } catch (e: any) { afterLegacy = `ERROR: ${e?.message}`; }
+  check('legacy machine: completing the wizard keeps every in-use agent', afterLegacy === 'opencode', `agent=${afterLegacy}`);
+
+  // Re-opening the wizard (设置 → Agents → 重新运行首启向导) on a legacy machine: it must neither
+  // suspend routing mid-sitting (undefined + pending is not routable) nor open empty.
+  writeFileSync(USER_CONFIG_FILE, JSON.stringify({ agents: {}, routing: {}, budget: {}, workspace: {} }), 'utf8');
+  const rerunLegacy = await (await fetch(`${base}/api/setup/rerun`, { method: 'POST' })).json() as any;
+  let midRoute = '';
+  try { midRoute = plane.route({ taskType: 'quick' }).agent; } catch (e: any) { midRoute = `ERROR: ${e?.message}`; }
+  check('legacy machine: re-opening the wizard neither suspends routing nor empties the list',
+    midRoute === 'opencode' && (rerunLegacy.candidates ?? []).length >= 4,
+    `agent=${midRoute} phase=${rerunLegacy.phase} candidates=${(rerunLegacy.candidates ?? []).map((c: any) => c.id).join(' ')}`);
+  const keepAgain: Record<string, any> = {};
+  for (const c of rerunLegacy.candidates ?? []) keepAgain[c.id] = { confirm: true };
+  await postSetup(keepAgain);
+  let reDone = '';
+  try { reDone = plane.route({ taskType: 'quick' }).agent; } catch (e: any) { reDone = `ERROR: ${e?.message}`; }
+  check('legacy machine: completing the re-run keeps every in-use agent', reDone === 'opencode', `agent=${reDone}`);
 
   // ---- acceptance 4: re-running the wizard keeps confirmations ------------------------------
   dropConfig();

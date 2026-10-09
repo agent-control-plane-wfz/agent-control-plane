@@ -410,10 +410,26 @@ export function resetSettings(section: 'agents' | 'routing' | 'budget' | 'worksp
  * completedAt) rather than deleted — its presence is what distinguishes "the user asked to
  * re-open the wizard" from "this config predates the feature" (see setupState). Confirmations
  * and settings are kept, so the wizard re-opens pre-filled and cancelling it is harmless.
+ *
+ * On a pre-#7 (`legacy`) machine there is nothing to keep yet: its agents are routable only
+ * because configuredAgent() grandfathers `confirmed === undefined`, and that grandfathering is
+ * tied to the `legacy` phase. Re-opening the wizard switches the machine to `pending` — which
+ * would suspend routing mid-sitting AND make the wizard open EMPTY (so completing it revoked a
+ * machine that was working). So the grandfathering is materialised as explicit consent FIRST.
+ * It changes nothing about who may run (those agents were already allowed); it only stops the
+ * permission from depending on the phase. This runs only on an explicit wizard re-open.
  */
 export function clearSetupMarker(): AppSettings {
   const cur = loadUserConfig().config;
-  const next = { ...cur, setup: { ...(cur.setup ?? {}), completedAt: null } };
+  const next = { ...cur, setup: { ...(cur.setup ?? {}), completedAt: null } } as Record<string, unknown>;
+  if (setupState() === 'legacy') {
+    const agents = { ...(cur.agents ?? {}) } as Record<string, AgentSettings>;
+    for (const [id, a] of Object.entries(getMerged().agents)) {
+      if (a.confirmed !== undefined) continue;   // an explicit decision already exists
+      agents[id] = { ...(agents[id] ?? {}), confirmed: true };
+    }
+    next.agents = agents;
+  }
   mkdirSync(dirname(USER_CONFIG_FILE), { recursive: true });
   atomicWrite(USER_CONFIG_FILE, JSON.stringify(next, null, 2));
   return getMerged();

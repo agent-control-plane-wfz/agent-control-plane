@@ -80,6 +80,43 @@ test('F7: a pre-existing config is grandfathered (legacy), not revoked', () => {
   assert.equal(configuredAgent('codex'), false, 'an explicit rejection wins even on a legacy machine');
 });
 
+test('F7: a legacy machine lists its in-use agents, so completing the wizard cannot revoke them', () => {
+  // Regression, found while reviewing the console rebuild (PR #14): "taken on" was derived from
+  // `confirmed`/own-config only, so a legacy machine's wizard opened EMPTY while four agents were
+  // routable — and the completion that followed wrote `confirmed: false` for all of them,
+  // revoking a machine that was working. Grandfathered-in-use is exactly "taken on".
+  writeConfig({ agents: {}, routing: {}, budget: {}, workspace: {} });
+  const view = setupView();
+  assert.equal(view.phase, 'legacy');
+  assert.deepEqual(view.candidates.map((c) => c.id).sort(), [...BUILTINS].sort());
+  assert.deepEqual(view.templates, [], 'nothing is left to "add" — everything in use is already listed');
+  for (const c of view.candidates) {
+    assert.equal(c.confirmed, false, 'grandfathered is not the same as explicitly confirmed');
+    assert.equal(c.configuredNow, true, 'but it IS usable right now (which is why it must be listed)');
+  }
+  // Completing with the listed agents confirmed is what the UI does by default; availability must
+  // be unchanged afterwards.
+  const keep: Record<string, { confirm: boolean }> = {};
+  for (const c of view.candidates) keep[c.id] = { confirm: true };
+  const merged = completeSetup(keep);
+  assert.equal(setupState(), 'done');
+  for (const id of BUILTINS) assert.equal(configuredAgent(id, merged), true, `still routable: ${id}`);
+
+  // Re-opening the wizard (设置 → Agents → 重新运行首启向导) must not suspend a working machine
+  // mid-sitting — `undefined + pending` is NOT routable, so the grandfathering is materialised as
+  // explicit consent when the marker is cleared.
+  writeConfig({ agents: {}, routing: {}, budget: {}, workspace: {} });
+  assert.equal(setupState(), 'legacy');
+  clearSetupMarker();
+  assert.equal(setupState(), 'pending');
+  for (const id of BUILTINS) assert.equal(configuredAgent(id), true, `wizard open, still routable: ${id}`);
+  const reopened = setupView();
+  assert.deepEqual(reopened.candidates.map((c) => c.id).sort(), [...BUILTINS].sort(),
+    'the re-opened wizard shows what is in use, so completing it keeps them');
+  const after = completeSetup(Object.fromEntries(reopened.candidates.map((c) => [c.id, { confirm: true }])));
+  for (const id of BUILTINS) assert.equal(configuredAgent(id, after), true, `still routable after re-run: ${id}`);
+});
+
 test('F7: completeSetup confirms the picked agents and records the rest as declined', () => {
   dropConfig();
   const merged = completeSetup({ codex: { confirm: true }, claude: { confirm: false } });

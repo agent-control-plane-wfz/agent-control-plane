@@ -93,13 +93,18 @@ export function setupView(): SetupView {
     const entry = entryFor(id, a);
     // "Already taken on" is about the USER, not about what ships in the code:
     //   confirmed === true                                 — they said yes;
+    //   configuredAgent() === true                          — currently usable, which on a
+    //       `legacy` machine includes the pre-#7 grandfathering (confirmed stays undefined).
+    //       Leaving that out made a legacy machine's wizard open EMPTY while four agents were
+    //       actually routable — and completing the empty list revoked every one of them, which is
+    //       the opposite of what that machine's note promises ("你的启用状态不会被自动改动").
     //   confirmed === undefined + present in their config   — an agent they wrote by hand.
     // An explicit `confirmed: false` is NOT taken on: the user looked at it and passed, so it
     // goes back into the option pool, where re-adding it is a deliberate act. And a builtin
     // nobody has ever spoken for is a template, nothing more — `confirmed: false` (which
     // completeSetup writes for every builtin it was not asked about) must not turn all four
     // into candidates, which is exactly the "wall of cards" this is undoing.
-    const takenOn = a.confirmed === true
+    const takenOn = configuredAgent(id, merged)
       || (a.confirmed === undefined && Object.prototype.hasOwnProperty.call(own, id));
     if (takenOn) {
       candidates.push({

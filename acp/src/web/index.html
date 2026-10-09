@@ -1627,7 +1627,7 @@ function renderSetup(){
   const note=s.phase==='pending'
     ?'这台机器上还没有确认过任何 agent。默认<b>一个都不接入</b> —— 用下面的「+ 添加」挑出<b>你愿意让它接入的</b> agent；<b>装好 adapter 包不等于同意运行它</b>：没有添加进来的 agent 不会显示为可用，也不会被路由选中。'
     :s.phase==='legacy'
-    ?'检测到已有用户配置（本次升级之前写入）：为保持行为不变，这里只列出<b>你已经确认过</b>的 agent，不会自动改动你现有的启用状态。要接入别的，用下面的「+ 添加」。'
+    ?'检测到已有用户配置（本次升级之前写入）：为保持行为不变，这里列出<b>你当前在用的</b> agent（含旧配置沿用的）。直接完成会把它们转为显式确认、可用性不变；要接入别的，用下面的「+ 添加」。'
     :'首启设置已完成。这里只列出<b>你已经确认过</b>的 agent；再次确认会覆盖现有确认项，未勾选的会被显式标记为「未确认」。';
   const left=wizLeft();
   const shown=wizShown();
@@ -1680,7 +1680,8 @@ function wizCard(c){
       <span class="jid">${esc(c.transport)}</span>
       <span class="dot ${c.detected?'ok':'err'}"></span>
       <span class="wdet">${c.detected?'已检测到':'未检测到'}：${esc(c.detection)}</span>
-      ${c.confirmed?'<span class="badge-ok">已确认</span>':'<span class="badge-unconf">未确认</span>'}
+      ${c.confirmed?'<span class="badge-ok">已确认</span>'
+        :(c.configuredNow?'<span class="badge-unconf">沿用旧配置</span>':'<span class="badge-unconf">未确认</span>')}
       <span style="flex:1"></span>
       <button class="ghost" style="width:auto;margin:0" onclick="probeOne('${esc(c.id)}')">探测</button>
       ${removable?`<button class="ghost" style="width:auto;margin:0" title="从本次向导里移除（不代表任何已保存的设置）" onclick="wizRemove('${esc(c.id)}')">✕</button>`:''}

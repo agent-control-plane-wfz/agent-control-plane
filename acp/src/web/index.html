@@ -557,6 +557,12 @@ body.hideR #expR{display:inline-flex}
 .trow.t-res.open .ttext{-webkit-line-clamp:unset}
 .trow.t-res.err{color:var(--err)}
 .trow.t-status{color:var(--faint);font-style:italic;font-size:11px}
+/* Live zone: rows land here the moment they arrive (incremental append), so each one can
+   animate in on its own instead of a whole batch "jumping" into place on a poll tick. */
+.live-zone{display:flex;flex-direction:column;gap:4px;margin-top:2px}
+.live-text{font-size:13.5px;line-height:1.75;color:#dcdcdc;white-space:pre-wrap;word-break:break-word}
+@keyframes rowin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.trow.enter,.live-text.enter,.msg.enter{animation:rowin .24s ease both}
 .chat-inbar{display:flex;gap:8px;align-items:flex-end;background:var(--dsw-alias-bg-layer-2);border-radius:var(--dsw-radius-lg);padding:8px 10px 8px 12px}
 .chat-inbar textarea{flex:1;background:transparent;border:0;resize:none;min-height:40px;max-height:170px;font:13.5px/1.6 'Segoe UI','Microsoft YaHei',system-ui,sans-serif;color:var(--text);padding:6px 2px;box-shadow:none}
 .chat-inbar textarea:focus{outline:none;box-shadow:none}
@@ -758,6 +764,7 @@ const PRESETS=[
   ['快问快答',''],
 ];
 let mode='ask',STATUS=null,FILTER='all',FAGENT='',FSEARCH='',JOBS=[],SELECTED=null,NODEFILTER=null,CENTER_SIG='',TREE_SIG='',CHATS=[],OPEN_CHAT=null,CHAT_SIG='';
+let TYPEQ='',TYPEON=false,CHAT_TIMER=null;   // live-stream: typewriter queue + adaptive poll timer
 /* Desktop shell: both side panes collapse independently; the choice survives a reload. */
 let PANES={};
 try{PANES=JSON.parse(localStorage.getItem('acp-panes')||'{}')}catch{}
@@ -1360,18 +1367,105 @@ function renderChat(force){
   const chat=CHATS.find(c=>c.id===OPEN_CHAT);
   const el=$('chat');if(!el)return;
   if(!chat){el.style.display='none';return}
-  const sig=[chat.id,chat.status,chat.messages.length,(chat.events||[]).length].join('|');
-  if(!force&&sig===CHAT_SIG)return;
+  const stream=$('cstream');
+  const sameChat=!!stream&&stream.dataset.chatid===chat.id;
+  // Full rebuild only when the BACKBONE changes: chat switched, a message completed, status
+  // flipped. Event growth inside a busy turn is appended incrementally — that is what lets
+  // each row animate in on its own instead of the whole trail being re-stamped on every tick.
+  const sig=[chat.id,chat.status,chat.messages.length].join('|');
+  if(!force&&sameChat&&sig===CHAT_SIG){appendLiveDelta(chat);return}
   CHAT_SIG=sig;
-  const old=$('cstream');const keep=old?old.scrollTop:0;const pinned=!old||old.dataset.stick!=='0';
+  ROWQ.length=0;ROWON=false;              // a rebuild paints every row itself; the queue must not replay them
+  // How much of the reply the live zone had already streamed (before the queue is dropped):
+  const allStreamed=(chat.events||[]).filter(e=>e.kind==='text').map(e=>String(e.text??'')).join('');
+  const shownLen=Math.max(0,allStreamed.length-TYPEQ.length);
+  if(chat.status!=='busy')TYPEQ='';       // a finished turn drops the live queue; the handover below re-feeds it
+  const old=stream;const keep=old?old.scrollTop:0;const pinned=!old||old.dataset.stick!=='0';
   // The composer lives inside the repainted subtree; carry its content and focus across.
   const oldIn=$('chat-input');const keepVal=oldIn?oldIn.value:'';const keepFocus=document.activeElement===oldIn;
   el.innerHTML=chatHtml(chat);
-  const ns=$('cstream');if(ns)ns.scrollTop=pinned?ns.scrollHeight:keep;
+  const ns=$('cstream');
+  if(ns){
+    ns.dataset.chatid=chat.id;
+    ns.dataset.liven=String((chat.events||[]).length);   // this paint already shows them all
+    ns.scrollTop=pinned?ns.scrollHeight:keep;
+  }
   const ni=$('chat-input');
   if(ni){ni.value=keepVal;if(keepFocus)ni.focus();
     if(keepVal)ni.style.height=Math.min(Math.max(ni.scrollHeight,40),170)+'px';
     ni.addEventListener('input',()=>{ni.style.height='auto';ni.style.height=Math.min(ni.scrollHeight,170)+'px'})}
+  if(chat.status==='busy'&&TYPEQ)typeTick();   // keep streaming whatever the queue still holds
+  // Turn done: the live zone is gone, but its text lives on in the answer. Continue the
+  // typewriter from where the stream stopped, so the reply finishes the way it was being
+  // written instead of the whole block snapping into place.
+  else if(chat.status!=='busy'&&shownLen>=4)handoverTypewriter(el,shownLen);
+}
+function handoverTypewriter(root,shownLen){
+  const target=[...root.querySelectorAll('.msg.assistant .chat-agent')].pop();
+  if(!target)return;
+  const full=target.textContent||'';
+  if(full.length<=shownLen+2)return;   // nothing left to finish
+  target.textContent=full.slice(0,shownLen);
+  TYPEQ=full.slice(shownLen);
+  TYPEON=false;
+  typeTick(target);
+}
+/** Paint what arrived since the last paint. Rows pass through a small queue so a batch of
+    events (they often land together) still reads as the trail GROWING one line at a time. */
+const ROWQ=[];let ROWON=false;
+function appendLiveDelta(chat){
+  const stream=$('cstream');if(!stream)return;
+  const n=Number(stream.dataset.liven||0);
+  const evs=chat.events||[];
+  if(evs.length<=n)return;
+  for(let i=n;i<evs.length;i++){
+    const e=evs[i];
+    if(e.kind==='text'){feedType(String(e.text??''));continue}
+    const h=traceRowHtml(e);
+    if(h)ROWQ.push(h);
+  }
+  stream.dataset.liven=String(evs.length);
+  if(!ROWON)rowTick();
+}
+function rowTick(){
+  ROWON=true;
+  const stream=$('cstream');
+  let zone=stream?stream.querySelector('.live-zone'):null;
+  if(!zone||!ROWQ.length){ROWON=false;return}
+  // the zone must own a text slot and the working cursor even when it was born incrementally
+  let textEl=zone.querySelector('.live-text');
+  if(!textEl){textEl=document.createElement('div');textEl.className='live-text';textEl.id='live-text';zone.appendChild(textEl)}
+  if(!zone.querySelector('.chat-typing')){
+    const cursor=document.createElement('div');cursor.className='chat-typing';cursor.textContent='▸ 处理中…';zone.appendChild(cursor);
+  }
+  const host=document.createElement('div');host.innerHTML=ROWQ.shift();
+  const row=host.firstElementChild;
+  if(row){
+    row.classList.add('enter');
+    zone.insertBefore(row,textEl);   // rows accumulate above the streaming text
+    if(stream.dataset.stick!=='0')stream.scrollTop=stream.scrollHeight;
+  }
+  setTimeout(rowTick,ROWQ.length>3?110:230);
+}
+/* The headless stream delivers reply text in segments, not tokens; the typewriter replays
+   them at a steady rate so an answer reads as it was written rather than arriving as a paste. */
+function feedType(chunk){TYPEQ+=chunk;if(!TYPEON)typeTick()}
+function typeTick(target){
+  TYPEON=true;
+  const el=target||$('live-text')||document.querySelector('#cstream .live-text');
+  if(!el||!el.isConnected){TYPEQ='';TYPEON=false;return}
+  if(!target){
+    // live mode only pumps while the turn is running; the handover mode (target given) must
+    // be able to finish a reply after the turn has already been marked done.
+    const busy=!!CHATS.find(c=>c.id===OPEN_CHAT&&c.status==='busy');
+    if(!busy){TYPEQ='';TYPEON=false;return}
+  }
+  if(!TYPEQ){TYPEON=false;return}
+  const n=Math.max(1,Math.round(TYPEQ.length/30));
+  el.textContent+=TYPEQ.slice(0,n);
+  TYPEQ=TYPEQ.slice(n);
+  const s=$('cstream');if(s&&s.dataset.stick!=='0')s.scrollTop=s.scrollHeight;
+  setTimeout(()=>typeTick(target),16);
 }
 /* The trail rows shared by finished turns and the live stream: thinking · tool · result ·
    status. `text` events are skipped — that is the streaming body, and the final answer
@@ -1389,6 +1483,19 @@ function traceHtml(events){
   const rows=(events||[]).map(traceRowHtml).join('');
   return rows?`<div class="trace">${rows}</div>`:'';
 }
+/** The busy zone: trail rows already arrived + the reply text so far + the working cursor.
+    Anything still sitting in the typewriter queue is subtracted so a rebuild mid-stream
+    continues the sentence instead of duplicating it. */
+function liveZoneHtml(chat){
+  const rows=[];
+  let allText='';
+  for(const e of chat.events||[]){
+    if(e.kind==='text'){allText+=String(e.text??'');continue}
+    const h=traceRowHtml(e);if(h)rows.push(h);
+  }
+  const shown=allText.slice(0,Math.max(0,allText.length-TYPEQ.length));
+  return `<div class="live-zone">${rows.join('')}<div class="live-text enter" id="live-text">${esc(shown)}</div><div class="chat-typing">▸ 处理中…</div></div>`;
+}
 function chatMsgHtml(m){
   if(m.role==='user')return `<div class="msg user"><div class="bubble">${esc(m.text)}</div></div>`;
   const trace=traceHtml(m.trace);
@@ -1404,7 +1511,7 @@ function chatHtml(chat){
     :st==='closed'?'<span class="pill warn">已结束</span>'
     :'<span class="pill ok">✓ 就绪</span>';
   const msgs=(chat.messages||[]).map(chatMsgHtml).join('');
-  const live=st==='busy'?`${traceHtml(chat.events)}<div class="chat-typing">▸ 处理中…</div>`:'';
+  const live=st==='busy'?liveZoneHtml(chat):'';
   const empty=(!chat.messages||!chat.messages.length)&&st!=='busy'
     ?'<div class="ev t-status">发第一条消息开始对话。会话保持存活，之后每条消息都接着上下文走。</div>':'';
   const closed=st==='closed';
@@ -1467,6 +1574,12 @@ async function refreshChats(force){
     // keep the right-pane tree in sync while a chat is open (its badge counts messages)
     if(OPEN_CHAT)renderTree();
   }catch{}
+}
+/** Chat polling runs on its own clock: brisk while a turn is streaming, calm when idle. */
+function scheduleChatRefresh(){
+  clearTimeout(CHAT_TIMER);
+  const busy=!!CHATS.find(c=>c.id===OPEN_CHAT&&c.status==='busy');
+  CHAT_TIMER=setTimeout(async()=>{try{await refreshChats()}finally{scheduleChatRefresh()}},busy?400:1500);
 }
 function stickTrack(el){el.dataset.stick=(el.scrollTop+el.clientHeight>=el.scrollHeight-40)?'1':'0'}
 /* The review stages are visible in the event stream: the orchestrator emits ①②③④ status lines.
@@ -2328,7 +2441,7 @@ restoreForm();setMode('ask');setViewTitle();applyPanes();refreshStatus();refresh
 // issue #7: a machine with nothing confirmed opens on the wizard instead of silently routing.
 loadSetup().then(()=>{if(SETUP&&SETUP.phase==='pending')switchView('setup');});
 api('/api/settings').then(s=>{SETTINGS=s;fillCwdList();}).catch(()=>{});
-setInterval(refreshStatus,5000);setInterval(refreshJobs,1200);setInterval(refreshChats,1200);
+setInterval(refreshStatus,5000);setInterval(refreshJobs,1200);scheduleChatRefresh();
 </script>
 <div id="toast" role="status" aria-live="polite"></div>
 </body>

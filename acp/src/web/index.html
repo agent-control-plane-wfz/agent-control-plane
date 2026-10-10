@@ -876,7 +876,7 @@ const COPYBUF={};
    default model ACTUALLY runs on (adapter name != vendor). Only flag a mismatch against this
    expectation — previously any non-empty value rendered as a warning, so all four agents
    showed a bogus "实际厂商不同", including perfectly normal ones. */
-const EXPECTED_VENDOR={claude:'anthropic',codex:'openai',dsh:'deepseek'};
+const EXPECTED_VENDOR={claude:'anthropic',codex:'openai',dsh:'deepseek',antigravity:'google'};
 /* Inline vector icons. The console used to lean on Unicode glyphs (◈ ＋ ⚙ ‹ › ⌄ ▣), whose
    rendering differs per font — on Windows they came out rough and inconsistent. These are
    geometry, not typography: the same shape everywhere. */
@@ -982,7 +982,10 @@ function renderStatus(s){
   //
   // The dispatch picker still offers only what the user took on: an unconfirmed agent could
   // only produce a dispatch that is refused on purpose, which reads as "it is here, but broken".
-  const usable=(s.agents||[]).filter(a=>a.configured&&a.enabled!==false);
+  // A not-DETECTED agent is in the same bucket one step earlier: grandfathering may consider it
+  // taken on, but with the command unresolvable every dispatch is a guaranteed spawn failure —
+  // keep it out of the dropdown; the Settings row shows it with the detection reason instead.
+  const usable=(s.agents||[]).filter(a=>a.configured&&a.enabled!==false&&a.detected!==false);
   // Rebuild the pickers only when the option SET changes: renderStatus runs every 5 s, and
   // swapping a <select> out from under an open dropdown would close it mid-interaction.
   const want=usable.map(a=>a.agent).join('|');
@@ -2083,7 +2086,7 @@ function renderAgentPanel(){
     const chat=CHATS.find(c=>c.agent===a.agent&&c.status!=='closed');
     const busy=chat?.status==='busy';
     const n=JOBS.filter(j=>j.kind!=='parallel'&&(j.request.agent||j.result?.agent||'')===a.agent).length;
-    const sub=busy?'回复中':(chat?`会话 · ${chat.messages.length} 条`:(a.actualVendorNote||''));
+    const sub=busy?'回复中':(chat?`会话 · ${chat.messages.length} 条`:((a.actualVendorNote&&a.actualVendorNote!=='unknown')?a.actualVendorNote:(a.transport||'')));
     const dot=a.authenticated===true?'ok':a.authenticated===false?'err':'';
     return`<div class="agrow${chat?' chatting':''}${busy?' busy':''}" onclick="openAgentChat('${esc(a.agent)}')" title="进入与 ${esc(a.agent)} 的对话（多轮）">
       <span class="dot ${dot}"></span>

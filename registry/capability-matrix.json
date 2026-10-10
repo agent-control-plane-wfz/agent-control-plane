@@ -394,6 +394,37 @@
         "--json 事件的具体 schema（status/text/thinking/tool_call/tool_result/final）",
         "Windows 下 headless 端到端跑通（需 DeepSeek key）"
       ]
+    },
+    "antigravity": {
+      "transport": "acp",
+      "command": "google-antigravity-acp（npm 适配器，桥接官方 agy CLI 的 stream-json 模式为 ACP stdio；npx -y google-antigravity-acp 或全局安装后裸名可解析）",
+      "version_tested": "unmeasured — 适配器与 agy 均未在本机实测（2026-10-11 按 npm README 声明收录，claimed）",
+      "source": "https://www.npmjs.com/package/google-antigravity-acp（2026-10-10 查证）",
+      "auth": {
+        "status": "unmeasured",
+        "note": "登录态由官方 agy CLI 持有（Google OAuth，四种登录法：oauth-personal / oauth-business / gemini-api-key / agent-platform）；适配器不持有凭据。注意：经第三方工具驱动 Antigravity 存在 ToS 风险（Google FAQ 口径），官方建议改用 Vertex / AI Studio API Key"
+      },
+      "capabilities": {
+        "initialize": "claimed",
+        "session": { "new": "claimed", "resume": "claimed", "close": "claimed" },
+        "prompt": { "image": "unknown" },
+        "mcp": { "http": "unknown", "sse": false },
+        "subagents": "unknown",
+        "reasoning_effort": {
+          "supported": true,
+          "options": ["low", "medium", "high"],
+          "source": "适配器 CLI flag -e（README 声明，claimed 未实测）"
+        }
+      },
+      "windows": {
+        "works": "unknown",
+        "note": "适配器会自动发现系统 agy 或首 run 时下载官方二进制；Windows 下载行为未验证"
+      },
+      "open_questions": [
+        "模型列表未实测（session/new 的 configOptions 待本机 probe 写入 state/capability-observed.json 后才可作为事实）",
+        "agy 在 Windows 的自动下载与登录流程",
+        "tool-call 事件映射的完整性（message chunks / tool calls / usage 均为 README 声明）"
+      ]
     }
   },
   "external_backends": {

@@ -14,6 +14,7 @@ import { heteroReview as runHeteroReview, type HeteroReviewOptions, type HeteroR
 import { Budget } from '../budget/budget.ts';
 import { runParallel, type ParallelJob, type ParallelOutcome } from '../batch/parallel.ts';
 import { getMerged, configuredAgent, type AgentSettings } from '../config/settings.ts';
+import { detectAgent } from '../config/detect.ts';
 import { getCredential } from '../config/secrets.ts';
 import { authEvidence } from '../config/auth-evidence.ts';
 import { applyPreset } from '../config/presets.ts';
@@ -105,6 +106,11 @@ export class ControlPlane {
       ...row,
       enabled: merged.agents[row.agent]?.enabled !== false,
       configured: configuredAgent(row.agent, merged),
+      // Machine fact (issue #7 separation): does the command even resolve HERE? The composer
+      // picker uses it to keep a not-yet-installed agent out of the dispatch dropdown — a
+      // legacy machine's grandfathering would otherwise offer an agent whose every task is a
+      // guaranteed spawn failure. The Settings row still shows it, with the detection reason.
+      detected: detectAgent(merged.agents[row.agent]).detected,
     }));
   }
 

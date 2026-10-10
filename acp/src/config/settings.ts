@@ -84,7 +84,7 @@ export interface AppSettings {
   setup?: { completedAt?: string | null };
 }
 
-const BUILTIN_IDS = ['opencode', 'claude', 'codex', 'dsh'] as const;
+const BUILTIN_IDS = ['opencode', 'claude', 'codex', 'dsh', 'antigravity'] as const;
 
 function workspaceDir(): string {
   const ws = process.env.WORKSPACE_DIR;
@@ -113,11 +113,27 @@ function opencodeCommand(): string {
   return process.env.OPENCODE_BIN || 'opencode';
 }
 
+// antigravity (2026-10-11): Google Antigravity 的官方 CLI 是 agy；ACP 接入走第三方适配器
+// google-antigravity-acp（npm，MIT），它把 agy 的 stream-json 模式桥接成标准 ACP stdio。
+// 命令默认取裸名走 PATH（与 opencode 同款可移植模式），本机覆盖用 ANTIGRAVITY_BIN。
+// 凭据由官方 agy 自己持有（Google OAuth），适配器不碰凭据；注意：经第三方驱动 Antigravity
+// 存在 ToS 风险（Google FAQ 口径），官方建议改用 Vertex / AI Studio API Key —— 这条如实
+// 写进 credentialNative，由用户自行决定。
+function antigravityCommand(): string {
+  return process.env.ANTIGRAVITY_BIN || 'google-antigravity-acp';
+}
+
 export function builtinDefaults(): Record<string, AgentSettings> {
   const out: Record<string, AgentSettings> = {
     opencode: {
       enabled: true, transport: 'acp', command: opencodeCommand(), args: ['acp'],
       credentialRef: null, credentialNative: 'opencode 自身账号（登录态存于其应用数据，不在可读凭据文件中）',
+      defaults: {}, limits: {},
+    },
+    antigravity: {
+      enabled: true, transport: 'acp', command: antigravityCommand(), args: [],
+      credentialRef: null,
+      credentialNative: 'agy 自身登录态（Google OAuth，由官方 CLI 持有）。注意：经第三方 ACP 适配器驱动 Antigravity 有 ToS 风险，官方建议 Vertex/AI Studio Key',
       defaults: {}, limits: {},
     },
   };

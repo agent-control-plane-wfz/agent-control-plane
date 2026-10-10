@@ -24,7 +24,7 @@ const { describeCredential } = await import('../../src/config/secrets.ts');
 
 const writeConfig = (obj: unknown) => writeFileSync(USER_CONFIG_FILE, JSON.stringify(obj, null, 2), 'utf8');
 const dropConfig = () => { if (existsSync(USER_CONFIG_FILE)) rmSync(USER_CONFIG_FILE); };
-const BUILTINS = ['opencode', 'claude', 'codex', 'dsh'];
+const BUILTINS = ['opencode', 'claude', 'codex', 'dsh', 'antigravity'];
 
 test('F7: a fresh machine is "pending" and nothing is configured', () => {
   dropConfig();
@@ -56,7 +56,7 @@ test('F7: the wizard shows what the user took on and offers the rest as add-able
   assert.deepEqual(view.candidates.map((c) => c.id), ['codex'], 'a confirmed agent is listed without being added again');
   assert.equal(view.candidates[0].confirmed, true);
   assert.equal(view.candidates[0].configuredNow, true);
-  assert.deepEqual(view.templates.map((c) => c.id).sort(), ['claude', 'dsh', 'opencode'],
+  assert.deepEqual(view.templates.map((c) => c.id).sort(), ['antigravity', 'claude', 'dsh', 'opencode'],
     'the ones nobody spoke for stay options — an explicit rejection is a rejection, not a "re-add me"');
   // An agent that exists only because the USER wrote it into their config is theirs too: it is a
   // candidate, never an "option" the wizard offers back.

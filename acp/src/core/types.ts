@@ -1,7 +1,7 @@
 // Core types — Phase 1. Only erasable syntax (no enum/namespace) for Node 22 --experimental-strip-types.
 
 // Builtin ids keep autocomplete; arbitrary ids allow user-configured custom agents (v3 settings).
-export type BuiltinAgentId = 'opencode' | 'claude' | 'codex' | 'dsh';
+export type BuiltinAgentId = 'opencode' | 'claude' | 'codex' | 'dsh' | 'antigravity';
 export type AgentId = BuiltinAgentId | (string & {});
 
 export interface SpawnSpec {
@@ -75,6 +75,12 @@ export interface AgentStatusSummary {
   /** issue #7: the user's consent switch. Absent on registry-only callers (no settings layer). */
   enabled?: boolean;
   configured?: boolean;
+  /**
+   * Machine fact (issue #7 separation): does the configured command even resolve HERE?
+   * The composer picker keeps a not-detected agent out of the dispatch dropdown — its every
+   * task would be a guaranteed spawn failure. Absent on registry-only callers.
+   */
+  detected?: boolean;
 }
 
 // Raw shapes observed in Phase 0 (capability-matrix.json)

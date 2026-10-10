@@ -46,7 +46,9 @@ test('heterogeneity is FAIL-CLOSED: unknown vendor can never satisfy the constra
 test('fallback chain preserves route order minus the picked agent', () => {
   const d = route(reg, { taskType: 'quick' });
   assert.equal(d.agent, 'opencode');
-  assert.deepEqual(d.fallbackChain, ['codex', 'claude', 'dsh']);
+  // antigravity (2026-10-11) is a registered agent outside BUILTIN_ORDER, so F9 appends it
+  // to the fallback tail, sorted — the same slot any custom agent gets.
+  assert.deepEqual(d.fallbackChain, ['codex', 'claude', 'dsh', 'antigravity']);
 });
 
 // F9 (issue #2): the fallback order was a hardcoded builtin list, so a custom agent could

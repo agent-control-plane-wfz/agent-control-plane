@@ -27,7 +27,7 @@ body{background:var(--bg);color:var(--text);font:14px/1.6 "Segoe UI","Microsoft 
 :focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
 
 /* ---------- sidebar ---------- */
-aside{width:252px;min-width:252px;height:100vh;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);padding:18px 14px;display:flex;flex-direction:column;gap:14px;position:sticky;top:0}
+aside{width:252px;min-width:252px;height:100vh;overflow-y:auto;overflow-x:hidden;background:var(--surface);border-right:1px solid var(--border);padding:18px 14px;display:flex;flex-direction:column;gap:14px;position:sticky;top:0;transition:width .22s cubic-bezier(.4,0,.2,1),min-width .22s cubic-bezier(.4,0,.2,1),padding .22s cubic-bezier(.4,0,.2,1),gap .22s cubic-bezier(.4,0,.2,1),opacity .18s ease}
 .brand{font-size:15.5px;font-weight:500;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
 .brand .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--acc1),var(--acc2));display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#fff;box-shadow:0 2px 12px rgba(240,119,175,.35)}
 .side-title{font-size:10px;letter-spacing:1.6px;color:var(--faint);font-weight:700;margin:4px 2px 0}
@@ -474,7 +474,9 @@ body.hideL #asideL{width:56px;min-width:56px;padding:12px 7px;gap:8px;align-item
    and the settings key floats mid-air instead of sitting at the bottom where hands aim. */
 body.hideL #asideL>.rail{display:flex;flex:1}
 body.hideL #asideL>:not(.rail){display:none}
-body.hideR #asideR{display:none}
+/* collapse now SLIDES (width transition on aside) instead of vanishing; the shell clips the
+   content while the width travels — same feel as every native panel. */
+body.hideR #asideR{display:flex;width:0;min-width:0;opacity:0;gap:0;padding-left:0;padding-right:0;overflow:hidden;pointer-events:none}
 /* the rail already owns "reopen" — the header's › would just be a second copy of it */
 body.hideL #expL{display:none}
 body.hideR #expR{display:inline-flex}
@@ -608,6 +610,38 @@ body.hideR #expR{display:inline-flex}
 .chipset.on{background:rgba(240,119,175,.28);color:#fff}
 .chat-hint{font-size:10.5px;color:var(--faint);padding:6px 4px 0;text-align:right}
 .tempty{color:var(--faint);font-size:11.5px;padding:10px 8px;line-height:1.7}
+
+/* ---------- motion: states travel instead of snapping ----------
+   dsh-style restraint: fast (≤.22s), one easing family, open animated / close instant.
+   No panel, popover or view may switch display without SOME transition into place. */
+/* popovers: display:none->block replays the animation on every open; closing stays instant */
+.pop.on{animation:popin .16s cubic-bezier(.4,0,.2,1)}
+#chat-pop{animation:popin .16s cubic-bezier(.4,0,.2,1)}
+/* modals: scrim fades, sheet rises (dirpicker has no JS close choreography — close stays instant) */
+.dpov{animation:fadein .16s ease}
+.dpov .dp{animation:dpin .2s cubic-bezier(.4,0,.2,1)}
+#stale{animation:fadein .25s ease}
+/* view hand-offs: one quiet fade so switching panes never blinks. Animation replays only when
+   display actually crosses none->visible; the 1.2s polls re-assign the SAME value and never
+   re-trigger it. */
+#view-setup>div,#conv,#chat,#batch-box{animation:viewin .2s ease}
+.scenter{animation:viewin .3s ease}
+.agentrow.open .aedit{animation:rowin .18s ease}
+body.hideL #asideL>.rail{animation:fadein .18s ease}
+/* one shared hover language: every interactive surface eases instead of snapping.
+   transform gets a shorter budget so :active press lands quickly. */
+.wsrow,.wsrow .caret,.sess,.tnode,.agrow,.popitem,.poprow,.dprow,.navrow,.navbtn,.setx,.panetgl,.expbtn,.hicon,.chipset,.dpchip,.btn-copy,.fchip,.chip,.cbtn,.seat,.chatmodel,.railbtn,.newbtn,.segb,.presets button,button.ghost,.schip{
+  transition:background-color .13s ease,color .13s ease,border-color .13s ease,box-shadow .13s ease,opacity .13s ease,filter .13s ease,transform .07s ease}
+.composer{transition:box-shadow .15s ease,border-color .15s ease}
+/* press feedback for rows and small controls the original :active list missed */
+.fchip:active,.popitem:active,.dprow:active,.wsrow:active,.sess:active,.tnode:active,.agrow:active,.seat:active,.chipset:active,.dpchip:active,.setx:active,.panetgl:active,.expbtn:active,.btn-copy:active{transform:translateY(1px)}
+@keyframes fadein{from{opacity:0}}
+@keyframes popin{from{opacity:0;transform:translateY(-4px) scale(.985)}}
+@keyframes dpin{from{opacity:0;transform:translateY(12px) scale(.98)}}
+@keyframes viewin{from{opacity:0;transform:translateY(5px)}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
 </style>
 </head>
 <body>
@@ -898,7 +932,7 @@ function applyPanes(){
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtN=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':String(n??0);
 const fmtT=ts=>{const d=new Date(ts);return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`};
-async function api(p,o){const r=await fetch(p,o);const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||r.status);return b}
+async function api(p,o){o=o||{};o.headers=Object.assign({'Content-Type':'application/json'},o.headers);const r=await fetch(p,o);const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||r.status);return b}
 
 /* ---------- status / sidebar ---------- */
 function renderStatus(s){
@@ -1388,7 +1422,7 @@ $('btn-go').onclick=async()=>{
   }catch(e){$('form-err').textContent=String(e.message??e)}
   finally{btn.disabled=false}
 };
-$('btn-clear').onclick=async()=>{await fetch('/api/jobs/clear',{method:'POST'});refreshJobs(true)};
+$('btn-clear').onclick=async()=>{await fetch('/api/jobs/clear',{method:'POST',headers:{'Content-Type':'application/json'}});refreshJobs(true)};
 
 /* ---------- jobs feed ---------- */
 function jobState(j){
@@ -1399,6 +1433,7 @@ function jobState(j){
     const c=j.result?.consensus;
     if(c==='verified')return{cls:'st-ok',dot:'dot ok',pill:'<span class="pill ok">✓ 通过异构评审</span>'};
     if(c==='review_disputed')return{cls:'st-ok',dot:'dot warn',pill:'<span class="pill warn">⚠ 评审有异议</span>'};
+    if(c==='unreviewed')return{cls:'st-err',dot:'dot warn',pill:'<span class="pill warn">⚠ 未评审（不视为通过）</span>'};
     return{cls:'st-err',dot:'dot err',pill:`<span class="pill err">✕ ${c==='verification_failed'?'终验失败':c==='failed'?'实施失败':'失败'}</span>`};
   }
   const ok=j.kind==='ask'?j.result?.ok:j.result?.summary?.failed===0;
@@ -1995,6 +2030,7 @@ function renderResult(j){
       verified:['ok','✓ 通过异构评审'],
       review_disputed:['warn','⚠ 评审有异议'],
       verification_failed:['err','✕ 客观终验未通过'],
+      unreviewed:['warn','⚠ 未评审（不视为通过）'],
       failed:['err','✕ 实施阶段失败'],
     };
     const [cls,label]=CONS[r.consensus]||['err',String(r.consensus||'未知结论')];

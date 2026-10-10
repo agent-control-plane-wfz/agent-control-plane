@@ -240,7 +240,8 @@ export class ControlPlane {
     return runParallel(this, jobs, concurrency, onEvent);
   }
 
-  async send(agent: AgentId, sessionId: string, task: string, timeoutMs?: number): Promise<AgentResult> {
+  async send(agent: AgentId, sessionId: string, task: string, timeoutMs?: number,
+    onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void): Promise<AgentResult> {
     const t0 = Date.now();
     this.budget.checkRequest();
     // dsh is a one-shot process — resume via --session-id instead of a live ACP session.
@@ -253,7 +254,7 @@ export class ControlPlane {
           toolCalls: 0, durationMs: Date.now() - t0,
         };
       }
-      const r = await DshDriver.run(task, { cwd, sessionId, timeoutMs: timeoutMs ?? 300_000, profile: dshProfileOf() });
+      const r = await DshDriver.run(task, { cwd, sessionId, timeoutMs: timeoutMs ?? 300_000, profile: dshProfileOf(), onEvent });
       const out: AgentResult = {
         agent, sessionId,
         ok: r.exitCode === 0, text: r.text || `(dsh exit=${r.exitCode}) ${r.stderr.slice(-500)}`,
@@ -272,7 +273,7 @@ export class ControlPlane {
       };
     }
     const driver = this.acpDriver(agent);
-    const outcome = await driver.run(s, task, { timeoutMs: timeoutMs ?? 300_000 });
+    const outcome = await driver.run(s, task, { timeoutMs: timeoutMs ?? 300_000, onEvent });
     const r: AgentResult = {
       agent, sessionId,
       // C3 (audit): only an explicit end_turn counts as success — no optimistic undefined.

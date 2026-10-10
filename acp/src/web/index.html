@@ -530,6 +530,21 @@ body.hideR #expR{display:inline-flex}
 .agrow:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
 .agrow .tval{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .agrow .tsub{color:var(--faint);font-size:10.5px;flex-shrink:0}
+/* an agent with a live conversation reads as "open", not as just another list row */
+.agrow.chatting{color:var(--text)}
+.agrow.chatting .tval{font-weight:600}
+.agrow.chatting .tsub{color:var(--acc1)}
+
+/* ---------- chat: talk to one agent, multi-turn (standalone-agent mode) ---------- */
+.chat-agent{font-size:13.5px;line-height:1.75;color:#dcdcdc;white-space:pre-wrap;word-break:break-word}
+.chat-err{color:var(--err);font-size:12.5px;margin-top:4px;font-family:var(--mono)}
+.chat-meta{font-size:11px;color:var(--faint);margin-top:5px;font-variant-numeric:tabular-nums}
+.chat-typing{color:var(--faint);font-size:12.5px;font-style:italic;display:flex;gap:8px;align-items:center}
+.chat-inbar{display:flex;gap:8px;align-items:flex-end;background:var(--dsw-alias-bg-layer-2);border-radius:var(--dsw-radius-lg);padding:8px 10px 8px 12px}
+.chat-inbar textarea{flex:1;background:transparent;border:0;resize:none;min-height:40px;max-height:170px;font:13.5px/1.6 'Segoe UI','Microsoft YaHei',system-ui,sans-serif;color:var(--text);padding:6px 2px;box-shadow:none}
+.chat-inbar textarea:focus{outline:none;box-shadow:none}
+.chat-inbar textarea:disabled{color:var(--faint)}
+.chat-hint{font-size:10.5px;color:var(--faint);padding:6px 4px 0;text-align:right}
 .tempty{color:var(--faint);font-size:11.5px;padding:10px 8px;line-height:1.7}
 </style>
 </head>
@@ -650,6 +665,7 @@ body.hideR #expR{display:inline-flex}
     </div><!-- /scenter -->
   </div>
   <section id="conv" class="conv" style="display:none"></section>
+  <section id="chat" class="conv" style="display:none"></section>
   <datalist id="cwd-list"></datalist>
   <datalist id="model-list"></datalist>
   <datalist id="effort-list"></datalist>
@@ -724,7 +740,7 @@ const PRESETS=[
   ['解释','用简洁的中文解释下面这段代码/概念：\n'],
   ['快问快答',''],
 ];
-let mode='ask',STATUS=null,FILTER='all',FAGENT='',FSEARCH='',JOBS=[],SELECTED=null,NODEFILTER=null,CENTER_SIG='',TREE_SIG='';
+let mode='ask',STATUS=null,FILTER='all',FAGENT='',FSEARCH='',JOBS=[],SELECTED=null,NODEFILTER=null,CENTER_SIG='',TREE_SIG='',CHATS=[],OPEN_CHAT=null,CHAT_SIG='';
 /* Desktop shell: both side panes collapse independently; the choice survives a reload. */
 let PANES={};
 try{PANES=JSON.parse(localStorage.getItem('acp-panes')||'{}')}catch{}
@@ -1081,6 +1097,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closePops()});
 /** A fresh task: clear the text and nothing else. The seats are a working setup, not a result. */
 function newTask(){
   switchView('console');
+  OPEN_CHAT=null;CHAT_SIG='';
   clearSelection();
   $('f-task').value='';$('f-batchtasks').value='';
   $('form-err').textContent='';
@@ -1278,6 +1295,7 @@ function renderJobs(list){
 
 /* ---------- selection + the center conversation pane (dsh-style) ---------- */
 function selectJob(id){
+  OPEN_CHAT=null;CHAT_SIG='';   // the middle pane shows one thing at a time
   SELECTED=id;NODEFILTER=null;CENTER_SIG='';TREE_SIG='';
   const j=JOBS.find(x=>x.id===id);
   renderJobs(JOBS);renderCenter(true);renderTree();
@@ -1299,9 +1317,12 @@ function setViewTitle(){
 }
 function centerSig(j){return [j.id,NODEFILTER||'',j.status,(j.events||[]).length,j.error||'',j.result?1:0].join('|')}
 function renderCenter(force){
+  const stage=$('stage-view'),conv=$('conv'),chatv=$('chat');
+  if(!stage||!conv||!chatv)return;
+  const chat=CHATS.find(c=>c.id===OPEN_CHAT);
+  if(chat){stage.style.display='none';conv.style.display='none';chatv.style.display='';renderChat(force);return}
+  chatv.style.display='none';
   const j=JOBS.find(x=>x.id===SELECTED);
-  const stage=$('stage-view'),conv=$('conv');
-  if(!stage||!conv)return;
   if(!j){stage.style.display='';conv.style.display='none';return}
   stage.style.display='none';conv.style.display='';
   const sig=centerSig(j);
@@ -1311,6 +1332,107 @@ function renderCenter(force){
   conv.innerHTML=renderConversation(j);
   const ns=$('cstream');
   if(ns)ns.scrollTop=pinned?ns.scrollHeight:keep;
+}
+
+/* ---------- chat view: talk to one agent, multi-turn ---------- */
+// Entering an agent (right pane click) opens THIS, not a filter: one live session with that
+// agent, the user's turns as bubbles, the agent's turns as running text, and a composer at
+// the bottom — a standalone agent tool embedded in the console. The heavy lifting (session
+// keep-alive, resume) is the backend's chat API; here it is render + input only.
+function renderChat(force){
+  const chat=CHATS.find(c=>c.id===OPEN_CHAT);
+  const el=$('chat');if(!el)return;
+  if(!chat){el.style.display='none';return}
+  const sig=[chat.id,chat.status,chat.messages.length,(chat.events||[]).length].join('|');
+  if(!force&&sig===CHAT_SIG)return;
+  CHAT_SIG=sig;
+  const old=$('cstream');const keep=old?old.scrollTop:0;const pinned=!old||old.dataset.stick!=='0';
+  // The composer lives inside the repainted subtree; carry its content and focus across.
+  const oldIn=$('chat-input');const keepVal=oldIn?oldIn.value:'';const keepFocus=document.activeElement===oldIn;
+  el.innerHTML=chatHtml(chat);
+  const ns=$('cstream');if(ns)ns.scrollTop=pinned?ns.scrollHeight:keep;
+  const ni=$('chat-input');
+  if(ni){ni.value=keepVal;if(keepFocus)ni.focus();
+    if(keepVal)ni.style.height=Math.min(Math.max(ni.scrollHeight,40),170)+'px';
+    ni.addEventListener('input',()=>{ni.style.height='auto';ni.style.height=Math.min(ni.scrollHeight,170)+'px'})}
+}
+function chatMsgHtml(m){
+  if(m.role==='user')return `<div class="msg user"><div class="bubble">${esc(m.text)}</div></div>`;
+  const txt=m.text?`<div class="chat-agent">${esc(m.text)}</div>`:'';
+  const err=m.error?`<div class="chat-err">✕ ${esc(m.error)}</div>`:'';
+  const meta=m.durationMs!=null?`<div class="chat-meta">${(m.durationMs/1000).toFixed(1)}s${m.usage?` · ${fmtN(m.usage.input||0)} 入 / ${fmtN(m.usage.output||0)} 出`:''}</div>`:'';
+  return `<div class="msg assistant">${txt}${err}${meta}</div>`;
+}
+function chatHtml(chat){
+  const st=chat.status;
+  const pill=st==='busy'?'<span class="pill running">● 回复中</span>'
+    :st==='failed'?'<span class="pill err">✕ 出错</span>'
+    :st==='closed'?'<span class="pill warn">已结束</span>'
+    :'<span class="pill ok">✓ 就绪</span>';
+  const msgs=(chat.messages||[]).map(chatMsgHtml).join('');
+  const live=st==='busy'?`${(chat.events||[]).map(evLine).join('')}<div class="chat-typing">▸ 处理中…</div>`:'';
+  const empty=(!chat.messages||!chat.messages.length)&&st!=='busy'
+    ?'<div class="ev t-status">发第一条消息开始对话。会话保持存活，之后每条消息都接着上下文走。</div>':'';
+  const closed=st==='closed';
+  return `<div class="ccol">
+    <div class="chead">
+      <div class="chrow">${pill}<span class="cmeta">${esc(chat.agent)} · ${esc(baseName(chat.cwd))}</span><span class="spacer"></span><span class="jid">${esc(chat.id)}</span>
+        <button class="ghost" onclick="endChat()" title="结束这个 agent 会话（释放进程）">结束对话</button></div>
+    </div>
+    <div class="cstream" id="cstream" data-stick="1" onscroll="stickTrack(this)">
+      ${msgs}${live}${empty}
+    </div>
+    <div class="cresult">
+      <div class="chat-inbar">
+        <textarea id="chat-input" rows="1" ${closed?'disabled':'placeholder="发消息给 '+esc(chat.agent)+'…（Enter 发送 / Shift+Enter 换行）"'} onkeydown="chatKey(event)"></textarea>
+        <button class="sendbtn" id="chat-send" onclick="sendChat()" ${st==='busy'||closed?'disabled':''} title="发送">↑</button>
+      </div>
+      <div class="chat-hint">多轮对话 · 会话在后台保持，结束时释放进程</div>
+    </div>
+  </div>`;
+}
+function chatKey(ev){
+  if(ev.key==='Enter'&&!ev.shiftKey){ev.preventDefault();sendChat()}
+}
+async function sendChat(){
+  const chat=CHATS.find(c=>c.id===OPEN_CHAT);if(!chat)return;
+  if(chat.status==='busy'||chat.status==='closed')return;   // the send key is disabled anyway
+  const ta=$('chat-input');const text=(ta?ta.value:'').trim();if(!text)return;
+  if(ta)ta.value='';
+  try{
+    await api(`/api/chats/${chat.id}/send`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text})});
+    await refreshChats(true);
+  }catch(e){toast(String(e.message??e),true);if(ta)ta.value=text}
+}
+async function endChat(){
+  const chat=CHATS.find(c=>c.id===OPEN_CHAT);if(!chat)return;
+  try{await api(`/api/chats/${chat.id}/stop`,{method:'POST'})}
+  catch(e){toast(String(e.message??e),true);return}
+  toast(`已结束与 ${chat.agent} 的对话`);
+  OPEN_CHAT=null;CHAT_SIG='';CENTER_SIG='';
+  await refreshChats();renderCenter(true);renderTree();
+}
+/** Enter an agent the way you enter a standalone tool: open its live conversation, or start one. */
+async function openAgentChat(agent){
+  const cwd=($('f-cwd').value||'').trim();
+  if(!cwd){toast('先选一个工作目录（输入卡左上角的工作区 chip）',true);return}
+  let c=CHATS.find(x=>x.agent===agent&&x.status!=='closed');
+  if(!c){
+    try{c=await api('/api/chats',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({agent,cwd})})}
+    catch(e){toast(String(e.message??e),true);return}
+  }
+  OPEN_CHAT=c.id;SELECTED=null;NODEFILTER=null;CHAT_SIG='';CENTER_SIG='';TREE_SIG='';
+  await refreshChats();
+  renderCenter(true);renderTree();renderJobs(JOBS);
+}
+async function refreshChats(force){
+  try{
+    CHATS=await api('/api/chats');
+    renderChat(force);
+    renderAgentPanel();
+    // keep the right-pane tree in sync while a chat is open (its badge counts messages)
+    if(OPEN_CHAT)renderTree();
+  }catch{}
 }
 function stickTrack(el){el.dataset.stick=(el.scrollTop+el.clientHeight>=el.scrollHeight-40)?'1':'0'}
 /* The review stages are visible in the event stream: the orchestrator emits ①②③④ status lines.
@@ -1388,10 +1510,21 @@ function treeNodes(j){
 }
 function renderTree(){
   const el=$('tree');if(!el)return;
+  const chat=CHATS.find(c=>c.id===OPEN_CHAT);
   const j=JOBS.find(x=>x.id===SELECTED);
-  const sig=[SELECTED||'',NODEFILTER||'',j?j.status:'',j?(j.events||[]).length:0,j&&j.result?1:0].join('|');
+  const sig=[OPEN_CHAT||'',SELECTED||'',NODEFILTER||'',j?j.status:'',j?(j.events||[]).length:0,j&&j.result?1:0,chat?chat.status+chat.messages.length:''].join('|');
   if(sig===TREE_SIG)return;
   TREE_SIG=sig;
+  if(chat){
+    const col=chat.status==='busy'?'var(--acc1)':chat.status==='failed'?'var(--err)':chat.status==='closed'?'var(--faint)':'var(--ok)';
+    el.innerHTML=`<div class="tnode on" title="与 ${esc(chat.agent)} 的对话">
+        <span class="tdot" style="background:${col}"></span>
+        <span class="tval">${esc(chat.agent)}</span><span class="tsub">${chat.status==='busy'?'回复中':'对话'} · ${chat.messages.length} 条</span></div>
+      <div class="tkids"><div class="tnode" style="cursor:default" title="${esc(chat.cwd)}">
+        <span class="tdot" style="background:var(--faint)"></span>
+        <span class="tval">${esc(baseName(chat.cwd))}</span><span class="tsub">工作目录</span></div></div>`;
+    renderAgentPanel();return;
+  }
   if(!j){el.innerHTML='<div class="tempty">选中左侧会话后，这里显示它内部的 agent 调用关系。<br>点节点可以只看该 agent 的发言。</div>';renderAgentPanel();return}
   const st=jobState(j);
   const dot=j.status==='running'?'var(--acc1)':st.cls==='st-err'?'var(--err)':st.dot==='dot warn'?'var(--warn)':'var(--ok)';
@@ -1416,20 +1549,17 @@ function renderAgentPanel(){
   const agents=(STATUS?.agents||[]);
   if(!agents.length){el.innerHTML='<div class="tempty">（agent 状态未加载）</div>';return}
   el.innerHTML=agents.map(a=>{
+    const chat=CHATS.find(c=>c.agent===a.agent&&c.status!=='closed');
     const n=JOBS.filter(j=>j.kind!=='parallel'&&(j.request.agent||j.result?.agent||'')===a.agent).length;
-    return`<div class="agrow" onclick="focusAgent('${esc(a.agent)}')" title="只看该 agent 的会话">
+    // Clicking an agent enters it (opens/starts its conversation) — the same gesture as
+    // opening a standalone agent tool. A live conversation is flagged right here.
+    const sub=chat?'对话中':(a.actualVendorNote||'');
+    return`<div class="agrow${chat?' chatting':''}" onclick="openAgentChat('${esc(a.agent)}')" title="进入与 ${esc(a.agent)} 的对话（多轮）">
       <span class="dot ${a.authenticated===true?'ok':a.authenticated===false?'err':''}"></span>
       <span class="tval">${esc(a.agent)}</span>
-      <span class="tsub">${esc(a.actualVendorNote||'')}${n?' · '+n+' 会话':''}</span></div>`;
+      <span class="tsub">${esc(sub)}${n?' · '+n+' 会话':''}</span></div>`;
   }).join('');
 }
-function focusAgent(id){
-  FAGENT=id;const sel=$('f-agent-filter');if(sel)sel.value=id;
-  renderJobs(JOBS);
-  const first=JOBS.find(j=>j.kind!=='parallel'&&(j.request.agent||j.result?.agent)===id);
-  if(first)selectJob(first.id);
-}
-
 /* ---------- edited-files card (the reference's "已编辑 N 个文件" block) ---------- */
 // Honest edition of the reference card: this console has no diff counts and no undo, so it
 // lists exactly what the tool stream shows — files handed to an edit-shaped tool call.
@@ -2160,11 +2290,11 @@ async function refreshJobs(force){
 }
 // Order matters: restoreForm fills the inputs, then setMode derives the chips from them. Calling
 // setMode first would publish a "single task / auto" stage and then quietly contradict itself.
-restoreForm();setMode('ask');setViewTitle();applyPanes();refreshStatus();refreshJobs(true);
+restoreForm();setMode('ask');setViewTitle();applyPanes();refreshStatus();refreshJobs(true);refreshChats();
 // issue #7: a machine with nothing confirmed opens on the wizard instead of silently routing.
 loadSetup().then(()=>{if(SETUP&&SETUP.phase==='pending')switchView('setup');});
 api('/api/settings').then(s=>{SETTINGS=s;fillCwdList();}).catch(()=>{});
-setInterval(refreshStatus,5000);setInterval(refreshJobs,1200);
+setInterval(refreshStatus,5000);setInterval(refreshJobs,1200);setInterval(refreshChats,1200);
 </script>
 <div id="toast" role="status" aria-live="polite"></div>
 </body>

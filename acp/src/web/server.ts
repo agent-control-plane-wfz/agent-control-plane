@@ -39,6 +39,82 @@ interface Job {
   finishedAt?: number;
 }
 
+// --- agent conversations -----------------------------------------------------------------
+// A chat keeps ONE agent session alive and lets the user talk to it like a standalone agent
+// tool: every agent listed in the console should be enterable and chattable, multi-turn.
+// The mechanics already existed below the web layer (ask keepSession + send); this only
+// exposes them. First turn spawns via ask(keepSession) — acp keeps the live session, dsh
+// keeps its --session-id resume handle; later turns go through plane.send(). fallback is
+// OFF: a conversation must stay with the agent the user picked, silently answering from a
+// different vendor would make "和 dsh 对话" a lie. Transport failures surface as red turns
+// the user can retry, not as a swap.
+interface ChatMessage {
+  role: 'user' | 'agent';
+  text: string;
+  at: number;
+  error?: string;
+  durationMs?: number;
+  usage?: { input?: number; output?: number };
+}
+interface Chat {
+  id: string;
+  agent: string;
+  cwd: string;
+  model?: string;
+  effort?: string;
+  mode?: string;
+  status: 'idle' | 'busy' | 'failed' | 'closed';
+  sessionId?: string;
+  messages: ChatMessage[];
+  events: JobEvent[];
+  createdAt: number;
+  error?: string;
+}
+const CHAT_MSG_CAP = 400;
+const chats = new Map<string, Chat>();
+
+async function runChatTurn(chat: Chat, text: string): Promise<void> {
+  chat.status = 'busy';
+  chat.events = [];
+  chat.error = undefined;
+  const onEvent = (e: { kind: string; text?: string }) => {
+    chat.events.push({ ...e, at: Date.now() });
+    if (chat.events.length > EVENT_CAP) chat.events.splice(0, chat.events.length - EVENT_CAP);
+  };
+  try {
+    let r;
+    if (!chat.sessionId) {
+      r = await plane.ask({
+        task: text, cwd: chat.cwd, agent: chat.agent as any,
+        model: chat.model, effort: chat.effort, mode: chat.mode,
+        keepSession: true, fallback: false, onEvent,
+      });
+      if (r.sessionId) chat.sessionId = r.sessionId;
+    } else {
+      r = await plane.send(chat.agent as any, chat.sessionId, text, undefined, onEvent);
+    }
+    chat.messages.push({
+      role: 'agent',
+      text: r.text ?? '',
+      at: Date.now(),
+      error: r.ok ? undefined : (r.error || '失败'),
+      durationMs: r.durationMs,
+      usage: r.usage,
+    });
+    if (chat.messages.length > CHAT_MSG_CAP) chat.messages.splice(0, chat.messages.length - CHAT_MSG_CAP);
+    chat.status = r.ok ? 'idle' : 'failed';
+    if (!r.ok) chat.error = r.error;
+    // The adapter no longer knows this session (its process died, or the console restarted):
+    // drop the handle so the next turn respawns instead of failing against a ghost forever.
+    if (!r.ok && /session not found/i.test(r.error || '')) chat.sessionId = undefined;
+  } catch (e: any) {
+    const msg = String(e?.message ?? e).slice(0, 500);
+    chat.messages.push({ role: 'agent', text: '', at: Date.now(), error: msg });
+    chat.status = 'failed';
+    chat.error = msg;
+  }
+}
+
 const plane = new ControlPlane();
 const jobs = new Map<string, Job>();
 
@@ -276,6 +352,63 @@ const server = createServer(async (req, res) => {
       for (const [id, j] of jobs) if (j.status !== 'running') jobs.delete(id);
       try { writeFileSync(HISTORY_FILE, '', 'utf8'); } catch { /* best-effort */ }
       json(res, 200, { cleared: true });
+      return;
+    }
+
+    // --- agent conversations --------------------------------------------------------------
+    if (req.method === 'GET' && url.pathname === '/api/chats') {
+      json(res, 200, [...chats.values()]);
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/chats') {
+      const body = await readBody(req);
+      const agent = String(body.agent ?? '');
+      const cwd = String(body.cwd ?? '').trim();
+      if (!agent || !cwd) { json(res, 400, { error: 'agent and cwd are required' }); return; }
+      const merged = getMerged();
+      if (!merged.agents[agent]) { json(res, 400, { error: `unknown agent: ${agent}` }); return; }
+      if (merged.agents[agent].enabled === false) { json(res, 400, { error: `agent ${agent} 已禁用（设置 → Agents）` }); return; }
+      // Same consent gate as a dispatch: creating the conversation is cheap, but the user
+      // should learn about an unconfirmed agent NOW, not after typing the first message.
+      if (!configuredAgent(agent)) { json(res, 400, { error: `agent ${agent} 尚未确认启用：先运行首启向导，或在「设置 → Agents」中确认` }); return; }
+      const chat: Chat = {
+        id: randomUUID().slice(0, 8), agent, cwd,
+        model: body.model || undefined, effort: body.effort || undefined, mode: body.mode || undefined,
+        status: 'idle', messages: [], events: [], createdAt: Date.now(),
+      };
+      chats.set(chat.id, chat);
+      noteRecentCwd(cwd);
+      json(res, 200, chat);
+      return;
+    }
+    const mChatSend = url.pathname.match(/^\/api\/chats\/([\w-]+)\/send$/);
+    if (req.method === 'POST' && mChatSend) {
+      const c = chats.get(mChatSend[1]);
+      if (!c) { json(res, 404, { error: 'no such chat' }); return; }
+      if (c.status === 'closed') { json(res, 400, { error: '对话已结束' }); return; }
+      if (c.status === 'busy') { json(res, 409, { error: '上一条消息还在处理中' }); return; }
+      const body = await readBody(req);
+      const text = String(body.text ?? '').trim();
+      if (!text) { json(res, 400, { error: 'text is required' }); return; }
+      c.messages.push({ role: 'user', text, at: Date.now() });
+      void runChatTurn(c, text);   // streams into c.events; the UI polls c
+      json(res, 200, c);
+      return;
+    }
+    const mChatStop = url.pathname.match(/^\/api\/chats\/([\w-]+)\/stop$/);
+    if (req.method === 'POST' && mChatStop) {
+      const c = chats.get(mChatStop[1]);
+      if (!c) { json(res, 404, { error: 'no such chat' }); return; }
+      if (c.sessionId) { try { await plane.stop(c.agent as any, c.sessionId); } catch { /* best-effort */ } }
+      c.status = 'closed';
+      json(res, 200, c);
+      return;
+    }
+    const mChat = url.pathname.match(/^\/api\/chats\/([\w-]+)$/);
+    if (req.method === 'GET' && mChat) {
+      const c = chats.get(mChat[1]);
+      if (!c) { json(res, 404, { error: 'no such chat' }); return; }
+      json(res, 200, c);
       return;
     }
 

@@ -572,7 +572,8 @@ body.hideR #expR{display:inline-flex}
 .chat-typing{color:var(--faint);font-size:12.5px;font-style:italic;display:flex;gap:8px;align-items:center}
 /* The agent's turn shows its WORK: thinking and tool calls as a compact trail above the
    answer — a session with a tool, not just a chat. Long rows clamp and expand on click. */
-.trace{margin:0 0 9px;padding:2px 0 2px 11px;border-left:2px solid var(--dsw-alias-border-l2);display:flex;flex-direction:column;gap:4px}
+.trace{margin:0;padding:2px 0 2px 11px;border-left:2px solid var(--dsw-alias-border-l2);display:flex;flex-direction:column;gap:4px}
+.tracewrap{display:flex;flex-direction:column;gap:6px;margin:0 0 9px}
 .trow{display:flex;gap:8px;font-size:12px;line-height:1.6;color:var(--dim)}
 .trow .tico{flex:0 0 14px;text-align:center;color:var(--faint);font-size:11px;padding-top:1px}
 .trow .ttext{min-width:0;overflow-wrap:break-word}
@@ -589,7 +590,7 @@ body.hideR #expR{display:inline-flex}
 .trow.t-status{color:var(--faint);font-size:11px}
 /* Live zone: rows land here the moment they arrive (incremental append), so each one can
    animate in on its own instead of a whole batch "jumping" into place on a poll tick. */
-.live-zone{display:flex;flex-direction:column;gap:4px;margin-top:2px}
+.live-zone{display:flex;flex-direction:column;gap:6px;margin-top:2px}
 @keyframes rowin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .trow.enter,.live-text.enter,.msg.enter{animation:rowin .24s ease both}
 .chat-inbar{display:flex;gap:8px;align-items:flex-end;background:var(--dsw-alias-bg-layer-2);border-radius:var(--dsw-radius-lg);padding:8px 10px 8px 12px}
@@ -645,7 +646,7 @@ body.hideL #asideL>.rail{animation:fadein .18s ease}
 /* thinking blocks read as one quoted passage: a trace-style left rail on the standalone rows
    (rows inside .trace already sit behind the container's rail), and a caret that turns as
    the block expands. Fake-italic is gone — CJK italics are synthesized and look cheap. */
-.cstream>.trow.t-think{border-left:2px solid var(--dsw-alias-border-l2);padding-left:11px;margin:2px 0}
+.trow.t-think.solo{border-left:2px solid var(--dsw-alias-border-l2);padding-left:11px}
 .trow.t-done{color:var(--ok);font-size:11.5px}
 .trow .tcaret{display:inline-flex;justify-content:center;transition:transform .16s cubic-bezier(.4,0,.2,1)}
 .trow.open .tcaret{transform:rotate(90deg)}
@@ -1611,8 +1612,10 @@ function handoverTypewriter(root){
   TYPEON=false;
   typeTick(target);
 }
-/** Paint what arrived since the last paint. Rows pass through a small queue so a batch of
-    events (they often land together) still reads as the trail GROWING one line at a time. */
+/** Paint what arrived since the last paint. Tool/status rows pass through the queue so a batch
+    of them still reads as the trail GROWING one line at a time — but thinking events are merged
+    into the live think block instead of queuing: dsh emits many small thinking chunks, and one
+    row per chunk made the caret rows bounce in one after another, shoving the typing text down. */
 const ROWQ=[];let ROWON=false;
 function appendLiveDelta(chat){
   const stream=$('cstream');if(!stream)return;
@@ -1622,11 +1625,27 @@ function appendLiveDelta(chat){
   for(let i=n;i<evs.length;i++){
     const e=evs[i];
     if(e.kind==='text'){feedType(String(e.text??''));continue}
+    if(e.kind==='thinking'){feedThink(String(e.text??''));continue}
     const h=traceRowHtml(e);
     if(h)ROWQ.push(h);
   }
   stream.dataset.liven=String(evs.length);
   if(!ROWON)rowTick();
+}
+/** Append to the live zone's LAST think block; create it (queued, so it still animates in)
+    only when there is none. textContent keeps the appended chunk escaped. */
+function feedThink(s){
+  if(!s)return;
+  const zone=document.querySelector('#cstream .live-zone');
+  const rows=zone?zone.querySelectorAll('.trow.t-think'):[];
+  const last=rows[rows.length-1];
+  if(last){
+    last.querySelector('.ttext').append(s);
+    const st=$('cstream');
+    if(st&&st.dataset.stick!=='0')st.scrollTop=st.scrollHeight;
+    return;
+  }
+  ROWQ.push(thinkRow(s));
 }
 function rowTick(){
   ROWON=true;
@@ -1686,7 +1705,7 @@ function typeTick(target,_proc){
 /* The trail rows shared by finished turns and the live stream: thinking · tool · result ·
    status. `text` events are skipped — that is the streaming body, and the final answer
    already renders it in full. Rows that clamp (think / result) toggle open on click. */
-const thinkRow=s=>`<div class="trow t-think expandable" onclick="this.classList.toggle('open')"><span class="tico tcaret">${ICO.chevR}</span><span class="ttext">${esc(s)}</span></div>`;
+const thinkRow=s=>`<div class="trow t-think solo expandable" onclick="this.classList.toggle('open')"><span class="tico tcaret">${ICO.chevR}</span><span class="ttext">${esc(s)}</span></div>`;
 function traceRowHtml(e){
   const t=String(e.text??'');
   if(!t)return '';
@@ -1732,21 +1751,24 @@ function streamBlocks(evs){
   return out.join('');
 }
 function traceHtml(events){
-  const rows=(events||[]).map(traceRowHtml).join('');
-  return rows?`<div class="trace">${rows}</div>`:'';
+  // Same aggregation as the conversation stream: many small thinking events collapse into ONE
+  // block, so a finished turn is laid out the way it streamed — not as a pile of separate rows.
+  const blocks=streamBlocks(events||[]);
+  return blocks?`<div class="tracewrap">${blocks}</div>`:'';
 }
 /** The busy zone: trail rows already arrived + the reply text so far + the working cursor.
     The text half is the SHOWN cursor (what the screen has typed), so a rebuild mid-stream
     continues the sentence instead of duplicating it or losing what was already shown. */
 function liveZoneHtml(chat){
-  const rows=[];
-  let allText='';
+  // Non-text events go through the same aggregation as everywhere else, so re-entering a
+  // running turn shows ONE think block — the same shape appendLiveDelta is growing live.
+  const trail=[];let allText='';
   for(const e of chat.events||[]){
     if(e.kind==='text'){allText+=String(e.text??'');continue}
-    const h=traceRowHtml(e);if(h)rows.push(h);
+    trail.push(e);
   }
   const shown=allText.slice(0,prefixLen(SHOWN,allText));
-  return `<div class="live-zone">${rows.join('')}<div class="live-text md enter" id="live-text">${mdToHtml(shown)}</div><div class="chat-typing">▸ 处理中…</div></div>`;
+  return `<div class="live-zone">${streamBlocks(trail)}<div class="live-text md enter" id="live-text">${mdToHtml(shown)}</div><div class="chat-typing">▸ 处理中…</div></div>`;
 }
 function chatMsgHtml(m){
   if(m.role==='user')return `<div class="msg user"><div class="bubble">${esc(m.text)}</div></div>`;

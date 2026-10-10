@@ -30,11 +30,7 @@ body{background:var(--bg);color:var(--text);font:14px/1.6 "Segoe UI","Microsoft 
 aside{width:252px;min-width:252px;height:100vh;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);padding:18px 14px;display:flex;flex-direction:column;gap:14px;position:sticky;top:0}
 .brand{font-size:15.5px;font-weight:500;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
 .brand .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--acc1),var(--acc2));display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#fff;box-shadow:0 2px 12px rgba(91,124,250,.4)}
-.brand small{color:var(--faint);font-weight:400;margin-left:auto;font-size:11px}
-.side-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
 .side-title{font-size:10px;letter-spacing:1.6px;color:var(--faint);font-weight:700;margin:4px 2px 0}
-.budget-row{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);padding:2px 0}
-.budget-row b{color:var(--text);font-family:var(--mono)}
 .agent{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:background .15s,border-color .15s}
 .agent:hover{background:var(--surface3)}
 .agent.sel{background:var(--surface3);border-color:var(--acc1)}
@@ -52,6 +48,16 @@ aside{width:252px;min-width:252px;height:100vh;overflow-y:auto;background:var(--
 .dot.pulse{animation:pulse 1.2s infinite}
 @keyframes pulse{50%{opacity:.35}}
 .side-foot{margin-top:auto;font-size:10px;color:var(--faint);line-height:1.5;padding:0 2px}
+/* Section header tools (search / filter / count). The header itself stays a quiet label;
+   the controls only exist once asked for, which is what keeps the pane calm. */
+.htools{display:inline-flex;align-items:center;gap:2px;letter-spacing:0;font-weight:400}
+.hicon{cursor:pointer;font-size:10.5px;color:var(--faint);padding:1px 6px;border-radius:6px;letter-spacing:.3px}
+.hicon:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
+.hicon.on{color:var(--text);background:var(--dsw-alias-bg-layer-3)}
+.hicon.stat{cursor:default;font-variant-numeric:tabular-nums}
+.hicon.stat:hover{color:var(--faint);background:none}
+.conv-tools{padding:1px 2px 3px}
+.side-grow{flex:1;min-height:8px}
 
 /* ---------- main ---------- */
 main{flex:1;height:100vh;overflow-y:auto;padding:0 26px 40px}
@@ -104,13 +110,13 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 .welcome .mark{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,var(--acc1),var(--acc2));display:inline-flex;align-items:center;justify-content:center;font-size:20px;color:#fff;margin-bottom:12px;box-shadow:0 4px 18px rgba(91,124,250,.35)}
 .welcome h3{font-size:17px;font-weight:700;text-wrap:balance}
 .welcome p{color:var(--dim);font-size:13px;margin-top:6px}
-.composer{width:100%;max-width:660px;background:var(--surface2);border:1px solid var(--border2);border-radius:18px;padding:12px 14px 10px;position:relative}
+.composer{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--dsw-radius-lg);padding:12px 14px 10px;position:relative}
 .composer:focus-within{border-color:var(--acc1);box-shadow:0 0 0 3px rgba(91,124,250,.12)}
 .composer textarea{width:100%;background:transparent;border:0;padding:2px 2px 6px;min-height:78px;font:13.5px/1.7 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;color:var(--text);resize:none;box-shadow:none}
 .composer textarea:focus{outline:none;border:0;box-shadow:none}
 .crow-top{display:flex;gap:7px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
 .crow-bottom{display:flex;align-items:center;gap:8px;margin-top:4px}
-.chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface3);border:1px solid var(--border);color:var(--dim);border-radius:99px;padding:4px 12px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;max-width:270px;transition:.15s}
+.chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface3);border:1px solid var(--border);color:var(--dim);border-radius:var(--dsw-radius-sm);padding:4px 12px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;max-width:270px;transition:.15s}
 .chip:hover{color:var(--text);border-color:var(--acc1)}
 .chip.on{color:#fff;border-color:var(--acc1)}
 .chip .cnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -158,7 +164,7 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
    (agent + model + effort), which is the atomic unit: picking one half is meaningless alone. */
 .seats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 .seats:empty{display:none}
-.seat{display:inline-flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:99px;padding:3px 7px 3px 10px;font-size:12px;cursor:pointer;color:var(--dim);max-width:100%;transition:.15s}
+.seat{display:inline-flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:var(--dsw-radius-sm);padding:3px 7px 3px 10px;font-size:12px;cursor:pointer;color:var(--dim);max-width:100%;transition:.15s}
 .seat:hover{border-color:var(--acc1);color:var(--text)}
 .seat .role{font-size:10px;letter-spacing:.7px;color:var(--faint);flex-shrink:0}
 .seat .val{color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -170,27 +176,27 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 .seathint:empty{display:none}
 .seathint.warn{background:rgba(245,166,35,.12);color:var(--warn)}
 .seathint.info{background:#ffffff0a;color:var(--dim)}
-.stage .presets{width:100%;max-width:660px;justify-content:center;margin:0}
 
 /* ---------- sidebar: workspaces ---------- */
 .newbtn{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font:inherit;font-size:13px;font-weight:600;padding:9px 10px;border-radius:9px;cursor:pointer;text-align:left}
 .newbtn:hover{border-color:var(--acc1);color:#fff}
-.wshead{display:flex;align-items:center;justify-content:space-between;font-size:10px;letter-spacing:1.6px;color:var(--faint);font-weight:700;margin:4px 2px -4px}
-.wshead .tools{cursor:pointer;font-size:13px;letter-spacing:0;padding:0 5px;border-radius:6px}
-.wshead .tools:hover{color:var(--text);background:var(--surface3)}
+.wshead{display:flex;align-items:center;justify-content:space-between;font-size:10px;letter-spacing:1.6px;color:var(--faint);font-weight:700;margin:4px 2px 2px}
 .wslist{display:flex;flex-direction:column;gap:1px}
 .wsrow{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:9px;cursor:pointer;color:var(--dim);font-size:12.5px;border:1px solid transparent}
 .wsrow:hover{background:var(--surface3)}
-.wsrow.on{background:var(--surface3);border-color:var(--acc1);color:var(--text)}
+.wsrow.on{background:var(--dsw-alias-bg-layer-3);color:var(--text)}
 .wsrow .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wsrow .caret{padding:0 4px;border-radius:5px}
 .wsrow .caret:hover{color:var(--text);background:var(--border)}
 .wsico{width:24px;height:24px;border-radius:7px;background:var(--surface3);color:var(--dim);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
 .sessions{display:flex;flex-direction:column;gap:1px;margin:1px 0 4px 12px;padding-left:9px;border-left:1px solid var(--border2)}
-.sess{display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:7px;font-size:12px;color:var(--dim);cursor:pointer}
-.sess:hover{background:var(--surface3)}
-.sess .st{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sess .t{margin-left:auto;font-size:10.5px;color:var(--faint);flex-shrink:0}
+/* One leaf = one session. The .on state is the SAME one the conversation pane is showing, so the
+   sidebar always tells you which job the middle is displaying. */
+.sess{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--dsw-radius-sm);font-size:12.5px;color:var(--dim);cursor:pointer;border:1px solid transparent}
+.sess:hover{background:var(--dsw-alias-bg-hover)}
+.sess.on{color:var(--text);background:var(--dsw-alias-bg-layer-3);box-shadow:0 0 0 1px var(--dsw-alias-brand-primary)}
+.sess .st{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sess .t{margin-left:auto;font-size:10.5px;color:var(--faint);flex-shrink:0;font-variant-numeric:tabular-nums}
 .side-empty{color:var(--faint);font-size:11.5px;padding:10px 8px;line-height:1.7}
 
 /* ---------- first-run wizard (issue #7) ---------- */
@@ -210,21 +216,11 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 .wizempty{border:1px dashed var(--border2);border-radius:var(--dsw-radius-sm);padding:16px;text-align:center;color:var(--faint);font-size:12.5px;margin-top:10px}
 
 /* ---------- jobs ---------- */
-.jobs-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-.jobs-head h2{font-size:15px;font-weight:700;margin-right:4px}
-.fchip{background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:99px;padding:3px 12px;font-size:12px;cursor:pointer;transition:.15s}
+.fchip{background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:var(--dsw-radius-sm);padding:3px 12px;font-size:12px;cursor:pointer;transition:.15s}
 .fchip.on{color:#fff;border-color:var(--acc1);background:var(--surface3)}
-.fsel{width:auto;background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:99px;padding:3px 10px;font-size:12px}
-.fsearch{width:150px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:99px;padding:4px 12px;font-size:12px}
-.jobs-head .spacer{flex:1}
+.fsel{width:auto;background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:var(--dsw-radius-sm);padding:3px 10px;font-size:12px}
+.fsearch{width:150px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:var(--dsw-radius-sm);padding:4px 12px;font-size:12px}
 
-.job{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--faint);border-radius:12px;margin-bottom:10px;animation:in .25s ease;overflow:hidden}
-@keyframes in{from{opacity:0;transform:translateY(6px)}}
-.job.st-running{border-left-color:var(--acc1)}
-.job.st-ok{border-left-color:var(--ok)}
-.job.st-err{border-left-color:var(--err)}
-.job-h{display:flex;align-items:center;gap:9px;padding:11px 14px;cursor:pointer;flex-wrap:wrap}
-.job-h:hover{background:var(--surface2)}
 .pill{padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.3px;flex-shrink:0}
 .pill.running{background:rgba(91,124,250,.15);color:#9db4ff}
 .pill.ok{background:rgba(52,211,153,.13);color:var(--ok)}
@@ -244,17 +240,6 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 .jid{font-family:var(--mono);font-size:11px;color:var(--faint)}
 .jtask{flex:1;min-width:180px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jmeta{color:var(--faint);font-size:11.5px;font-family:var(--mono);flex-shrink:0}
-.jbody{border-top:1px solid var(--border);padding:13px 15px;display:none}
-.job.open .jbody{display:block}
-.job.open{border-color:var(--border2)}
-
-.livelog{background:#0c0e13;border:1px solid var(--border);border-radius:9px;padding:9px 11px;max-height:200px;overflow-y:auto;font:12px var(--mono);margin-bottom:12px}
-.livelog .ev{padding:1.5px 0;color:var(--dim);word-break:break-all}
-.livelog .ev.t-text{color:#b8c4e0}
-.livelog .ev.t-tool{color:var(--warn)}
-.livelog .ev.t-status{color:var(--faint);font-style:italic}
-.livelog .ev.t-done{color:var(--ok)}
-.livelog .ev .k{opacity:.6;margin-right:6px;user-select:none}
 
 .reply{background:#0c0e13;border:1px solid var(--border);border-radius:9px;padding:11px 13px;font-size:13px;white-space:pre-wrap;word-break:break-word;max-height:380px;overflow-y:auto;line-height:1.65}
 .verdict{background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.25);border-radius:9px;padding:11px 13px;margin-top:10px;font-size:12.5px}
@@ -412,10 +397,9 @@ body{font-family:Montserrat,'PingFang SC','Microsoft YaHei',system-ui,sans-serif
 .card{background:var(--dsw-alias-settings-card-fill);border:0;border-radius:var(--dsw-radius-lg);box-shadow:var(--dsw-elevation-stroke), var(--dsw-shadow-lv2)}
 aside{background:var(--dsw-alias-bg-base);border-right:0;box-shadow:var(--dsw-elevation-stroke)}
 header.main{background:linear-gradient(var(--dsw-alias-bg-base) 82%,transparent)}
-.side-card,.agentrow,.job,.credchip,.chip-x,.schip,.usage-row{box-shadow:var(--dsw-elevation-stroke)}
-.side-card{border:0;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1)}
-.agentrow,.job{border:0;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1)}
-.agentrow.open,.job.open{border-radius:var(--dsw-radius-md);box-shadow:0 0 0 1.5px var(--dsw-alias-brand-primary)}
+.agentrow,.credchip,.chip-x,.schip,.usage-row{box-shadow:var(--dsw-elevation-stroke)}
+.agentrow{border:0;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1)}
+.agentrow.open{border-radius:var(--dsw-radius-md);box-shadow:0 0 0 1.5px var(--dsw-alias-brand-primary)}
 input,textarea,select{background:var(--dsw-alias-bg-layer-1);border:0;border-radius:var(--dsw-radius-sm);box-shadow:var(--dsw-elevation-stroke)}
 input:focus,textarea:focus,select:focus{box-shadow:0 0 0 1.5px var(--dsw-alias-brand-primary)}
 .pbtn,.brand .logo{background:var(--dsw-alias-brand-primary);background-image:none;box-shadow:none}
@@ -425,13 +409,13 @@ input:focus,textarea:focus,select:focus{box-shadow:0 0 0 1.5px var(--dsw-alias-b
 .navbtn:hover{background:var(--dsw-alias-bg-hover)}
 button.ghost{background:transparent;border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm)}
 button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
-.pill,.fchip,.credchip,.chip-x,.presets button,.schip{border-radius:999px}
+.pill,.fchip,.credchip,.chip-x,.presets button,.schip,.seat,.nfilter{border-radius:var(--dsw-radius-sm)}
 .presets button{background:var(--dsw-alias-bg-layer-1);border:0;box-shadow:var(--dsw-elevation-stroke)}
 .presets button:hover{border-color:transparent;background:var(--dsw-alias-bg-layer-3)}
-.livelog,.reply,pre.rawj,.probebox{background:var(--dsw-alias-bg-base);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm)}
+.reply,pre.rawj,.probebox{background:var(--dsw-alias-bg-base);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm)}
 .verdict{background:#22c55e14;border:0;box-shadow:0 0 0 1px #22c55e1f;border-radius:var(--dsw-radius-sm)}
 .side-title,h2.ct{letter-spacing:.08em;font-weight:500}
-.job-h:hover,.arow:hover{background:var(--dsw-alias-bg-hover)}
+.arow:hover{background:var(--dsw-alias-bg-hover)}
 .setnav .navbtn.on{background:var(--dsw-alias-bg-layer-2);box-shadow:none}
 ::-webkit-scrollbar-thumb{background:#ffffff1f;border-radius:999px}
 ::-webkit-scrollbar-thumb:hover{background:#ffffff29}
@@ -443,6 +427,8 @@ button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
 main{overflow:hidden;padding:0 20px;display:flex;flex-direction:column;min-width:0}
 header.main{flex:0 0 auto;padding:12px 0 6px}
 header.main h1{font-size:15px}
+/* The empty stage has no page label; an empty h1 must take no space and draw no separator. */
+header.main h1:empty{display:none}
 #view-console{flex:1;min-height:0;display:flex;flex-direction:column}
 #view-setup{flex:1;min-height:0;overflow-y:auto}
 aside#asideR{width:264px;min-width:264px;border-right:0;border-left:1px solid var(--border);gap:12px}
@@ -461,23 +447,18 @@ body.hideR #expR{display:inline-flex}
 .cfilters .fchip{padding:2px 10px;font-size:11.5px}
 #asideL .fsel{width:100%}
 #asideL .fsearch{width:100%}
-.convlist{display:flex;flex-direction:column;gap:2px}
-.cvitem{display:flex;gap:8px;align-items:flex-start;padding:7px 9px;border-radius:var(--dsw-radius-sm);cursor:pointer;border:1px solid transparent}
-.cvitem:hover{background:var(--dsw-alias-bg-hover)}
-.cvitem.on{background:var(--dsw-alias-bg-layer-3);box-shadow:0 0 0 1px var(--dsw-alias-brand-primary)}
-.cvitem .dot{margin-top:4px}
-.cvitem .cbody{min-width:0;flex:1}
-.cvitem .ctask{font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cvitem .cmeta{font-size:11px;color:var(--faint);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* center: composer view, compact and top-aligned (app surface, not a landing page) */
-.stage{background:none;border:0;box-shadow:none;min-height:0;padding:14px 0 6px;gap:12px;align-items:stretch;justify-content:flex-start;flex:1;overflow-y:auto}
-.welcome{display:flex;align-items:center;gap:10px;text-align:left}
-.welcome .mark{width:30px;height:30px;border-radius:9px;font-size:15px;margin-bottom:0;box-shadow:none}
-.welcome h3{font-size:14.5px}
-.welcome p{font-size:12px;margin-top:2px}
-.stage .composer,.stage .presets,.stage .form-err{max-width:920px;width:100%}
-.stage .presets{justify-content:flex-start}
+/* center: composer view. The empty console is the "say what you want" moment, so it is composed
+   as ONE centred group (welcome + composer + presets), the way dsh centres its new-session
+   screen. margin:auto is what does the centring: unlike justify-content:center it never clips
+   the top of the group when the group is taller than the viewport. */
+.stage{background:none;border:0;box-shadow:none;min-height:0;padding:12px 0 10px;flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.scenter{margin:auto;width:100%;max-width:680px;display:flex;flex-direction:column;gap:13px;padding:6px 0}
+.welcome{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.welcome .mark{width:34px;height:34px;border-radius:10px;font-size:17px;margin-bottom:0;background:var(--dsw-alias-brand-primary);box-shadow:none}
+.welcome h3{font-size:15px;font-weight:600}
+.welcome p{font-size:12px;color:var(--dim);margin-top:2px}
+.stage .presets{justify-content:center}
 
 /* center: conversation stream */
 .conv{flex:1;min-height:0;display:flex;flex-direction:column}
@@ -500,7 +481,7 @@ body.hideR #expR{display:inline-flex}
 .cstream .ev.t-tool{color:var(--warn)}
 .cstream .ev.t-status{color:var(--faint);font-style:italic}
 .cstream .ev.t-done{color:var(--ok)}
-.nfilter{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;color:var(--dim);background:var(--dsw-alias-bg-layer-1);border-radius:99px;padding:3px 12px;width:fit-content}
+.nfilter{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;color:var(--dim);background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-sm);padding:3px 12px;width:fit-content}
 .nfilter button{background:none;border:0;color:var(--faint);cursor:pointer;font:inherit;padding:0}
 .nfilter button:hover{color:var(--text)}
 
@@ -525,35 +506,39 @@ body.hideR #expR{display:inline-flex}
 
 <aside id="asideL">
   <div class="panerow">
-    <div class="brand"><span class="logo">◈</span> Control Plane <small>v0.3</small></div>
+    <div class="brand"><span class="logo">◈</span> Control Plane</div>
     <button class="panetgl" onclick="togglePane('l')" title="折叠左栏">‹</button>
   </div>
   <button class="newbtn" onclick="newTask()">＋ 新任务</button>
-  <div class="sidenav">
-    <button class="navrow on" id="nav-console" onclick="switchView('console')"><span class="navico">▤</span>控制台</button>
-    <button class="navrow" id="nav-setup" onclick="switchView('setup')"><span class="navico">✦</span>首启向导<span class="badge-unconf" id="nav-setup-badge" style="display:none;margin-left:auto">待设置</span></button>
-    <button class="navrow" id="nav-settings" onclick="switchView('settings')"><span class="navico">⚙</span>设置</button>
+  <div class="wshead">
+    <span>工作区</span>
+    <span class="htools">
+      <span class="hicon" id="tgl-search" onclick="toggleConvTools('search')" title="搜索会话">搜索</span>
+      <span class="hicon" id="tgl-filter" onclick="toggleConvTools('filter')" title="按状态或 agent 筛选">筛选</span>
+      <span class="hicon" onclick="openDirPicker('f-cwd')" title="选择工作目录">＋</span>
+      <span class="hicon stat" id="job-count" title="显示的会话 / 总数"></span>
+    </span>
   </div>
-  <div class="wshead"><span>会话</span><span class="jid" id="job-count"></span></div>
-  <div class="cfilters">
-    <span class="fchip on" data-f="all">全部</span>
-    <span class="fchip" data-f="running">运行中</span>
-    <span class="fchip" data-f="ok">完成</span>
-    <span class="fchip" data-f="err">失败</span>
+  <div id="conv-search-row" class="conv-tools" style="display:none"><input class="fsearch" id="f-search" placeholder="搜索会话…" style="width:100%"></div>
+  <div id="conv-filter-row" class="conv-tools" style="display:none">
+    <div class="cfilters">
+      <span class="fchip on" data-f="all">全部</span>
+      <span class="fchip" data-f="running">运行中</span>
+      <span class="fchip" data-f="ok">完成</span>
+      <span class="fchip" data-f="err">失败</span>
+    </div>
+    <div style="margin-top:7px"><select class="fsel" id="f-agent-filter" style="width:100%"><option value="">全部 agent</option></select></div>
   </div>
-  <select class="fsel" id="f-agent-filter"><option value="">全部 agent</option></select>
-  <input class="fsearch" id="f-search" placeholder="搜索会话…">
-  <div class="convlist" id="jobs"></div>
-  <div class="wshead"><span>工作区</span><span class="tools" onclick="openDirPicker('f-cwd')" title="选择一个目录">＋</span></div>
   <div class="wslist" id="ws-list"></div>
-  <div class="side-card" id="budget"></div>
-  <div class="side-foot">只绑定 127.0.0.1<br>作业：内存 + 历史文件<br>MCP 与 Web 共用同一 ControlPlane<br>design tokens: DeepSeek Harness (MIT)</div>
+  <div class="side-grow"></div>
+  <button class="navrow" id="nav-setup" style="display:none" onclick="switchView('setup')"><span class="navico">✦</span>完成首启设置</button>
+  <button class="navrow" id="nav-settings" onclick="switchView('settings')"><span class="navico">⚙</span>设置</button>
 </aside>
 
 <main>
   <header class="main">
     <button class="expbtn" id="expL" onclick="togglePane('l')" title="展开左栏">›</button>
-    <h1 id="view-title">控制台</h1>
+    <h1 id="view-title"></h1>
     <div class="conn"><span class="dot pulse" id="conn-dot"></span><span id="conn-text">连接中…</span></div>
     <button class="ghost" id="btn-clear">清空历史</button>
     <button class="expbtn" id="expR" onclick="togglePane('r')" title="展开右栏">‹</button>
@@ -561,20 +546,17 @@ body.hideR #expR{display:inline-flex}
 
   <div id="view-console">
   <div class="stage" id="stage-view">
+    <div class="scenter">
     <div class="welcome">
       <div class="mark">◈</div>
-      <div>
-        <h3>新建任务</h3>
-        <p id="stage-hint">派发给最合适的 harness · 座位与参数在下方，随时可改</p>
-      </div>
+      <h3>新建任务</h3>
+      <p id="stage-hint">派发给最合适的 harness</p>
     </div>
 
     <div class="composer" id="composer">
       <div class="crow-top">
         <button type="button" class="chip" onclick="togglePop(event,'ws-pop')" title="工作目录（点开选择）">
           <span>▣</span><span class="cnm" id="chip-ws-name">选择工作区</span><span class="caret">⌄</span></button>
-        <span class="grow"></span>
-        <button type="button" class="chip pill" id="chip-verdict" onclick="toggleVerdict()" title="结构化 verdict：要求 JSON 结论 / 风险 / 建议，解析失败自动重试一次">✓ verdict</button>
         <div class="seg" id="seg-mode" data-i="0" role="tablist" aria-label="派发模式">
           <span class="seg-ind" aria-hidden="true"></span>
           <button type="button" role="tab" class="segb" data-m="ask" onclick="setMode('ask')" title="一个 agent 独立完成">单任务</button>
@@ -595,6 +577,7 @@ body.hideR #expR{display:inline-flex}
         <button type="button" class="chip" id="chip-wsmode" onclick="cycleWsMode()" title="共享当前目录 / 用 git worktree 隔离">
           <span>▤</span><span class="cnm" id="chip-wsmode-name">工作区内修改</span></button>
         <span class="grow"></span>
+        <button type="button" class="chip pill" id="chip-verdict" onclick="toggleVerdict()" title="结构化 verdict：要求 JSON 结论 / 风险 / 建议，解析失败自动重试一次">✓ verdict</button>
         <button type="button" class="sendbtn" id="btn-go" title="派发任务">↑</button>
       </div>
 
@@ -625,7 +608,8 @@ body.hideR #expR{display:inline-flex}
     </div>
 
     <div class="presets" id="presets"></div>
-    <div class="form-err" id="form-err" style="width:100%;max-width:920px"></div>
+    <div class="form-err" id="form-err"></div>
+    </div><!-- /scenter -->
   </div>
   <section id="conv" class="conv" style="display:none"></section>
   <datalist id="cwd-list"></datalist>
@@ -635,6 +619,7 @@ body.hideR #expR{display:inline-flex}
     </div><!-- /view-console -->
 
   <div id="view-setup" style="display:none">
+    <div style="padding:12px 2px 0"><button class="ghost" onclick="switchView('console')">← 返回控制台</button></div>
     <div id="setup-body"></div>
   </div>
 </main>
@@ -725,15 +710,11 @@ async function api(p,o){const r=await fetch(p,o);const b=await r.json().catch(()
 
 /* ---------- status / sidebar ---------- */
 function renderStatus(s){
-  STATUS=s;const b=s.budget||{};
-  $('budget').innerHTML=`
-    <div class="budget-row"><span>今日请求</span><b>${b.requests??0}${b.caps?.dailyRequests?` / ${b.caps.dailyRequests}`:''}</b></div>
-    <div class="budget-row"><span>tokens</span><b>${fmtN((b.tokensIn??0)+(b.tokensOut??0))}${b.caps?.dailyTokens?` / ${fmtN(b.caps.dailyTokens)}`:''}</b></div>
-    <div class="budget-row"><span>活跃会话</span><b>${(s.openSessions??[]).length}</b></div>`;
-  // issue #7 follow-up: the sidebar no longer carries agent cards. Which harnesses this machine
-  // CAN run is a setting, not a navigation item — it lives in 设置 → Agents, and the wizard is
-  // where they get taken on. What the sidebar carries instead is where you work (see
-  // renderWorkspaceList), which is what a console is actually for.
+  STATUS=s;
+  // The sidebar no longer carries agent cards or a budget card. Which harnesses this machine
+  // CAN run is a setting, not a navigation item (it lives in 设置 → Agents); the daily usage
+  // numbers that used to sit here are one click away in 设置 → Budget. What the sidebar
+  // carries instead is where you work — see renderWorkspaceList.
   //
   // The dispatch picker still offers only what the user took on: an unconfirmed agent could
   // only produce a dispatch that is refused on purpose, which reads as "it is here, but broken".
@@ -768,9 +749,10 @@ function renderChips(){
   const vLocked=mode==='review';
   $('chip-verdict').textContent=vLocked?'✓ verdict · 固定开':VERDICT?'✓ verdict · 开':'✓ verdict · 关';
   $('chip-verdict').classList.toggle('on',vLocked||VERDICT);
-  // A one-line restatement of what 派发 is about to do — the same facts as the seats, in reading
-  // order, so a mis-set seat is visible without opening anything.
-  const parts=[cwd?baseName(cwd):'未选工作区'];
+  // A one-line restatement of what 派发 is about to do — the same facts as the seats and the
+  // chips, in reading order, so a mis-set seat is visible without opening anything. The cwd is
+  // already on the workspace chip, so it is not repeated here.
+  const parts=[];
   if(mode==='review'){
     parts.push('异构评审');
     for(const slot of seatSlots())parts.push(`${SEAT_LABEL[slot]}=${SEATS[slot].agent||'auto'}`);
@@ -779,7 +761,7 @@ function renderChips(){
   }
   if(wt)parts.push('worktree');
   if(VERDICT)parts.push('verdict');
-  $('stage-hint').textContent=`写清楚要做什么；座位与参数在下面随时可改，设置里是全局默认。下一次派发 → ${parts.join(' · ')}`;
+  $('stage-hint').textContent=`下一次派发 → ${parts.join(' · ')}`;
 }
 
 /* ---------- sidebar: workspaces ---------- */
@@ -810,40 +792,61 @@ function workspaceGroups(){
   // actually ran without one, so those jobs stay reachable instead of silently disappearing.
   return order.filter(c=>c||byCwd.get(c).length).map(c=>({cwd:c,jobs:byCwd.get(c)}));
 }
+/** One leaf row = one job. The filters (status / agent / text) act HERE: they decide which
+    sessions the tree shows, not a separate flat list any more. A group whose leaves all fail
+    the filter is dropped entirely — that is what keeps a filtered sidebar calm. */
+function matchLeaf(j){
+  if(FILTER!=='all'){const st=jobState(j);if(FILTER==='running'&&st.cls!=='st-running')return false;if(FILTER==='ok'&&st.cls!=='st-ok')return false;if(FILTER==='err'&&st.cls!=='st-err')return false;}
+  if(FAGENT){const ag=leafAgent(j);if(ag!==FAGENT)return false;}
+  if(FSEARCH&&!String(j.request.task).toLowerCase().includes(FSEARCH))return false;
+  return true;
+}
+const leafTask=j=>j.kind==='parallel'?`批量 ${j.request?.jobs?.length??0} 个任务`:String(j.request?.task??'');
+const leafAgent=j=>j.kind==='parallel'?'parallel':j.kind==='review'?'review':(j.request?.agent||j.result?.agent||'auto');
+
 function renderWorkspaceList(){
   const el=$('ws-list');if(!el)return;
   const groups=workspaceGroups();
   const cur=($('f-cwd')?.value||'').trim();
+  const filtering=!!(FSEARCH||FAGENT||FILTER!=='all');
   // This runs on every jobs poll (1.2 s). Rebuilding unchanged markup would kill hover states and
-  // swallow the click you are mid-way through, so bail out unless something visible moved.
-  const sig=[cur,Object.keys(WS_OPEN).filter(k=>WS_OPEN[k]).join('|'),
-    groups.map(g=>g.cwd+':'+g.jobs.map(j=>j.id+j.status).join('.')).join('~')].join('¶');
+  // swallow the click you are mid-way through, so bail out unless something visible moved. The
+  // filters and the selection are part of "visible": they change which leaves show, which rows
+  // are dropped, and which leaf is highlighted.
+  const sig=[cur,Object.keys(WS_OPEN).filter(k=>WS_OPEN[k]).join('|'),FILTER,FAGENT,FSEARCH,SELECTED||'',
+    groups.map(g=>g.cwd+':'+g.jobs.filter(matchLeaf).map(j=>j.id+j.status).join('.')).join('~')].join('¶');
   if(sig===WS_SIG)return;
   WS_SIG=sig;
   if(!groups.length){
     el.innerHTML='<div class="side-empty">派发过任务的目录会出现在这里。<br>点右上角 ＋ 先挑一个。</div>';
     return;
   }
-  el.innerHTML=groups.map(g=>{
-    const open=!!WS_OPEN[g.cwd];
+  const shown=groups.map(g=>{
+    const fj=g.jobs.filter(matchLeaf);
+    if(filtering&&!fj.length)return '';   // nothing in here matches: the group itself is noise now
+    // The group you are working in starts open (that is where your sessions are); an explicit
+    // toggle beats that default, and a filter force-opens everything so results are visible.
+    const open=filtering?true:(WS_OPEN[g.cwd]??(!!g.cwd&&g.cwd===cur));
     const on=!!g.cwd&&g.cwd===cur;
     const name=g.cwd?baseName(g.cwd):'（未指定目录）';
-    const rows=g.jobs.slice(0,6).map(j=>{
+    const list=filtering?fj:fj.slice(0,6);
+    const rows=list.map(j=>{
       const st=jobState(j);
-      const mark=st.cls==='st-running'?'◌':st.cls==='st-err'?'✕':'✓';
-      const task=j.kind==='parallel'?`批量 ${j.request?.jobs?.length??0} 个任务`:String(j.request?.task??'');
-      return`<div class="sess" data-job="${esc(j.id)}" title="${esc(task)}">
-        <span>${mark}</span><span class="st">${esc(task.slice(0,48))}</span><span class="t">${fmtT(j.createdAt)}</span></div>`;
+      const task=leafTask(j);
+      return`<div class="sess${SELECTED===j.id?' on':''}" data-job="${esc(j.id)}" title="${esc(task)}">
+        <span class="${st.dot}"></span><span class="st">${esc(task.slice(0,48))}</span><span class="t">${esc(leafAgent(j))} · ${fmtT(j.createdAt)}</span></div>`;
     }).join('');
-    const more=g.jobs.length>6?`<div class="sess" style="color:var(--faint);cursor:default">还有 ${g.jobs.length-6} 条…</div>`:'';
+    const more=!filtering&&fj.length>6?`<div class="sess" style="color:var(--faint);cursor:default">还有 ${fj.length-6} 条…</div>`:'';
+    const empty=!filtering&&!fj.length?`<div class="sess" style="color:var(--faint);cursor:default">此目录暂无作业</div>`:'';
     const caret=open?'⌄':'›';
     return`<div class="wsrow${on?' on':''}" data-cwd="${esc(g.cwd)}" title="${esc(g.cwd||'未指定目录 — 用默认目录派发')}">
         <span class="wsico">${g.cwd?esc(baseName(g.cwd).slice(0,2).toUpperCase()):'—'}</span>
         <span class="nm">${esc(name)}</span>
         ${g.jobs.length?`<span style="font-size:10.5px;color:var(--faint)">${g.jobs.length}</span>`:''}
         <span class="caret" data-caret="1" title="${open?'收起':'展开会话'}">${caret}</span></div>
-      ${open?`<div class="sessions">${rows}${more||`<div class="sess" style="color:var(--faint);cursor:default">此目录暂无作业</div>`}</div>`:''}`;
+      ${open?`<div class="sessions">${rows}${more}${empty}</div>`:''}`;
   }).join('');
+  el.innerHTML=shown||'<div class="side-empty">没有符合条件的会话。</div>';
 }
 // Delegated, and driven by dataset rather than inline args: a Windows path inside an inline
 // onclick would be JS-unescaped on the way in ('D:\foo' -> a form feed), so paths never go there.
@@ -851,20 +854,13 @@ $('ws-list').onclick=e=>{
   const caret=e.target.closest('[data-caret]');
   if(caret){const c=caret.closest('.wsrow')?.dataset.cwd??'';WS_OPEN[c]=!WS_OPEN[c];renderWorkspaceList();return}
   const sess=e.target.closest('.sess[data-job]');
-  if(sess){revealJob(sess.dataset.job);return}
+  if(sess){selectJob(sess.dataset.job);return}
   const row=e.target.closest('.wsrow');
   if(row)useCwdEl(row);
 };
 function useCwdEl(el){
   $('f-cwd').value=el.dataset.cwd||'';
   renderWorkspaceList();renderChips();renderWsPop();saveForm();
-}
-/** Jump the jobs feed to a job the sidebar pointed at. */
-function revealJob(id){
-  const d=document.querySelector(`details.job[data-id="${id}"]`);
-  if(!d)return;
-  d.classList.add('open');
-  d.scrollIntoView({block:'center',behavior:'smooth'});
 }
 /** Fill #f-cwd from the ws popover's shortlist of directories already in play. */
 function renderWsPop(){
@@ -1227,25 +1223,14 @@ function jobTitle(j){
 function jobAgent(j){
   return j.kind==='parallel'?'parallel':j.kind==='review'?'review':(j.request.agent||j.result?.agent||'auto');
 }
+/** Jobs moved (or filters changed): refresh the count and redraw the tree. The tree IS the
+    session list now — renderWorkspaceList is the only renderer, and it applies the filters
+    itself, so there is no second flat list to keep in sync. */
 function renderJobs(list){
-  const filtered=list.filter(j=>{
-    if(FILTER!=='all'){const st=jobState(j);if(FILTER==='running'&&st.cls!=='st-running')return false;if(FILTER==='ok'&&st.cls!=='st-ok')return false;if(FILTER==='err'&&st.cls!=='st-err')return false;}
-    if(FAGENT&&FAGENT!=='auto'){const ag=j.kind==='parallel'?null:(j.request.agent||j.result?.agent);if(ag!==FAGENT)return false;if(FAGENT==='auto'&&(j.request.agent||j.result?.agent))return false;}
-    if(FSEARCH&&!String(j.request.task).toLowerCase().includes(FSEARCH))return false;
-    return true;});
-  const jc=$('job-count');if(jc)jc.textContent=`${filtered.length}/${list.length}`;
-  const el=$('jobs');if(!el)return;
-  if(!filtered.length){el.innerHTML=list.length
-    ?'<div class="tempty">没有符合条件的会话</div>'
-    :'<div class="tempty">还没有会话 —— 点上面的「＋ 新任务」派发第一个</div>';return}
-  el.innerHTML=filtered.map(j=>{
-    const st=jobState(j);
-    const dur=j.finishedAt?((j.finishedAt-j.createdAt)/1000).toFixed(1)+'s':'';
-    return`<div class="cvitem${SELECTED===j.id?' on':''}" data-id="${esc(j.id)}" onclick="selectJob('${esc(j.id)}')" title="${esc(jobTitle(j))}">
-      <span class="${st.dot}"></span>
-      <div class="cbody"><div class="ctask">${esc(jobTitle(j))}</div>
-      <div class="cmeta">${esc(jobAgent(j))}${dur?' · '+dur:''} · ${fmtT(j.createdAt)}</div></div></div>`;
-  }).join('');
+  const filtered=list.filter(matchLeaf);
+  const jc=$('job-count');
+  if(jc)jc.textContent=list.length?(filtered.length===list.length?String(list.length):`${filtered.length}/${list.length}`):'';
+  renderWorkspaceList();
 }
 
 /* ---------- selection + the center conversation pane (dsh-style) ---------- */
@@ -1253,11 +1238,20 @@ function selectJob(id){
   SELECTED=id;NODEFILTER=null;CENTER_SIG='';TREE_SIG='';
   const j=JOBS.find(x=>x.id===id);
   renderJobs(JOBS);renderCenter(true);renderTree();
+  setViewTitle();
   document.title=j?`Control Plane · ${jobTitle(j).slice(0,40)}`:'Control Plane';
 }
 function clearSelection(){
   SELECTED=null;NODEFILTER=null;CENTER_SIG='';TREE_SIG='';
-  renderJobs(JOBS);renderCenter(true);renderTree();document.title='Control Plane';
+  renderJobs(JOBS);renderCenter(true);renderTree();setViewTitle();document.title='Control Plane';
+}
+/** The main header carries exactly one label: the wizard's name while the wizard is open.
+    The console itself shows nothing there — the stage speaks for itself, and an open
+    conversation carries its own title inside the column (see .chead), where it stays
+    aligned with the content instead of floating in a second place. */
+function setViewTitle(){
+  const t=$('view-title');if(!t)return;
+  t.textContent=$('view-setup').style.display!=='none'?'首启向导':'';
 }
 function centerSig(j){return [j.id,NODEFILTER||'',j.status,(j.events||[]).length,j.error||'',j.result?1:0].join('|')}
 function renderCenter(force){
@@ -1492,12 +1486,23 @@ function subChips(j){
 }
 function copyText(btn,id){navigator.clipboard.writeText(COPYBUF[id]||'').then(()=>{btn.textContent='已复制 ✓';setTimeout(()=>btn.textContent='复制回复',1200)})}
 
-/* filters */
+/* filters — they live in the sidebar's collapsible "filter" row and act on the session tree */
 document.querySelectorAll('.fchip').forEach(c=>c.onclick=()=>{
   document.querySelectorAll('.fchip').forEach(x=>x.classList.remove('on'));c.classList.add('on');
   FILTER=c.dataset.f;renderJobs(JOBS);});
 $('f-agent-filter').onchange=e=>{FAGENT=e.target.value;renderJobs(JOBS)};
 $('f-search').oninput=e=>{FSEARCH=e.target.value.toLowerCase();renderJobs(JOBS)};
+/* Sidebar tools: the search box and the filter row open on demand, so the default sidebar is a
+   list of where you work — not a form. Both rows are plain toggles; no state is persisted. */
+function toggleConvTools(which){
+  const row=$(which==='search'?'conv-search-row':'conv-filter-row');
+  const btn=$(which==='search'?'tgl-search':'tgl-filter');
+  if(!row||!btn)return;
+  const show=row.style.display==='none';
+  row.style.display=show?'':'none';
+  btn.classList.toggle('on',show);
+  if(which==='search'&&show)$('f-search').focus();
+}
 
 /* ---------- settings sheet (v3) ---------- */
 let SETSECTION='agents',AGENTS=[],CREDENTIALS=[],SETTINGS=null,SETLOAD=0;
@@ -1510,19 +1515,16 @@ function switchView(v){
   // view underneath is left untouched (see openSettings). Anything else closes it on the way.
   if(v==='settings'){openSettings();return}
   closeSettings(true);
-  $('nav-console').classList.toggle('on',v==='console');
-  $('nav-setup').classList.toggle('on',v==='setup');
   $('view-console').style.display=v==='console'?'':'none';
   $('view-setup').style.display=v==='setup'?'':'none';
   $('btn-clear').style.display=v==='console'?'':'none';
-  $('view-title').textContent=v==='console'?'控制台':'首启向导';
+  setViewTitle();
   if(v==='setup')loadSetup();
 }
 function openSettings(){
   const m=$('setmask');
   if(m.style.display==='none'){
     m.style.display='flex';
-    $('nav-settings').classList.add('on');
     requestAnimationFrame(()=>m.classList.add('on'));
     loadSettings();
   }else{m.classList.add('on');loadSettings()}
@@ -1531,7 +1533,6 @@ function closeSettings(now){
   const m=$('setmask');
   if(!m||m.style.display==='none')return;
   m.classList.remove('on');
-  $('nav-settings').classList.remove('on');
   // switching views must not leave a fading ghost on top of the incoming page
   if(now){m.style.display='none';return}
   setTimeout(()=>{if(!m.classList.contains('on'))m.style.display='none'},160);
@@ -1564,6 +1565,7 @@ function fillCwdList(){
   $('cwd-list').innerHTML=cwds.map(c=>`<option value="${esc(c)}">`).join('');
   // No hardcoded default path (PR #1 follow-up): prefill from the user's own recent list.
   if(!$('f-cwd').value&&cwds.length)$('f-cwd').value=cwds[0];
+  renderChips();           // the chip must show a cwd that was filled in here, not just inputs
   renderWorkspaceList();   // same source, two uses: the datalist and the sidebar
 }
 function renderSettings(){
@@ -1901,8 +1903,10 @@ async function loadSetup(){
   wizSnapshot();   // re-rendering the cards must not wipe what is already typed into them
   try{
     SETUP=await api('/api/setup');
-    const badge=$('nav-setup-badge');
-    if(badge)badge.style.display=SETUP.phase==='pending'?'':'none';
+    // The sidebar entry into the wizard exists only while the machine still has nothing
+    // confirmed; after that the wizard stays reachable from 设置 → Agents.
+    const entry=$('nav-setup');
+    if(entry)entry.style.display=SETUP.phase==='pending'?'':'none';
     renderSetup();
   }catch(e){$('setup-body').innerHTML=`<div class="card"><div class="empty">加载失败：${esc(String(e.message??e))}</div></div>`}
 }
@@ -2077,16 +2081,14 @@ async function refreshJobs(force){
   try{
     const list=await api('/api/jobs');
     JOBS=list;
-    if(SELECTED&&!list.some(j=>j.id===SELECTED)){SELECTED=null;NODEFILTER=null;document.title='Control Plane';}
-    renderJobs(list);
+    if(SELECTED&&!list.some(j=>j.id===SELECTED)){SELECTED=null;NODEFILTER=null;setViewTitle();document.title='Control Plane';}
+    renderJobs(list);   // this also redraws the sidebar tree (it is the only session list)
     renderCenter();renderTree();
-    // The sidebar's session leaves come from the same list; it self-skips unless something moved.
-    renderWorkspaceList();
   }catch{}
 }
 // Order matters: restoreForm fills the inputs, then setMode derives the chips from them. Calling
 // setMode first would publish a "single task / auto" stage and then quietly contradict itself.
-restoreForm();setMode('ask');applyPanes();refreshStatus();refreshJobs(true);
+restoreForm();setMode('ask');setViewTitle();applyPanes();refreshStatus();refreshJobs(true);
 // issue #7: a machine with nothing confirmed opens on the wizard instead of silently routing.
 loadSetup().then(()=>{if(SETUP&&SETUP.phase==='pending')switchView('setup');});
 api('/api/settings').then(s=>{SETTINGS=s;fillCwdList();}).catch(()=>{});

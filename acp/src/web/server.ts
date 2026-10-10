@@ -25,7 +25,7 @@ const PORT = Number(process.env.ACP_WEB_PORT ?? 7777);
 const EVENT_CAP = 400;
 const HISTORY_LOAD = 60;
 
-interface JobEvent { kind: string; text?: string; at: number }
+interface JobEvent { kind: string; text?: string; at: number; status?: string }
 
 interface Job {
   id: string;
@@ -55,6 +55,9 @@ interface ChatMessage {
   error?: string;
   durationMs?: number;
   usage?: { input?: number; output?: number };
+  /** What the agent DID this turn — thinking, tool calls, tool results — so the conversation
+      shows the process, not only the answer, like a standalone agent tool does. */
+  trace?: JobEvent[];
 }
 interface Chat {
   id: string;
@@ -71,6 +74,7 @@ interface Chat {
   error?: string;
 }
 const CHAT_MSG_CAP = 400;
+const TRACE_CAP = 250;   // events kept per turn; beyond this the trail is a wall, not a record
 const chats = new Map<string, Chat>();
 
 async function runChatTurn(chat: Chat, text: string): Promise<void> {
@@ -100,6 +104,7 @@ async function runChatTurn(chat: Chat, text: string): Promise<void> {
       error: r.ok ? undefined : (r.error || '失败'),
       durationMs: r.durationMs,
       usage: r.usage,
+      trace: chat.events.slice(-TRACE_CAP),
     });
     if (chat.messages.length > CHAT_MSG_CAP) chat.messages.splice(0, chat.messages.length - CHAT_MSG_CAP);
     chat.status = r.ok ? 'idle' : 'failed';
@@ -109,7 +114,7 @@ async function runChatTurn(chat: Chat, text: string): Promise<void> {
     if (!r.ok && /session not found/i.test(r.error || '')) chat.sessionId = undefined;
   } catch (e: any) {
     const msg = String(e?.message ?? e).slice(0, 500);
-    chat.messages.push({ role: 'agent', text: '', at: Date.now(), error: msg });
+    chat.messages.push({ role: 'agent', text: '', at: Date.now(), error: msg, trace: chat.events.slice(-TRACE_CAP) });
     chat.status = 'failed';
     chat.error = msg;
   }

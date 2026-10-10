@@ -107,6 +107,37 @@ export function dshArgv(opts: { profile?: string; sessionId?: string; task?: str
   return args;
 }
 
+/**
+ * One identifying value out of a tool call's input, so an event line reads as
+ * "read D:\...\package.json" instead of a wall of JSON. Unknown shapes fall back to a clipped
+ * JSON string — never silent, never huge. Exported for unit tests.
+ */
+export function toolCallDetail(tool: string, input: unknown): string {
+  const label = String(tool || 'tool');
+  if (input && typeof input === 'object') {
+    const o = input as Record<string, unknown>;
+    const pick = (...keys: string[]): string | undefined => {
+      for (const k of keys) if (typeof o[k] === 'string' && o[k]) return o[k] as string;
+      return undefined;
+    };
+    // Order matters: `path` last so a grep's PATTERN wins over its search root, and the
+    // command/file_path forms (pwsh, read) keep priority over generic shapes.
+    const v = pick('command', 'file_path', 'pattern', 'query', 'url', 'prompt', 'path');
+    if (v) return `${label} ${v.length > 160 ? v.slice(0, 160) + '…' : v}`;
+    const s = JSON.stringify(input);
+    return `${label} ${s.length > 140 ? s.slice(0, 140) + '…' : s}`;
+  }
+  return label;
+}
+
+/** A tool result can be megabytes (glob listings, file contents); the trail keeps a digest. */
+export function resultDigest(result: unknown): string {
+  if (result === undefined || result === null) return '';
+  const s = typeof result === 'string' ? result : JSON.stringify(result);
+  const clean = s.replace(/\s+/g, ' ').trim();
+  return clean.length > 220 ? clean.slice(0, 220) + '…' : clean;
+}
+
 // ── Reasoning effort over the profile layer ────────────────────────────────────────────────
 //
 // The four levels dsh's DeepSeek adapter accepts (dsh-llm-deepseek's REASONING_EFFORTS:
@@ -233,7 +264,7 @@ export class DshDriver {
     task: string,
     opts: {
       cwd: string; sessionId?: string; timeoutMs?: number; profile?: string; effort?: string;
-      onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void;
+      onEvent?: (e: { kind: 'text' | 'tool' | 'tool_result' | 'thinking' | 'status'; text?: string; status?: string }) => void;
     },
   ): Promise<DshRunOutcome> {
     // Resolve the effort overlay BEFORE spawning: it changes argv (--patch), and every failure
@@ -295,8 +326,25 @@ export class DshDriver {
           case 'session':
             sessionId = ev.sessionId ?? sessionId;
             break;
+          // The chain of thought is the most valuable thing an agent stream carries, so it is
+          // passed through nearly whole (1500 chars per event; consumers clamp for display).
           case 'thinking':
-            opts.onEvent?.({ kind: 'status', text: `思考中：${String(ev.text ?? '').slice(0, 80)}` });
+            opts.onEvent?.({ kind: 'thinking', text: String(ev.text ?? '').slice(0, 1500) });
+            break;
+          // Tool calls used to be dropped entirely — the console could only show the final
+          // answer. Verified live (2026-10-10): the headless stream carries full tool_call /
+          // tool_result events, so the UI gets "what did it actually do", not just "what did
+          // it say". Inputs are summarised to the one identifying value, results to a digest —
+          // a tool result can be megabytes and none of that belongs in an event line.
+          case 'tool_call':
+            opts.onEvent?.({ kind: 'tool', text: toolCallDetail(String(ev.tool ?? 'tool'), ev.input) });
+            break;
+          case 'tool_result':
+            opts.onEvent?.({
+              kind: 'tool_result',
+              text: resultDigest(ev.result),
+              status: ev.status === 'error' ? 'error' : ev.status === 'completed' ? 'completed' : String(ev.status ?? ''),
+            });
             break;
           case 'text':
             streamText += ev.text ?? '';

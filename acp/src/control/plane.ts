@@ -62,7 +62,7 @@ export interface AskOptions {
   verdict?: boolean;                        // structured verdict contract (instruction + extraction, 1 retry)
   maxToolCalls?: number;                    // per-call hard gate
   fallback?: boolean;                       // default true: retry on transport-class failure via fallbackChain
-  onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void;  // live progress for UIs
+  onEvent?: (e: { kind: 'text' | 'tool' | 'tool_result' | 'thinking' | 'status'; text?: string; status?: string }) => void;  // live progress for UIs
 }
 
 export class ControlPlane {
@@ -225,7 +225,7 @@ export class ControlPlane {
   review(opts: {
     task: string; cwd: string; excludeVendors: string[];
     model?: string; effort?: string; timeoutMs?: number; verdict?: boolean;
-    onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void;
+    onEvent?: (e: { kind: 'text' | 'tool' | 'tool_result' | 'thinking' | 'status'; text?: string; status?: string }) => void;
   }) {
     return this.ask({ ...opts, taskType: 'review', differentVendorFrom: opts.excludeVendors, verdict: opts.verdict ?? true });
   }
@@ -241,7 +241,7 @@ export class ControlPlane {
   }
 
   async send(agent: AgentId, sessionId: string, task: string, timeoutMs?: number,
-    onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void): Promise<AgentResult> {
+    onEvent?: (e: { kind: 'text' | 'tool' | 'tool_result' | 'thinking' | 'status'; text?: string; status?: string }) => void): Promise<AgentResult> {
     const t0 = Date.now();
     this.budget.checkRequest();
     // dsh is a one-shot process — resume via --session-id instead of a live ACP session.
@@ -343,7 +343,7 @@ export class ControlPlane {
     return d;
   }
 
-  private async runDsh(task: string, o: { cwd: string; timeoutMs?: number; onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void }, t0: number,
+  private async runDsh(task: string, o: { cwd: string; timeoutMs?: number; onEvent?: (e: { kind: 'text' | 'tool' | 'tool_result' | 'thinking' | 'status'; text?: string; status?: string }) => void }, t0: number,
     decision: { effort?: string; model?: string }): Promise<AgentResult> {
     const r = await DshDriver.run(task, { cwd: o.cwd, timeoutMs: o.timeoutMs, onEvent: o.onEvent, profile: dshProfileOf(), effort: decision.effort });
     if (r.sessionId && r.exitCode === 0) this.dshSessions.set(r.sessionId, o.cwd);

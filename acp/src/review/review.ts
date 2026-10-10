@@ -52,7 +52,7 @@ export interface HeteroReviewOptions {
    * as a sequence (implement -> review -> verify -> arbitrate) instead of silence; each seat's own
    * output passes through unchanged.
    */
-  onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void;
+  onEvent?: (e: { kind: 'text' | 'tool' | 'tool_result' | 'thinking' | 'status'; text?: string; status?: string }) => void;
   workspaceMode?: 'shared' | 'worktree';
   worktreeBaseDir?: string;          // where worktrees live — MUST NOT be inside a dir with package.json (module-type inheritance)
   verifyCommands?: VerifyCommand[];  // neutral gate: must all exit 0

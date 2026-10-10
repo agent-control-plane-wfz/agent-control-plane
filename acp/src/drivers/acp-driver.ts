@@ -87,16 +87,17 @@ export class AcpDriver {
 
   // Run a task: session/prompt with a long timeout, collecting session/update stream.
   // maxToolCalls: hard per-call gate — cancels the session when exceeded (stopReason='budget_tool_calls').
-  // onEvent: live progress callback (text chunks / tool calls) for UIs.
+  // onEvent: live progress callback (text chunks / tool calls / thought chunks) for UIs.
   async run(s: AcpSession, task: string, opts: {
     timeoutMs?: number; maxToolCalls?: number;
-    onEvent?: (e: { kind: 'text' | 'tool' | 'status'; text?: string }) => void;
+    onEvent?: (e: { kind: 'text' | 'tool' | 'tool_result' | 'thinking' | 'status'; text?: string; status?: string }) => void;
   } = {}): Promise<RunOutcome> {
     const timeoutMs = opts.timeoutMs ?? 300_000;
     const outcome: RunOutcome = { text: '', stopReason: undefined, toolCalls: 0, updates: [], usage: {} };
     let cancelled = false;
     let lastMessageId: string | undefined;
     const seenToolCalls = new Set<string>();
+    const seenToolEnds = new Set<string>();
     // B1 (audit): `tool_call` (start) and `tool_call_update` (progress) both exist; count each
     // real call once by toolCallId. `agent_message_chunk` appends; `agent_message` REPLACES
     // the accumulated text for the same messageId (C2).
@@ -112,6 +113,12 @@ export class AcpDriver {
         const block = u.content ?? u.contentBlock;
         const t = typeof block === 'string' ? block : (block?.text ?? '');
         if (t) { outcome.text += t; opts.onEvent?.({ kind: 'text', text: t }); }
+      } else if (kind === 'agent_thought_chunk' || kind === 'thought_chunk') {
+        // Chain of thought used to be dropped here; the UI wants to show the agent THINKING,
+        // not just its answer. Clamped per chunk like the dsh side.
+        const block = u.content ?? u.contentBlock;
+        const t = typeof block === 'string' ? block : (block?.text ?? '');
+        if (t) opts.onEvent?.({ kind: 'thinking', text: String(t).slice(0, 1500) });
       } else if (kind === 'agent_message') {
         const block = u.content ?? u.contentBlock;
         const t = typeof block === 'string' ? block : (block?.text ?? '');
@@ -129,6 +136,23 @@ export class AcpDriver {
             cancelled = true;
             s.rpc.notify('session/cancel', { sessionId: s.sessionId });
           }
+        }
+      } else if (kind === 'tool_call_update') {
+        // A call updates many times; only the terminal transition is worth an event, and only
+        // once per call id. The digest is clamped — tool output can be megabytes.
+        const id = String(u.toolCallId ?? u.id ?? '');
+        const st = String(u.status ?? '');
+        if (id && (st === 'completed' || st === 'failed') && !seenToolEnds.has(id)) {
+          seenToolEnds.add(id);
+          const c = u.content ?? u.rawOutput ?? u.result ?? '';
+          const text = typeof c === 'string' ? c
+            : Array.isArray(c) ? c.map((x: any) => x?.text ?? '').join(' ')
+            : '';
+          opts.onEvent?.({
+            kind: 'tool_result',
+            text: String(text).replace(/\s+/g, ' ').trim().slice(0, 220),
+            status: st === 'failed' ? 'error' : 'completed',
+          });
         }
       } else if (kind === 'usage_update') {
         // C1 (audit): protocol-shaped usage — { used, size, cost } (plus lenient fallbacks).

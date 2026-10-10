@@ -1,10 +1,13 @@
-// One-click launcher for the ACP web console.
-// Does three things, so nobody has to remember env vars again:
+// One-click launcher for the ACP console.
+// Does four things, so nobody has to remember env vars again:
 //   1. resolve WORKSPACE_DIR (explicit env wins; otherwise auto-probe common locations)
-//   2. spawn src/web/server.ts with the managed Node
-//   3. once the port answers, open the default browser
-// Direct run:  node scripts/start-web.mjs
-// Env knobs:   ACP_WEB_PORT (default 7777) | ACP_NO_OPEN=1 (do not open browser) | WORKSPACE_DIR
+//   2. if the port is already live, just open the window (double-click #2 must not spawn a twin)
+//   3. otherwise spawn src/web/server.ts with the managed Node
+//   4. once the port answers, open either the default browser, or — with --desktop — a chromeless
+//      app window (Edge/Chrome --app), which is how the console is used as a desktop tool
+// Direct run:  node scripts/start-web.mjs [--desktop]
+// Env knobs:   ACP_WEB_PORT (default 7777) | ACP_NO_OPEN=1 (do not open anything) | ACP_DESKTOP=1
+//              | WORKSPACE_DIR
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -18,6 +21,7 @@ const serverFile = join(acpDir, 'src', 'web', 'server.ts');
 const PORT = Number(process.env.ACP_WEB_PORT ?? 7777);
 const URL = `http://127.0.0.1:${PORT}`;
 const NO_OPEN = process.env.ACP_NO_OPEN === '1';
+const DESKTOP = process.env.ACP_DESKTOP === '1' || process.argv.includes('--desktop');
 
 function log(msg) { console.log(`[start-web] ${msg}`); }
 
@@ -70,32 +74,10 @@ if (workspace) {
   }
 }
 
-// --- 2. spawn the server ------------------------------------------------------------
-const env = { ...process.env, ACP_WEB_PORT: String(PORT) };
-if (workspace) env.WORKSPACE_DIR = workspace;
-delete env.ACP_NO_OPEN;
-
-log(`starting server on ${URL} ...`);
-const child = spawn(process.execPath, ['--experimental-strip-types', serverFile], {
-  cwd: acpDir,
-  env,
-  stdio: 'inherit',
-});
-
-child.on('exit', (code, signal) => {
-  if (signal) log(`server stopped (${signal})`);
-  else if (code && code !== 0) log(`server exited with code ${code}`);
-  process.exit(code ?? 0);
-});
-child.on('error', (err) => {
-  log(`failed to start server: ${err.message}`);
-  process.exit(1);
-});
-
-// --- 3. open the browser once the port is live --------------------------------------
-const onSignal = () => { if (!child.killed) child.kill('SIGINT'); };
-process.on('SIGINT', onSignal);
-process.on('SIGTERM', onSignal);
+// --- 2. already running? then this double-click only opens the window -------------------
+async function portLive() {
+  try { const r = await fetch(URL, { signal: AbortSignal.timeout(800) }); return r.ok; } catch { return false; }
+}
 
 function openBrowser(url) {
   try {
@@ -110,20 +92,72 @@ function openBrowser(url) {
   }
 }
 
+// Desktop mode: a chromeless app window — no tabs, no address bar, its own taskbar entry.
+function findAppBrowser() {
+  if (process.platform !== 'win32') return null;
+  return [
+    'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+    'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
+    'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+  ].find((p) => existsSync(p));
+}
+function openDesktop(url) {
+  const exe = findAppBrowser();
+  if (!exe) { log('no Edge/Chrome found for an app window; opening the default browser instead'); return openBrowser(url); }
+  spawn(exe, [`--app=${url}`, '--window-size=1500,940', '--no-first-run'], { stdio: 'ignore', detached: true }).unref();
+  log(`opened desktop window: ${url}`);
+}
+const open = (url) => (DESKTOP ? openDesktop(url) : openBrowser(url));
+
+if (await portLive()) {
+  log(`Control Plane is already running at ${URL}`);
+  if (!NO_OPEN) open(URL);
+  process.exit(0);
+}
+
+// --- 3. start the server -----------------------------------------------------------------
+const env = { ...process.env, ACP_WEB_PORT: String(PORT) };
+if (workspace) env.WORKSPACE_DIR = workspace;
+delete env.ACP_NO_OPEN;
+
+log(`starting server on ${URL} ...`);
+let child = null;
+if (DESKTOP) {
+  // Desktop mode: the server outlives this launcher (there is no console window keeping it
+  // alive); stop it with stop-desktop.cmd. The next double-click finds the port live above.
+  const detached = spawn(process.execPath, ['--experimental-strip-types', serverFile], {
+    cwd: acpDir, env, stdio: 'ignore', detached: true,
+  });
+  detached.unref();
+  log('server started in the background');
+} else {
+  child = spawn(process.execPath, ['--experimental-strip-types', serverFile], {
+    cwd: acpDir, env, stdio: 'inherit',
+  });
+  child.on('exit', (code, signal) => {
+    if (signal) log(`server stopped (${signal})`);
+    else if (code && code !== 0) log(`server exited with code ${code}`);
+    process.exit(code ?? 0);
+  });
+  child.on('error', (err) => { log(`failed to start server: ${err.message}`); process.exit(1); });
+  const onSignal = () => { if (!child.killed) child.kill('SIGINT'); };
+  process.on('SIGINT', onSignal);
+  process.on('SIGTERM', onSignal);
+}
+
+// --- 4. open the window once the port answers --------------------------------------------
 async function waitAndOpen(attempts = 60) {
   for (let i = 0; i < attempts; i++) {
-    try {
-      const res = await fetch(URL, { signal: AbortSignal.timeout(1000) });
-      if (res.ok) {
-        if (NO_OPEN) log(`console ready at ${URL} (browser auto-open disabled)`);
-        else openBrowser(URL);
-        return;
-      }
-    } catch { /* not up yet */ }
+    if (await portLive()) {
+      if (NO_OPEN) log(`console ready at ${URL} (auto-open disabled)`);
+      else open(URL);
+      return;
+    }
     await new Promise((r) => setTimeout(r, 250));
   }
   log(`server did not answer within ~15s; open ${URL} manually if it is still starting.`);
 }
 
-if (NO_OPEN) log('ACP_NO_OPEN=1 -> will not open a browser');
-void waitAndOpen();
+if (NO_OPEN) log('ACP_NO_OPEN=1 -> will not open a window');
+await waitAndOpen();

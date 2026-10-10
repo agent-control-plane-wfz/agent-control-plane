@@ -436,18 +436,114 @@ button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
 ::-webkit-scrollbar-thumb{background:#ffffff1f;border-radius:999px}
 ::-webkit-scrollbar-thumb:hover{background:#ffffff29}
 .dot.ok,.dot.err,.dot.warn{box-shadow:none}
+
+/* ---------- desktop shell: three panes, both sides collapsible ---------- */
+/* The console is used as a desktop app (start-desktop.cmd opens a chromeless window); each pane
+   scrolls on its own and the page itself never scrolls. */
+main{overflow:hidden;padding:0 20px;display:flex;flex-direction:column;min-width:0}
+header.main{flex:0 0 auto;padding:12px 0 6px}
+header.main h1{font-size:15px}
+#view-console{flex:1;min-height:0;display:flex;flex-direction:column}
+#view-setup{flex:1;min-height:0;overflow-y:auto}
+aside#asideR{width:264px;min-width:264px;border-right:0;border-left:1px solid var(--border);gap:12px}
+.panerow{display:flex;align-items:center;gap:8px}
+.panetgl{margin-left:auto;background:transparent;border:0;color:var(--faint);font:14px/1 inherit;padding:4px 8px;border-radius:var(--dsw-radius-xs);cursor:pointer;flex-shrink:0}
+.panetgl:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
+.expbtn{display:none;background:transparent;border:0;color:var(--faint);font:15px/1 inherit;padding:4px 8px;border-radius:var(--dsw-radius-xs);cursor:pointer;flex-shrink:0}
+.expbtn:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
+body.hideL #asideL{display:none}
+body.hideR #asideR{display:none}
+body.hideL #expL{display:inline-flex}
+body.hideR #expR{display:inline-flex}
+
+/* conversation list (left pane) */
+.cfilters{display:flex;gap:6px;flex-wrap:wrap}
+.cfilters .fchip{padding:2px 10px;font-size:11.5px}
+#asideL .fsel{width:100%}
+#asideL .fsearch{width:100%}
+.convlist{display:flex;flex-direction:column;gap:2px}
+.cvitem{display:flex;gap:8px;align-items:flex-start;padding:7px 9px;border-radius:var(--dsw-radius-sm);cursor:pointer;border:1px solid transparent}
+.cvitem:hover{background:var(--dsw-alias-bg-hover)}
+.cvitem.on{background:var(--dsw-alias-bg-layer-3);box-shadow:0 0 0 1px var(--dsw-alias-brand-primary)}
+.cvitem .dot{margin-top:4px}
+.cvitem .cbody{min-width:0;flex:1}
+.cvitem .ctask{font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cvitem .cmeta{font-size:11px;color:var(--faint);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* center: composer view, compact and top-aligned (app surface, not a landing page) */
+.stage{background:none;border:0;box-shadow:none;min-height:0;padding:14px 0 6px;gap:12px;align-items:stretch;justify-content:flex-start;flex:1;overflow-y:auto}
+.welcome{display:flex;align-items:center;gap:10px;text-align:left}
+.welcome .mark{width:30px;height:30px;border-radius:9px;font-size:15px;margin-bottom:0;box-shadow:none}
+.welcome h3{font-size:14.5px}
+.welcome p{font-size:12px;margin-top:2px}
+.stage .composer,.stage .presets,.stage .form-err{max-width:920px;width:100%}
+.stage .presets{justify-content:flex-start}
+
+/* center: conversation stream */
+.conv{flex:1;min-height:0;display:flex;flex-direction:column}
+.ccol{max-width:920px;width:100%;margin:0 auto;display:flex;flex-direction:column;min-height:0;flex:1}
+.chead{flex:0 0 auto;display:flex;flex-direction:column;gap:6px;padding:12px 2px 8px}
+.chrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ctitle{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:52ch}
+.chrow .spacer{flex:1}
+.chead .cmeta{font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.cstream{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:2px 2px 14px}
+.cresult{flex:0 0 auto;padding:0 2px 16px}
+.msg{display:flex;gap:10px;align-items:flex-start}
+.msg .who{width:22px;height:22px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff}
+.msg .bubble{background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-md);padding:8px 12px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;min-width:0}
+.msg.user .bubble{background:rgba(65,118,230,.10);box-shadow:0 0 0 1px rgba(65,118,230,.22)}
+.msg.assistant .bubble{color:#c6cfe2}
+.cstream .ev{font:12px/1.65 var(--mono);color:var(--dim);word-break:break-all;display:flex;gap:8px}
+.cstream .ev .k{opacity:.55;flex-shrink:0;user-select:none;font-variant-numeric:tabular-nums}
+.cstream .ev.t-text{color:#b8c4e0}
+.cstream .ev.t-tool{color:var(--warn)}
+.cstream .ev.t-status{color:var(--faint);font-style:italic}
+.cstream .ev.t-done{color:var(--ok)}
+.nfilter{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;color:var(--dim);background:var(--dsw-alias-bg-layer-1);border-radius:99px;padding:3px 12px;width:fit-content}
+.nfilter button{background:none;border:0;color:var(--faint);cursor:pointer;font:inherit;padding:0}
+.nfilter button:hover{color:var(--text)}
+
+/* right pane: the agent call tree */
+.tree{display:flex;flex-direction:column;gap:1px;font-size:12.5px}
+.tnode{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--dsw-radius-sm);cursor:pointer;color:var(--dim);border:1px solid transparent;min-width:0}
+.tnode:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
+.tnode.on{background:var(--dsw-alias-bg-layer-3);color:var(--text);box-shadow:0 0 0 1px var(--dsw-alias-brand-primary)}
+.tnode .tdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.tnode .tro{font-size:10px;letter-spacing:.4px;color:var(--faint);flex-shrink:0;min-width:30px}
+.tnode .tval{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.tnode .tsub{color:var(--faint);font-size:10.5px;flex-shrink:0;margin-left:auto}
+.tkids{margin-left:12px;padding-left:9px;border-left:1px solid var(--border2);display:flex;flex-direction:column;gap:1px}
+.agrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--dsw-radius-sm);cursor:pointer;color:var(--dim);font-size:12.5px}
+.agrow:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
+.agrow .tval{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agrow .tsub{color:var(--faint);font-size:10.5px;flex-shrink:0}
+.tempty{color:var(--faint);font-size:11.5px;padding:10px 8px;line-height:1.7}
 </style>
 </head>
 <body>
 
-<aside>
-  <div class="brand"><span class="logo">◈</span> Control Plane <small>v0.3</small></div>
+<aside id="asideL">
+  <div class="panerow">
+    <div class="brand"><span class="logo">◈</span> Control Plane <small>v0.3</small></div>
+    <button class="panetgl" onclick="togglePane('l')" title="折叠左栏">‹</button>
+  </div>
   <button class="newbtn" onclick="newTask()">＋ 新任务</button>
   <div class="sidenav">
     <button class="navrow on" id="nav-console" onclick="switchView('console')"><span class="navico">▤</span>控制台</button>
     <button class="navrow" id="nav-setup" onclick="switchView('setup')"><span class="navico">✦</span>首启向导<span class="badge-unconf" id="nav-setup-badge" style="display:none;margin-left:auto">待设置</span></button>
     <button class="navrow" id="nav-settings" onclick="switchView('settings')"><span class="navico">⚙</span>设置</button>
   </div>
+  <div class="wshead"><span>会话</span><span class="jid" id="job-count"></span></div>
+  <div class="cfilters">
+    <span class="fchip on" data-f="all">全部</span>
+    <span class="fchip" data-f="running">运行中</span>
+    <span class="fchip" data-f="ok">完成</span>
+    <span class="fchip" data-f="err">失败</span>
+  </div>
+  <select class="fsel" id="f-agent-filter"><option value="">全部 agent</option></select>
+  <input class="fsearch" id="f-search" placeholder="搜索会话…">
+  <div class="convlist" id="jobs"></div>
   <div class="wshead"><span>工作区</span><span class="tools" onclick="openDirPicker('f-cwd')" title="选择一个目录">＋</span></div>
   <div class="wslist" id="ws-list"></div>
   <div class="side-card" id="budget"></div>
@@ -456,17 +552,21 @@ button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
 
 <main>
   <header class="main">
+    <button class="expbtn" id="expL" onclick="togglePane('l')" title="展开左栏">›</button>
     <h1 id="view-title">控制台</h1>
     <div class="conn"><span class="dot pulse" id="conn-dot"></span><span id="conn-text">连接中…</span></div>
     <button class="ghost" id="btn-clear">清空历史</button>
+    <button class="expbtn" id="expR" onclick="togglePane('r')" title="展开右栏">‹</button>
   </header>
 
   <div id="view-console">
-  <div class="stage">
+  <div class="stage" id="stage-view">
     <div class="welcome">
       <div class="mark">◈</div>
-      <h3>把任务派给最合适的 harness</h3>
-      <p id="stage-hint">写清楚要做什么；路由与参数在下面随时可改，设置里是全局默认</p>
+      <div>
+        <h3>新建任务</h3>
+        <p id="stage-hint">派发给最合适的 harness · 座位与参数在下方，随时可改</p>
+      </div>
     </div>
 
     <div class="composer" id="composer">
@@ -525,32 +625,30 @@ button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
     </div>
 
     <div class="presets" id="presets"></div>
-    <div class="form-err" id="form-err" style="width:100%;max-width:660px"></div>
+    <div class="form-err" id="form-err" style="width:100%;max-width:920px"></div>
   </div>
+  <section id="conv" class="conv" style="display:none"></section>
   <datalist id="cwd-list"></datalist>
   <datalist id="model-list"></datalist>
   <datalist id="effort-list"></datalist>
 
-  <section class="card" style="padding:16px 18px">
-    <div class="jobs-head">
-      <h2>作业</h2>
-      <span class="fchip on" data-f="all">全部</span>
-      <span class="fchip" data-f="running">运行中</span>
-      <span class="fchip" data-f="ok">完成</span>
-      <span class="fchip" data-f="err">失败</span>
-      <select class="fsel" id="f-agent-filter"><option value="">全部 agent</option></select>
-      <input class="fsearch" id="f-search" placeholder="搜索任务…">
-      <span class="spacer"></span>
-      <span class="jid" id="job-count"></span>
-    </div>
-    <div id="jobs"><div class="empty"><span class="emico">◈</span><b>还没有作业</b>在上面的输入框描述任务，派发后会出现在这里</div></div>
-  </section>
-  </div><!-- /view-console -->
+    </div><!-- /view-console -->
 
   <div id="view-setup" style="display:none">
     <div id="setup-body"></div>
   </div>
 </main>
+
+<aside id="asideR">
+  <div class="panerow">
+    <span class="side-title">调用关系</span>
+    <button class="panetgl" onclick="togglePane('r')" title="折叠右栏">›</button>
+  </div>
+  <div id="tree" class="tree"></div>
+  <div class="side-title" style="margin-top:4px">Agents</div>
+  <div id="agpanel"></div>
+  <div class="side-foot" style="margin-top:auto">◈ 树随选中的会话更新<br>点节点只看该 agent 的发言</div>
+</aside>
 
 <!-- 设置不再是主区里的第三个页面，而是盖在任意视图之上的模态；关闭后回到原来的视图。
      放在 </main> 之外与 #dirpicker 同级，避免任何祖先产生层叠上下文。 -->
@@ -605,7 +703,19 @@ const PRESETS=[
   ['解释','用简洁的中文解释下面这段代码/概念：\n'],
   ['快问快答',''],
 ];
-let mode='ask',STATUS=null,FILTER='all',FAGENT='',FSEARCH='',JOBS=[];
+let mode='ask',STATUS=null,FILTER='all',FAGENT='',FSEARCH='',JOBS=[],SELECTED=null,NODEFILTER=null,CENTER_SIG='',TREE_SIG='';
+/* Desktop shell: both side panes collapse independently; the choice survives a reload. */
+let PANES={};
+try{PANES=JSON.parse(localStorage.getItem('acp-panes')||'{}')}catch{}
+function togglePane(side){
+  PANES[side]=!PANES[side];
+  try{localStorage.setItem('acp-panes',JSON.stringify(PANES))}catch{}
+  applyPanes();
+}
+function applyPanes(){
+  document.body.classList.toggle('hideL',!!PANES.l);
+  document.body.classList.toggle('hideR',!!PANES.r);
+}
 
 /* ---------- helpers ---------- */
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -932,6 +1042,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closePops()});
 /** A fresh task: clear the text and nothing else. The seats are a working setup, not a result. */
 function newTask(){
   switchView('console');
+  clearSelection();
   $('f-task').value='';$('f-batchtasks').value='';
   $('form-err').textContent='';
   if(mode!=='ask')setMode('ask');
@@ -1085,19 +1196,19 @@ $('btn-clear').onclick=async()=>{await fetch('/api/jobs/clear',{method:'POST'});
 
 /* ---------- jobs feed ---------- */
 function jobState(j){
-  if(j.status==='running')return{cls:'st-running',pill:'<span class="pill running">● 运行中</span>'};
+  if(j.status==='running')return{cls:'st-running',dot:'dot pulse',pill:'<span class="pill running">● 运行中</span>'};
   if(j.kind==='review'){
     // consensus is the review's own verdict. 'review_disputed' is a real, useful outcome (the
     // reviewer disagrees and an arbiter may be needed) — it must not render as a failure.
     const c=j.result?.consensus;
-    if(c==='verified')return{cls:'st-ok',pill:'<span class="pill ok">✓ 通过异构评审</span>'};
-    if(c==='review_disputed')return{cls:'st-ok',pill:'<span class="pill warn">⚠ 评审有异议</span>'};
-    return{cls:'st-err',pill:`<span class="pill err">✕ ${c==='verification_failed'?'终验失败':c==='failed'?'实施失败':'失败'}</span>`};
+    if(c==='verified')return{cls:'st-ok',dot:'dot ok',pill:'<span class="pill ok">✓ 通过异构评审</span>'};
+    if(c==='review_disputed')return{cls:'st-ok',dot:'dot warn',pill:'<span class="pill warn">⚠ 评审有异议</span>'};
+    return{cls:'st-err',dot:'dot err',pill:`<span class="pill err">✕ ${c==='verification_failed'?'终验失败':c==='failed'?'实施失败':'失败'}</span>`};
   }
   const ok=j.kind==='ask'?j.result?.ok:j.result?.summary?.failed===0;
   return j.status==='failed'||ok===false
-    ?{cls:'st-err',pill:'<span class="pill err">✕ 失败</span>'}
-    :{cls:'st-ok',pill:`<span class="pill ${j.kind==='parallel'?'batch':'ok'}">✓ ${j.kind==='parallel'?'批次完成':'完成'}</span>`};
+    ?{cls:'st-err',dot:'dot err',pill:'<span class="pill err">✕ 失败</span>'}
+    :{cls:'st-ok',dot:'dot ok',pill:`<span class="pill ${j.kind==='parallel'?'batch':'ok'}">✓ ${j.kind==='parallel'?'批次完成':'完成'}</span>`};
 }
 function evLine(e){
   const t=new Date(e.at).toLocaleTimeString('zh-CN',{hour12:false});
@@ -1107,43 +1218,198 @@ function evLine(e){
   if(e.kind==='subtask_done')return`<div class="ev t-done"><span class="k">${t} ✓</span>${esc(tag+(e.text||'子任务结束'))}</div>`;
   return`<div class="ev t-status"><span class="k">${t} ·</span>${esc(tag+(e.text||e.kind).slice(0,120))}</div>`;
 }
+function jobTitle(j){
+  const t=String(j.request.task||'');
+  if(j.kind==='parallel')return `批量 ${(j.request.jobs||[]).length} 个任务`;
+  if(j.kind==='review')return `异构评审：${t.slice(0,90)}`;
+  return t.slice(0,90);
+}
+function jobAgent(j){
+  return j.kind==='parallel'?'parallel':j.kind==='review'?'review':(j.request.agent||j.result?.agent||'auto');
+}
 function renderJobs(list){
   const filtered=list.filter(j=>{
     if(FILTER!=='all'){const st=jobState(j);if(FILTER==='running'&&st.cls!=='st-running')return false;if(FILTER==='ok'&&st.cls!=='st-ok')return false;if(FILTER==='err'&&st.cls!=='st-err')return false;}
     if(FAGENT&&FAGENT!=='auto'){const ag=j.kind==='parallel'?null:(j.request.agent||j.result?.agent);if(ag!==FAGENT)return false;if(FAGENT==='auto'&&(j.request.agent||j.result?.agent))return false;}
     if(FSEARCH&&!String(j.request.task).toLowerCase().includes(FSEARCH))return false;
     return true;});
-  $('job-count').textContent=`${filtered.length}/${list.length}`;
-  if(!filtered.length){$('jobs').innerHTML=list.length
-    ?'<div class="empty">没有符合条件的作业，换个筛选或清空搜索</div>'
-    :'<div class="empty"><span class="emico">◈</span><b>还没有作业</b>在上面的输入框描述任务，派发后会出现在这里</div>';return}
-  $('jobs').innerHTML=filtered.map(j=>{
+  const jc=$('job-count');if(jc)jc.textContent=`${filtered.length}/${list.length}`;
+  const el=$('jobs');if(!el)return;
+  if(!filtered.length){el.innerHTML=list.length
+    ?'<div class="tempty">没有符合条件的会话</div>'
+    :'<div class="tempty">还没有会话 —— 点上面的「＋ 新任务」派发第一个</div>';return}
+  el.innerHTML=filtered.map(j=>{
     const st=jobState(j);
-    const task=j.kind==='parallel'?`批量 ${j.request.jobs.length} 个任务 · 并发 ${j.request.concurrency||3}`:String(j.request.task).slice(0,120);
-    const ag=j.kind==='parallel'?'parallel':j.kind==='review'?'review':(j.request.agent||j.result?.agent||'auto');
     const dur=j.finishedAt?((j.finishedAt-j.createdAt)/1000).toFixed(1)+'s':'';
-    // A review spans several vendors, so naming one of them would be misleading — the arrow shows
-    // the actual cross-vendor pair the run used.
-    const meta=j.kind==='review'
-      ? `评审 · ${j.result?.implementerVendor||'?'} → ${j.result?.reviewerVendor||'未生成'}`
-      : esc(ag);
-    return`<details class="job ${st.cls}" data-id="${j.id}" ontoggle="onToggle(this)">
-      <summary class="job-h" onclick="toggleOpen(event,this)">${st.pill}
-        <span class="jid">${j.id}</span>
-        <span class="avatar" style="width:20px;height:20px;font-size:8px;border-radius:6px;background:${AGENT_COLORS[ag]||'#5b7cfa'}">${AGENT_SHORT[ag]||'AU'}</span>
-        <span class="jtask">${esc(task)}</span>
-        <span class="jmeta">${meta}${dur?' · '+dur:''} · ${fmtT(j.createdAt)}</span></summary>
-      <div class="jbody">${renderBody(j)}</div></details>`;
+    return`<div class="cvitem${SELECTED===j.id?' on':''}" data-id="${esc(j.id)}" onclick="selectJob('${esc(j.id)}')" title="${esc(jobTitle(j))}">
+      <span class="${st.dot}"></span>
+      <div class="cbody"><div class="ctask">${esc(jobTitle(j))}</div>
+      <div class="cmeta">${esc(jobAgent(j))}${dur?' · '+dur:''} · ${fmtT(j.createdAt)}</div></div></div>`;
   }).join('');
 }
-function toggleOpen(ev,el){ev.preventDefault();el.parentElement.classList.toggle('open')}
-function onToggle(el){/* hook for future lazy-load */}
-function renderBody(j){
-  if(j.status==='running'){
-    const evs=(j.events||[]).slice(-10).map(evLine).join('')||'<div class="ev t-status">等待 agent 子进程输出…</div>';
-    const subs=j.kind==='parallel'?subChips(j):'';
-    return`<div class="livelog">${evs}</div>${subs}`;
+
+/* ---------- selection + the center conversation pane (dsh-style) ---------- */
+function selectJob(id){
+  SELECTED=id;NODEFILTER=null;CENTER_SIG='';TREE_SIG='';
+  const j=JOBS.find(x=>x.id===id);
+  renderJobs(JOBS);renderCenter(true);renderTree();
+  document.title=j?`Control Plane · ${jobTitle(j).slice(0,40)}`:'Control Plane';
+}
+function clearSelection(){
+  SELECTED=null;NODEFILTER=null;CENTER_SIG='';TREE_SIG='';
+  renderJobs(JOBS);renderCenter(true);renderTree();document.title='Control Plane';
+}
+function centerSig(j){return [j.id,NODEFILTER||'',j.status,(j.events||[]).length,j.error||'',j.result?1:0].join('|')}
+function renderCenter(force){
+  const j=JOBS.find(x=>x.id===SELECTED);
+  const stage=$('stage-view'),conv=$('conv');
+  if(!stage||!conv)return;
+  if(!j){stage.style.display='';conv.style.display='none';return}
+  stage.style.display='none';conv.style.display='';
+  const sig=centerSig(j);
+  if(!force&&sig===CENTER_SIG)return;   // nothing moved: never wipe scroll or a text selection
+  CENTER_SIG=sig;
+  const old=$('cstream');const keep=old?old.scrollTop:0;const pinned=!old||old.dataset.stick!=='0';
+  conv.innerHTML=renderConversation(j);
+  const ns=$('cstream');
+  if(ns)ns.scrollTop=pinned?ns.scrollHeight:keep;
+}
+function stickTrack(el){el.dataset.stick=(el.scrollTop+el.clientHeight>=el.scrollHeight-40)?'1':'0'}
+/* The review stages are visible in the event stream: the orchestrator emits ①②③④ status lines.
+   Slicing on those marks is what lets a tree node show "just this agent's turn". */
+function stageBounds(j){
+  const marks=[];
+  (j.events||[]).forEach((e,i)=>{
+    if(e.kind!=='status')return;
+    const t=String(e.text||'');
+    for(const [k,ch] of [['impl','①'],['rev','②'],['ver','③'],['arb','④']]) if(t.startsWith(ch))marks.push({key:k,at:i});
+  });
+  return marks;
+}
+function nodeEventFilter(j,key){
+  if(!key)return null;
+  if(j.kind==='review'){
+    const marks=stageBounds(j);const i=marks.findIndex(m=>m.key===key);if(i<0)return null;
+    const from=marks[i].at,to=i+1<marks.length?marks[i+1].at:(j.events||[]).length;
+    return (e,idx)=>idx>=from&&idx<to;
   }
+  if(j.kind==='parallel')return key==='root'?null:(e=>String(e.jobId||'')===String(key));
+  return null;
+}
+function renderConversation(j){
+  const st=jobState(j);
+  const dur=j.finishedAt?((j.finishedAt-j.createdAt)/1000).toFixed(1)+'s':'进行中';
+  const meta=[jobAgent(j),j.request.model||'',dur,fmtT(j.createdAt)].filter(Boolean).join(' · ');
+  const taskTxt=j.kind==='parallel'
+    ?(j.request.jobs||[]).map((t,i)=>`${i+1}. ${t.task}`).join('\n')
+    :String(j.request.task||'');
+  const evs=j.events||[];
+  const flt=nodeEventFilter(j,NODEFILTER);
+  const slice=flt?evs.filter((e,i)=>flt(e,i)):evs;
+  const node=NODEFILTER?treeNodes(j).find(n=>n.key===NODEFILTER):null;
+  const note=node?`<div class="nfilter">只看：${esc(node.label)}${node.agent?' · '+esc(node.agent):''}<button onclick="clearNode()">✕ 回到完整会话</button></div>`:'';
+  const stream=slice.length?slice.map(evLine).join('')
+    :(j.status==='running'?'<div class="ev t-status">等待 agent 输出…</div>':'<div class="ev t-status">（这一段没有事件）</div>');
+  return `<div class="ccol">
+    <div class="chead">
+      <div class="chrow">${st.pill}<span class="ctitle">${esc(jobTitle(j))}</span><span class="spacer"></span><span class="jid">${esc(j.id)}</span></div>
+      <div class="cmeta">${esc(meta)}</div>
+      ${note}
+    </div>
+    <div class="cstream" id="cstream" data-stick="1" onscroll="stickTrack(this)">
+      <div class="msg user"><span class="who" style="background:#39415a">你</span><div class="bubble">${esc(taskTxt)}</div></div>
+      ${stream}
+    </div>
+    <div class="cresult">${j.status==='running'?'':renderResult(j)}</div>
+  </div>`;
+}
+
+/* ---------- the call tree (right pane) ---------- */
+function treeNodes(j){
+  const nodes=[];
+  if(j.kind==='review'){
+    const r=j.result||{};const marks=stageBounds(j);
+    nodes.push({key:'impl',label:'① 实施',agent:r.implementation?.agent||'',sub:r.implementerVendor||'',state:r.implementation?(r.implementation.ok===false?'err':'ok'):(j.status==='running'?'run':'')});
+    nodes.push({key:'rev',label:'② 评审',agent:r.review?.agent||'',sub:r.reviewerVendor||'',state:r.review?'ok':(j.status==='running'?'run':'')});
+    if(r.verification||marks.some(m=>m.key==='ver')){
+      const v=r.verification;
+      nodes.push({key:'ver',label:'③ 验证',agent:'',sub:v?`${(v.results||[]).filter(x=>x.passed).length}/${(v.results||[]).length} 通过`:'未配置门禁',state:v?(v.ok===false?'err':'ok'):''});
+    }
+    if(r.arbitration||marks.some(m=>m.key==='arb'))nodes.push({key:'arb',label:'④ 仲裁',agent:r.arbitration?.agent||'',sub:'第三方',state:r.arbitration?'ok':(j.status==='running'?'run':'')});
+  }else if(j.kind==='parallel'){
+    (j.request.jobs||[]).forEach((t,i)=>{
+      const id=t.id||`job-${i+1}`;
+      const res=(j.result?.results||[]).find(x=>x.id===id);
+      const done=(j.events||[]).some(e=>e.jobId===id&&e.kind==='subtask_done');
+      nodes.push({key:id,label:`#${i+1}`,agent:res?.result?.agent||'',sub:String(t.task||'').slice(0,26),state:res?(res.ok?'ok':'err'):(done?'ok':(j.status==='running'?'run':''))});
+    });
+  }else{
+    const r=j.result||{};
+    nodes.push({key:'root',label:'对话',agent:r.agent||j.request.agent||'auto',sub:r.model||'',state:(j.status==='running'?'run':(r.ok===false?'err':'ok'))});
+  }
+  return nodes;
+}
+function renderTree(){
+  const el=$('tree');if(!el)return;
+  const j=JOBS.find(x=>x.id===SELECTED);
+  const sig=[SELECTED||'',NODEFILTER||'',j?j.status:'',j?(j.events||[]).length:0,j&&j.result?1:0].join('|');
+  if(sig===TREE_SIG)return;
+  TREE_SIG=sig;
+  if(!j){el.innerHTML='<div class="tempty">选中左侧会话后，这里显示它内部的 agent 调用关系。<br>点节点可以只看该 agent 的发言。</div>';renderAgentPanel();return}
+  const st=jobState(j);
+  const dot=j.status==='running'?'var(--acc1)':st.cls==='st-err'?'var(--err)':st.dot==='dot warn'?'var(--warn)':'var(--ok)';
+  const rows=[`<div class="tnode${NODEFILTER?'':' on'}" onclick="clearNode()" title="看完整会话">
+      <span class="tdot" style="background:${dot}"></span>
+      <span class="tval">${esc(jobTitle(j))}</span><span class="tsub">${esc(j.kind)}</span></div>`,
+    '<div class="tkids">'+treeNodes(j).map(n=>{
+      const col=n.state==='err'?'var(--err)':n.state==='run'?'var(--acc1)':n.state?'var(--ok)':'var(--faint)';
+      return`<div class="tnode${NODEFILTER===n.key?' on':''}" onclick="focusNode('${esc(n.key)}')" title="${esc(n.sub||'')}">
+        <span class="tdot" style="background:${col}"></span>
+        <span class="tro">${esc(n.label)}</span>
+        <span class="tval">${esc(n.agent||'（路由中）')}</span>
+        ${n.sub?`<span class="tsub">${esc(n.sub)}</span>`:''}</div>`;
+    }).join('')+'</div>'];
+  el.innerHTML=rows.join('');
+  renderAgentPanel();
+}
+function focusNode(key){NODEFILTER=key;CENTER_SIG='';renderCenter(true);renderTree()}
+function clearNode(){NODEFILTER=null;CENTER_SIG='';renderCenter(true);renderTree()}
+function renderAgentPanel(){
+  const el=$('agpanel');if(!el)return;
+  const agents=(STATUS?.agents||[]);
+  if(!agents.length){el.innerHTML='<div class="tempty">（agent 状态未加载）</div>';return}
+  el.innerHTML=agents.map(a=>{
+    const n=JOBS.filter(j=>j.kind!=='parallel'&&(j.request.agent||j.result?.agent||'')===a.agent).length;
+    return`<div class="agrow" onclick="focusAgent('${esc(a.agent)}')" title="只看该 agent 的会话">
+      <span class="dot ${a.authenticated===true?'ok':a.authenticated===false?'err':''}"></span>
+      <span class="tval">${esc(a.agent)}</span>
+      <span class="tsub">${esc(a.actualVendorNote||'')}${n?' · '+n+' 会话':''}</span></div>`;
+  }).join('');
+}
+function focusAgent(id){
+  FAGENT=id;const sel=$('f-agent-filter');if(sel)sel.value=id;
+  renderJobs(JOBS);
+  const first=JOBS.find(j=>j.kind!=='parallel'&&(j.request.agent||j.result?.agent)===id);
+  if(first)selectJob(first.id);
+}
+
+/* ---------- result blocks (shared by the conversation view) ---------- */
+function reviewStep(r,key){
+  const vb=v=>v?`<div class="verdict"><b>verdict：</b>${esc(v.recommendation||v.conclusion||'')}
+    ${(v.risks||[]).length?`<ul>${v.risks.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}</div>`:'';
+  if(key==='impl')return r.implementation?`<div class="rstep"><div class="rh">① 实施 · ${esc(r.implementerVendor||'')}<span class="muted">${r.implementation.ok===false?'失败':'完成'}</span></div>
+    <div class="reply">${esc((r.implementation.text||'(空回复)').slice(0,3000))}</div></div>`:'';
+  if(key==='rev')return r.review?`<div class="rstep"><div class="rh">② 交叉评审 · ${esc(r.reviewerVendor||'?')}</div>${vb(r.review.verdict)}
+    <div class="reply">${esc((r.review.text||'').slice(0,2000))}</div></div>`:'';
+  if(key==='ver'){const ver=r.verification;
+    return`<div class="rstep"><div class="rh">③ 客观终验${ver?`<span class="muted">${(ver.results||[]).filter(x=>x.passed).length}/${(ver.results||[]).length} 条通过</span>`:'<span class="muted">未配置门禁</span>'}</div>
+    ${ver?`<div class="rrow">${(ver.results||[]).map(x=>`<span>${x.passed?'✓':'✕'} ${esc(x.cmd)} <b>exit ${x.exitCode}</b></span>`).join('')}</div>`:''}</div>`;
+  }
+  if(key==='arb')return r.arbitration?`<div class="rstep"><div class="rh">④ 第三方仲裁 · ${esc(r.arbitration.agent||'')}</div>${vb(r.arbitration.verdict)}
+    <div class="reply">${esc((r.arbitration.text||'').slice(0,1500))}</div></div>`:'';
+  return '';
+}
+function renderResult(j){
   if(j.status==='failed')return`<div class="reply" style="color:var(--err)">${esc(j.error||'未知错误')}</div>`;
   const r=j.result||{};
   if(j.kind==='ask'){
@@ -1153,14 +1419,14 @@ function renderBody(j){
     const u=r.usage?`<span>tokens <b>${fmtN(r.usage.input||0)}入/${fmtN(r.usage.output||0)}出</b></span>`:'';
     // F3 (issue #2): a successful result must never render in red — only surface `error`
     // when the job actually failed. The fallback trail is a muted diagnostic note.
-    const err=r.ok?'' : (r.error?`<div class="reply" style="color:var(--err)">${esc(r.error)}</div>`:'');
+    const err=r.ok?'':(r.error?`<div class="reply" style="color:var(--err)">${esc(r.error)}</div>`:'');
     const trail=r.fallbackTrail?`<div class="reply" style="color:var(--faint);font-size:12px">fallback：${esc(r.fallbackTrail)}</div>`:'';
     return`${err}${trail}
       <div class="reply">${esc(r.text||'(空回复)')}</div>${v}
       <div class="rrow">${u}<span>工具调用 <b>${r.toolCalls??0}</b></span><span>agent <b>${esc(r.agent||'')}</b>${r.model?` · ${esc(r.model)}`:''}${r.effort?` · ${esc(r.effort)}`:''}</span>
       ${r.workspace?.kind==='worktree'?`<span>worktree <b>${esc(r.workspace.branch||'')}</b></span>`:''}
       ${r.verdictError?`<span style="color:var(--err)">verdict 解析失败（原文见 raw）</span>`:''}</div>
-      <button class="btn-copy" onclick="copyText(this,'${j.id}')">复制回复</button>
+      <button class="btn-copy" onclick="copyText(this,'${esc(j.id)}')">复制回复</button>
       <details class="raw"><summary>原始 JSON</summary><pre class="rawj">${esc(JSON.stringify(r,null,2))}</pre></details>`;
   }
   if(j.kind==='review'){
@@ -1175,26 +1441,16 @@ function renderBody(j){
       if(!res)return`<span class="rseat off"><b>${role}</b>未执行</span>`;
       return`<span class="rseat"><b>${role}</b>${esc(vendor||'—')} · ${esc(res.agent||'')}${res.model?` · ${esc(res.model)}`:''}</span>`;
     };
-    const vb=v=>v?`<div class="verdict"><b>verdict：</b>${esc(v.recommendation||v.conclusion||'')}
-      ${(v.risks||[]).length?`<ul>${v.risks.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}</div>`:'';
-    const ver=r.verification;
-    const steps=[
-      r.implementation?`<div class="rstep"><div class="rh">① 实施 · ${esc(r.implementerVendor||'')}<span class="muted">${r.implementation.ok===false?'失败':'完成'}</span></div>
-        <div class="reply">${esc((r.implementation.text||'(空回复)').slice(0,3000))}</div></div>`:'',
-      r.review?`<div class="rstep"><div class="rh">② 交叉评审 · ${esc(r.reviewerVendor||'?')}</div>${vb(r.review.verdict)}
-        <div class="reply">${esc((r.review.text||'').slice(0,2000))}</div></div>`
-        :`<div class="rstep"><div class="rh">② 交叉评审<span class="muted">没有可用的异构候选，已跳过</span></div></div>`,
-      `<div class="rstep"><div class="rh">③ 客观终验${ver?`<span class="muted">${(ver.results||[]).filter(x=>x.passed).length}/${(ver.results||[]).length} 条通过</span>`:'<span class="muted">未配置门禁</span>'}</div>
-        ${ver?`<div class="rrow">${(ver.results||[]).map(x=>`<span>${x.passed?'✓':'✕'} ${esc(x.cmd)} <b>exit ${x.exitCode}</b></span>`).join('')}</div>`:''}</div>`,
-      r.arbitration?`<div class="rstep"><div class="rh">④ 第三方仲裁 · ${esc(r.arbitration.agent||'')}</div>${vb(r.arbitration.verdict)}
-        <div class="reply">${esc((r.arbitration.text||'').slice(0,1500))}</div></div>`:'',
-    ].filter(Boolean).join('');
     COPYBUF[j.id]=[
       `结论：${r.consensus} — ${r.detail||''}`,
       r.implementation?`\n[① 实施 · ${r.implementerVendor||''}]\n${r.implementation.text||''}`:'',
       r.review?`\n[② 评审 · ${r.reviewerVendor||''}]\n${r.review.text||''}`:'',
       r.arbitration?`\n[④ 仲裁]\n${r.arbitration.text||''}`:'',
     ].join('\n');
+    if(NODEFILTER)return reviewStep(r,NODEFILTER)||`<div class="reply" style="color:var(--faint)">（该阶段没有产出）</div>`;
+    const steps=['impl','rev','ver','arb'].map(k=>reviewStep(r,k)||
+      (k==='rev'?'<div class="rstep"><div class="rh">② 交叉评审<span class="muted">没有可用的异构候选，已跳过</span></div></div>':''))
+      .filter(Boolean).join('');
     return`<div class="rseats">
         <span class="pill ${cls}">${label}</span>
         ${seatChip('① 实施',r.implementation,r.implementerVendor)}
@@ -1203,11 +1459,18 @@ function renderBody(j){
       </div>
       <div class="reply" style="color:var(--dim);font-size:12.5px">${esc(r.detail||'')}</div>
       ${steps}
-      <button class="btn-copy" onclick="copyText(this,'${j.id}')">复制全文</button>
+      <button class="btn-copy" onclick="copyText(this,'${esc(j.id)}')">复制全文</button>
       <details class="raw"><summary>原始 JSON</summary><pre class="rawj">${esc(JSON.stringify(r,null,2))}</pre></details>`;
   }
   const s=r.summary||{};
-  return`<div class="rrow"><span>结果 <b>${s.ok}✓ / ${s.failed}✕</b></span><span>耗时 <b>${(s.durationMs/1000).toFixed(1)}s</b>（并发节省 <b>${((s.wallVsSerialMsSaved||0)/1000).toFixed(1)}s</b>）</span>
+  if(NODEFILTER){
+    const res=(r.results||[]).find(x=>x.id===NODEFILTER);
+    if(!res)return`<div class="reply" style="color:var(--faint)">（该子任务还没有结果）</div>`;
+    const rr=res.result||{};
+    return`<div class="rrow"><span>${res.ok?'✓ 完成':'✕ 失败'}</span><span>agent <b>${esc(rr.agent||'')}</b>${rr.model?` · ${esc(rr.model)}`:''}</span></div>
+      <div class="reply">${esc(res.ok?(rr.text||'(空回复)'):(res.error||''))}</div>`;
+  }
+  return`<div class="rrow"><span>结果 <b>${s.ok}✓ / ${s.failed}✕</b></span><span>耗时 <b>${((s.durationMs||0)/1000).toFixed(1)}s</b>（并发节省 <b>${((s.wallVsSerialMsSaved||0)/1000).toFixed(1)}s</b>）</span>
     <span>tokens <b>${fmtN(s.usage?.input||0)}入/${fmtN(s.usage?.output||0)}出</b></span></div>
     <div class="subchips">${subChips(j)}</div>
     <details class="raw"><summary>原始 JSON</summary><pre class="rawj">${esc(JSON.stringify(r,null,2))}</pre></details>`;
@@ -1813,16 +2076,17 @@ async function refreshStatus(){
 async function refreshJobs(force){
   try{
     const list=await api('/api/jobs');
-    JOBS=list;renderJobs(list);
+    JOBS=list;
+    if(SELECTED&&!list.some(j=>j.id===SELECTED)){SELECTED=null;NODEFILTER=null;document.title='Control Plane';}
+    renderJobs(list);
+    renderCenter();renderTree();
     // The sidebar's session leaves come from the same list; it self-skips unless something moved.
     renderWorkspaceList();
-    // auto-scroll open running livelogs
-    document.querySelectorAll('details.job.open.st-running .livelog').forEach(el=>{el.scrollTop=el.scrollHeight});
   }catch{}
 }
 // Order matters: restoreForm fills the inputs, then setMode derives the chips from them. Calling
 // setMode first would publish a "single task / auto" stage and then quietly contradict itself.
-restoreForm();setMode('ask');refreshStatus();refreshJobs(true);
+restoreForm();setMode('ask');applyPanes();refreshStatus();refreshJobs(true);
 // issue #7: a machine with nothing confirmed opens on the wizard instead of silently routing.
 loadSetup().then(()=>{if(SETUP&&SETUP.phase==='pending')switchView('setup');});
 api('/api/settings').then(s=>{SETTINGS=s;fillCwdList();}).catch(()=>{});

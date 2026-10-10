@@ -4,12 +4,15 @@
   "type": "module",
   "private": true,
   "description": "Agent Control Plane: route tasks to coding-agent harnesses (opencode/claude/codex/dsh) with model+effort control. Control-plane code has zero npm deps; the harness adapters it drives are optional peers.",
-  "engines": { "node": ">=22.6" },
+  "engines": {
+    "node": ">=22.6"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test:unit": "node -e \"const fs=require('node:fs');const n=fs.readdirSync('tests/unit').filter(function(f){return f.endsWith('.test.ts')}).length;if(n===0){console.error('test:unit: no *.test.ts found under tests/unit');process.exit(1)};console.log('test:unit: '+n+' file(s)')\" && node --test --experimental-strip-types \"tests/unit/**/*.test.ts\"",
     "mcp": "node --experimental-strip-types src/mcp/server.ts",
-    "web": "node --experimental-strip-types src/web/server.ts"
+    "web": "node --experimental-strip-types src/web/server.ts",
+    "desktop": "node scripts/start-web.mjs --desktop"
   },
   "optionalDependencies": {
     "@agentclientprotocol/claude-agent-acp": "0.86.0",

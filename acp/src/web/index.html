@@ -247,6 +247,7 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
    the reference is unboxed body copy, not a terminal panel. Terminal-ish blocks (raw JSON,
    probe output) keep their own framed look below. */
 .reply{background:transparent;border:0;border-radius:0;padding:2px 0;font-size:13.5px;color:#dcdcdc;white-space:pre-wrap;word-break:break-word;max-height:380px;overflow-y:auto;line-height:1.75}
+.reply.md{white-space:normal}   /* rendered markdown carries its own block structure */
 /* edited-files card: grey panel, mono file rows — the reference's diff summary, minus the
    numbers we do not have */
 .fcard{background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-md);margin-bottom:12px;overflow:hidden}
@@ -464,11 +465,14 @@ aside#asideR{width:264px;min-width:264px;gap:12px}
 .expbtn:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
 /* Collapsing the left pane leaves a 56px icon rail behind, not an empty edge — the same
    collapse behaviour the reference app has. Every icon stays a real action. */
-.rail{display:none;flex-direction:column;align-items:center;gap:10px;width:100%}
-.railbtn{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font:17px/1 inherit;color:var(--dim);background:transparent;border:0;cursor:pointer;flex-shrink:0;transition:background .12s,color .12s}
+.rail{display:none;flex-direction:column;align-items:center;gap:8px;width:100%}
+.railbtn{width:100%;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font:17px/1 inherit;color:var(--dim);background:transparent;border:0;cursor:pointer;flex-shrink:0;transition:background .12s,color .12s,transform .06s}
 .railbtn:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
+.railbtn:active{transform:scale(.92);background:var(--dsw-alias-bg-hover)}
 body.hideL #asideL{width:56px;min-width:56px;padding:12px 7px;gap:8px;align-items:center}
-body.hideL #asideL>.rail{display:flex}
+/* flex:1 makes the rail FILL the sidebar — without it the spacer has nothing to grow into
+   and the settings key floats mid-air instead of sitting at the bottom where hands aim. */
+body.hideL #asideL>.rail{display:flex;flex:1}
 body.hideL #asideL>:not(.rail){display:none}
 body.hideR #asideR{display:none}
 /* the rail already owns "reopen" — the header's › would just be a second copy of it */
@@ -539,7 +543,25 @@ body.hideR #expR{display:inline-flex}
 .agrow.chatting .tsub{color:var(--acc1)}
 
 /* ---------- chat: talk to one agent, multi-turn (standalone-agent mode) ---------- */
-.chat-agent{font-size:13.5px;line-height:1.75;color:#dcdcdc;white-space:pre-wrap;word-break:break-word}
+.chat-agent,.live-text{font-size:13.5px;line-height:1.75;color:#dcdcdc;word-break:break-word}
+/* markdown output (answers + job results): produced by mdToHtml, which escapes first —
+   these rules are presentation only. Blocks carry their own spacing; containers stay plain. */
+.md p{margin:0 0 8px}
+.md p:last-child{margin-bottom:0}
+.md .mdh{font-weight:600;color:#eaeaea;margin:13px 0 6px}
+.md .mdh1{font-size:16px}
+.md .mdh2{font-size:14.5px}
+.md .mdh3,.md .mdh4{font-size:13.5px}
+.md ul,.md ol{margin:4px 0 10px;padding-left:20px}
+.md li{margin:2.5px 0}
+.md pre.mdpre{background:var(--chrome);border-radius:8px;padding:10px 13px;font:12px/1.6 var(--mono);overflow-x:auto;margin:6px 0 10px;white-space:pre}
+.md code{background:#ffffff12;border-radius:4px;padding:1px 5px;font-family:var(--mono);font-size:12px}
+.md pre.mdpre code{background:none;padding:0;font-size:11.5px}
+.md table.mdt{border-collapse:collapse;margin:8px 0 10px;font-size:12.5px;display:block;overflow-x:auto;max-width:100%}
+.md table.mdt th,.md table.mdt td{border:1px solid var(--border2);padding:4px 11px;text-align:left;white-space:nowrap}
+.md table.mdt th{background:#ffffff0a;font-weight:600;color:#e6e6e6}
+.md blockquote{border-left:2px solid var(--border2);margin:6px 0 10px;padding:2px 0 2px 12px;color:var(--dim)}
+.md b{color:#f0f0f0}
 .chat-err{color:var(--err);font-size:12.5px;margin-top:4px;font-family:var(--mono)}
 .chat-meta{font-size:11px;color:var(--faint);margin-top:5px;font-variant-numeric:tabular-nums}
 .chat-typing{color:var(--faint);font-size:12.5px;font-style:italic;display:flex;gap:8px;align-items:center}
@@ -563,7 +585,6 @@ body.hideR #expR{display:inline-flex}
 /* Live zone: rows land here the moment they arrive (incremental append), so each one can
    animate in on its own instead of a whole batch "jumping" into place on a poll tick. */
 .live-zone{display:flex;flex-direction:column;gap:4px;margin-top:2px}
-.live-text{font-size:13.5px;line-height:1.75;color:#dcdcdc;white-space:pre-wrap;word-break:break-word}
 @keyframes rowin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .trow.enter,.live-text.enter,.msg.enter{animation:rowin .24s ease both}
 .chat-inbar{display:flex;gap:8px;align-items:flex-end;background:var(--dsw-alias-bg-layer-2);border-radius:var(--dsw-radius-lg);padding:8px 10px 8px 12px}
@@ -794,6 +815,60 @@ const ICO={
   square:'<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" style="display:block"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/></svg>',
   file:'<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" style="display:block"><path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3"/></svg>',
 };
+/* Minimal markdown for agent output: fenced code, headings, lists, tables, blockquotes,
+   inline code, bold. Escape FIRST, markers second — agent/user text can never inject HTML.
+   Deliberately small: enough for what agents actually emit, nothing more. */
+function mdToHtml(src){
+  const inline=s=>esc(s)
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  const lines=String(src??'').split(/\r?\n/);
+  const out=[];let i=0;
+  const isFence=l=>/^```/.test(l.trim());
+  while(i<lines.length){
+    const ln=lines[i];
+    if(isFence(ln)){
+      const lang=ln.trim().slice(3).trim();
+      const buf=[];i++;
+      while(i<lines.length&&!isFence(lines[i])){buf.push(lines[i]);i++}
+      if(i<lines.length)i++;
+      out.push(`<pre class="mdpre"${lang?` data-lang="${esc(lang)}"`:''}><code>${esc(buf.join('\n'))}</code></pre>`);
+      continue;
+    }
+    if(/^\s*$/.test(ln)){i++;continue}
+    const h=/^(#{1,4})\s+(.+)$/.exec(ln);
+    if(h){out.push(`<div class="mdh mdh${h[1].length}">${inline(h[2])}</div>`);i++;continue}
+    // table: a | header | row followed by a |---|---| separator
+    if(/^\s*\|.*\|\s*$/.test(ln)&&i+1<lines.length&&/^\s*\|[\s:|-]+\|\s*$/.test(lines[i+1])){
+      const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      const head=cells(ln);i+=2;const body=[];
+      while(i<lines.length&&/^\s*\|.*\|\s*$/.test(lines[i])){body.push(cells(lines[i]));i++}
+      out.push(`<table class="mdt"><thead><tr>${head.map(c=>`<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${body.map(r=>`<tr>${r.map(c=>`<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+      continue;
+    }
+    if(/^\s*[-*]\s+/.test(ln)){
+      const items=[];
+      while(i<lines.length&&/^\s*[-*]\s+/.test(lines[i])){items.push(lines[i].replace(/^\s*[-*]\s+/,''));i++}
+      out.push(`<ul>${items.map(t=>`<li>${inline(t)}</li>`).join('')}</ul>`);
+      continue;
+    }
+    if(/^\s*\d+[.)]\s+/.test(ln)){
+      const items=[];
+      while(i<lines.length&&/^\s*\d+[.)]\s+/.test(lines[i])){items.push(lines[i].replace(/^\s*\d+[.)]\s+/,''));i++}
+      out.push(`<ol>${items.map(t=>`<li>${inline(t)}</li>`).join('')}</ol>`);
+      continue;
+    }
+    if(/^\s*>/.test(ln)){
+      const buf=[];
+      while(i<lines.length&&/^\s*>/.test(lines[i])){buf.push(lines[i].replace(/^\s*>\s?/,''));i++}
+      out.push(`<blockquote>${inline(buf.join(' '))}</blockquote>`);
+      continue;
+    }
+    out.push(`<p>${inline(ln)}</p>`);
+    i++;
+  }
+  return out.join('');
+}
 const PRESETS=[
   ['代码审查','审查这段代码的风险与改进点（把代码贴到下面）：\n'],
   ['写测试','为下面的函数写单元测试，覆盖边界情况：\n'],
@@ -802,7 +877,7 @@ const PRESETS=[
   ['快问快答',''],
 ];
 let mode='ask',STATUS=null,FILTER='all',FAGENT='',FSEARCH='',JOBS=[],SELECTED=null,NODEFILTER=null,CENTER_SIG='',TREE_SIG='',CHATS=[],OPEN_CHAT=null,CHAT_SIG='';
-let TYPEQ='',TYPEON=false,CHAT_TIMER=null;   // live-stream: typewriter queue + adaptive poll timer
+let TYPEQ='',TYPEON=false,SHOWN='',TFRAME=0,CHAT_TIMER=null;   // live-stream: typewriter queue + adaptive poll timer
 /* Desktop shell: both side panes collapse independently; the choice survives a reload. */
 let PANES={};
 try{PANES=JSON.parse(localStorage.getItem('acp-panes')||'{}')}catch{}
@@ -1417,6 +1492,7 @@ function renderChat(force){
   // How much of the reply the live zone had already streamed (before the queue is dropped):
   const allStreamed=(chat.events||[]).filter(e=>e.kind==='text').map(e=>String(e.text??'')).join('');
   const shownLen=Math.max(0,allStreamed.length-TYPEQ.length);
+  SHOWN=chat.status==='busy'?allStreamed.slice(0,shownLen):'';   // keep the typewriter's cursor in sync
   if(chat.status!=='busy')TYPEQ='';       // a finished turn drops the live queue; the handover below re-feeds it
   const old=stream;const keep=old?old.scrollTop:0;const pinned=!old||old.dataset.stick!=='0';
   // The composer lives inside the repainted subtree; carry its content and focus across.
@@ -1439,11 +1515,16 @@ function renderChat(force){
   else if(chat.status!=='busy'&&shownLen>=4)handoverTypewriter(el,shownLen);
 }
 function handoverTypewriter(root,shownLen){
+  // Source = the message DATA, not the DOM: the DOM now holds rendered markdown, whose
+  // textContent has lost the markers the typewriter needs to replay.
+  const chat=CHATS.find(c=>c.id===OPEN_CHAT);
+  const last=[...(chat?.messages||[])].reverse().find(m=>m.role==='agent'&&m.text);
   const target=[...root.querySelectorAll('.msg.assistant .chat-agent')].pop();
-  if(!target)return;
-  const full=target.textContent||'';
-  if(full.length<=shownLen+2)return;   // nothing left to finish
-  target.textContent=full.slice(0,shownLen);
+  if(!last||!target){SHOWN='';return}
+  const full=last.text;
+  if(full.length<=shownLen+2){SHOWN='';return}   // nothing left to finish
+  SHOWN=full.slice(0,shownLen);
+  target.innerHTML=mdToHtml(SHOWN);
   TYPEQ=full.slice(shownLen);
   TYPEON=false;
   typeTick(target);
@@ -1486,22 +1567,33 @@ function rowTick(){
   setTimeout(rowTick,ROWQ.length>3?110:230);
 }
 /* The headless stream delivers reply text in segments, not tokens; the typewriter replays
-   them at a steady rate so an answer reads as it was written rather than arriving as a paste. */
+   them at a steady rate so an answer reads as it was written rather than arriving as a paste.
+   RATE DESIGN: a readable pace for the first stretch (the "it is being written" cue), then a
+   fast drain for big backlogs — a wall of text must finish in seconds, not minutes, but it
+   must never appear in one frame. Every frame re-renders markdown from the SHOWN prefix, so
+   headings/code/tables form AS the text flows. */
 function feedType(chunk){TYPEQ+=chunk;if(!TYPEON)typeTick()}
 function typeTick(target){
   TYPEON=true;
   const el=target||$('live-text')||document.querySelector('#cstream .live-text');
-  if(!el||!el.isConnected){TYPEQ='';TYPEON=false;return}
+  if(!el||!el.isConnected){TYPEQ='';SHOWN='';TYPEON=false;return}
   if(!target){
     // live mode only pumps while the turn is running; the handover mode (target given) must
     // be able to finish a reply after the turn has already been marked done.
     const busy=!!CHATS.find(c=>c.id===OPEN_CHAT&&c.status==='busy');
-    if(!busy){TYPEQ='';TYPEON=false;return}
+    if(!busy){TYPEQ='';SHOWN='';TYPEON=false;return}
   }
-  if(!TYPEQ){TYPEON=false;return}
-  const n=Math.max(1,Math.round(TYPEQ.length/30));
-  el.textContent+=TYPEQ.slice(0,n);
+  if(!TYPEQ){
+    TYPEON=false;
+    el.innerHTML=mdToHtml(SHOWN);   // settle: one final, fully formatted paint
+    SHOWN='';
+    return;
+  }
+  const rate=TYPEQ.length>200?1000:120;   // chars per second
+  const n=Math.max(1,Math.min(TYPEQ.length,Math.round(rate*16/1000)));
+  SHOWN+=TYPEQ.slice(0,n);
   TYPEQ=TYPEQ.slice(n);
+  if((++TFRAME%6)===0||!TYPEQ)el.innerHTML=mdToHtml(SHOWN);
   const s=$('cstream');if(s&&s.dataset.stick!=='0')s.scrollTop=s.scrollHeight;
   setTimeout(()=>typeTick(target),16);
 }
@@ -1532,12 +1624,12 @@ function liveZoneHtml(chat){
     const h=traceRowHtml(e);if(h)rows.push(h);
   }
   const shown=allText.slice(0,Math.max(0,allText.length-TYPEQ.length));
-  return `<div class="live-zone">${rows.join('')}<div class="live-text enter" id="live-text">${esc(shown)}</div><div class="chat-typing">▸ 处理中…</div></div>`;
+  return `<div class="live-zone">${rows.join('')}<div class="live-text md enter" id="live-text">${mdToHtml(shown)}</div><div class="chat-typing">▸ 处理中…</div></div>`;
 }
 function chatMsgHtml(m){
   if(m.role==='user')return `<div class="msg user"><div class="bubble">${esc(m.text)}</div></div>`;
   const trace=traceHtml(m.trace);
-  const txt=m.text?`<div class="chat-agent">${esc(m.text)}</div>`:'';
+  const txt=m.text?`<div class="chat-agent md">${mdToHtml(m.text)}</div>`:'';
   const err=m.error?`<div class="chat-err">✕ ${esc(m.error)}</div>`:'';
   const meta=m.durationMs!=null?`<div class="chat-meta">${(m.durationMs/1000).toFixed(1)}s${m.usage?` · ${fmtN(m.usage.input||0)} 入 / ${fmtN(m.usage.output||0)} 出`:''}</div>`:'';
   return `<div class="msg assistant">${trace}${txt}${err}${meta}</div>`;
@@ -1824,15 +1916,15 @@ function reviewStep(r,key){
   const vb=v=>v?`<div class="verdict"><b>verdict：</b>${esc(v.recommendation||v.conclusion||'')}
     ${(v.risks||[]).length?`<ul>${v.risks.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}</div>`:'';
   if(key==='impl')return r.implementation?`<div class="rstep"><div class="rh">① 实施 · ${esc(r.implementerVendor||'')}<span class="muted">${r.implementation.ok===false?'失败':'完成'}</span></div>
-    <div class="reply">${esc((r.implementation.text||'(空回复)').slice(0,3000))}</div></div>`:'';
+    <div class="reply md">${mdToHtml((r.implementation.text||'(空回复)').slice(0,3000))}</div></div>`:'';
   if(key==='rev')return r.review?`<div class="rstep"><div class="rh">② 交叉评审 · ${esc(r.reviewerVendor||'?')}</div>${vb(r.review.verdict)}
-    <div class="reply">${esc((r.review.text||'').slice(0,2000))}</div></div>`:'';
+    <div class="reply md">${mdToHtml((r.review.text||'').slice(0,2000))}</div></div>`:'';
   if(key==='ver'){const ver=r.verification;
     return`<div class="rstep"><div class="rh">③ 客观终验${ver?`<span class="muted">${(ver.results||[]).filter(x=>x.passed).length}/${(ver.results||[]).length} 条通过</span>`:'<span class="muted">未配置门禁</span>'}</div>
     ${ver?`<div class="rrow">${(ver.results||[]).map(x=>`<span>${x.passed?'✓':'✕'} ${esc(x.cmd)} <b>exit ${x.exitCode}</b></span>`).join('')}</div>`:''}</div>`;
   }
   if(key==='arb')return r.arbitration?`<div class="rstep"><div class="rh">④ 第三方仲裁 · ${esc(r.arbitration.agent||'')}</div>${vb(r.arbitration.verdict)}
-    <div class="reply">${esc((r.arbitration.text||'').slice(0,1500))}</div></div>`:'';
+    <div class="reply md">${mdToHtml((r.arbitration.text||'').slice(0,1500))}</div></div>`:'';
   return '';
 }
 function renderResult(j){
@@ -1848,7 +1940,7 @@ function renderResult(j){
     const err=r.ok?'':(r.error?`<div class="reply" style="color:var(--err)">${esc(r.error)}</div>`:'');
     const trail=r.fallbackTrail?`<div class="reply" style="color:var(--faint);font-size:12px">fallback：${esc(r.fallbackTrail)}</div>`:'';
     return`${err}${trail}
-      <div class="reply">${esc(r.text||'(空回复)')}</div>${v}
+      <div class="reply md">${mdToHtml(r.text||'(空回复)')}</div>${v}
       <div class="rrow">${u}<span>工具调用 <b>${r.toolCalls??0}</b></span><span>agent <b>${esc(r.agent||'')}</b>${r.model?` · ${esc(r.model)}`:''}${r.effort?` · ${esc(r.effort)}`:''}</span>
       ${r.workspace?.kind==='worktree'?`<span>worktree <b>${esc(r.workspace.branch||'')}</b></span>`:''}
       ${r.verdictError?`<span style="color:var(--err)">verdict 解析失败（原文见 raw）</span>`:''}</div>
@@ -1894,7 +1986,7 @@ function renderResult(j){
     if(!res)return`<div class="reply" style="color:var(--faint)">（该子任务还没有结果）</div>`;
     const rr=res.result||{};
     return`<div class="rrow"><span>${res.ok?'✓ 完成':'✕ 失败'}</span><span>agent <b>${esc(rr.agent||'')}</b>${rr.model?` · ${esc(rr.model)}`:''}</span></div>
-      <div class="reply">${esc(res.ok?(rr.text||'(空回复)'):(res.error||''))}</div>`;
+      ${res.ok?`<div class="reply md">${mdToHtml(rr.text||'(空回复)')}</div>`:`<div class="reply" style="color:var(--err)">${esc(res.error||'')}</div>`}`;
   }
   return`<div class="rrow"><span>结果 <b>${s.ok}✓ / ${s.failed}✕</b></span><span>耗时 <b>${((s.durationMs||0)/1000).toFixed(1)}s</b>（并发节省 <b>${((s.wallVsSerialMsSaved||0)/1000).toFixed(1)}s</b>）</span>
     <span>tokens <b>${fmtN(s.usage?.input||0)}入/${fmtN(s.usage?.output||0)}出</b></span></div>

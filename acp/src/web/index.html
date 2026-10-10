@@ -612,6 +612,29 @@ body.hideL #asideL>.rail{animation:fadein .18s ease}
 .trow.open .tcaret{transform:rotate(90deg)}
 .trow.expandable:hover .ttext{color:#c9cdd8}
 
+/* ---------- polish round 2 ---------- */
+/* agent avatar with a status pip pinned to its corner (right rail quick list) */
+.agav{position:relative;width:24px;height:24px;border-radius:8px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#3b3b4d,#2e2e3c);color:#f6a9ce;font:600 11.5px Montserrat,var(--mono);letter-spacing:0;
+  box-shadow:var(--dsw-elevation-stroke),inset 0 1px 0 rgba(255,255,255,.08)}
+.agrow.chatting .agav{background:linear-gradient(135deg,var(--acc1),#c95d9b);color:#fff;box-shadow:0 2px 10px rgba(240,119,175,.35)}
+.agav .agdot{position:absolute;top:-2.5px;right:-3px;border:1.5px solid var(--chrome)}
+/* a running pill breathes instead of sitting still */
+.pill.running{animation:pillbreathe 1.9s ease-in-out infinite}
+@keyframes pillbreathe{50%{box-shadow:inset 0 0 0 1px rgba(240,119,175,.55),0 0 14px rgba(240,119,175,.18);filter:brightness(1.07)}}
+/* preset chips cascade in; the whole shell fades once on load */
+.stage .presets button{animation:rowin .34s ease both}
+.stage .presets button:nth-child(1){animation-delay:.02s}.stage .presets button:nth-child(2){animation-delay:.06s}
+.stage .presets button:nth-child(3){animation-delay:.1s}.stage .presets button:nth-child(4){animation-delay:.14s}
+.stage .presets button:nth-child(5){animation-delay:.18s}.stage .presets button:nth-child(n+6){animation-delay:.22s}
+main{animation:viewin .25s ease}
+/* narrower desktops: shave both rails instead of squeezing the stream */
+@media(max-width:1240px){#asideL{width:230px;min-width:230px}#asideR{width:240px;min-width:240px}}
+@media(max-width:640px){.kbd{display:none}}
+/* the jump-to-latest chip: a ghost button that only exists when it is needed
+   (visibility is driven inline by stickTrack — no display rule here, or '' would fall back to hidden) */
+.jumpdown{animation:rowin .18s ease}
+
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
@@ -786,10 +809,10 @@ body.hideL #asideL>.rail{animation:fadein .18s ease}
     <div class="setcols">
       <div class="setnav">
         <button class="navbtn on" data-s="agents" onclick="setSection('agents')"><span class="navico"><svg viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:inline-block;vertical-align:-3px"><path d="M2.6 6h12.8M2.6 12h12.8"/><circle cx="7.2" cy="6" r="1.7"/><circle cx="11" cy="12" r="1.7"/></svg></span>Agents</button>
-        <button class="navbtn" data-s="routing" onclick="setSection('routing')"><span class="navico">⇄</span>Routing</button>
-        <button class="navbtn" data-s="budget" onclick="setSection('budget')"><span class="navico">◱</span>Budget</button>
+        <button class="navbtn" data-s="routing" onclick="setSection('routing')"><span class="navico"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-3px"><path d="M2.5 5.5h8m0 0-2.2-2.2M10.5 5.5l-2.2 2.2M13.5 10.5h-8m0 0 2.2-2.2M5.5 10.5l2.2 2.2"/></svg></span>Routing</button>
+        <button class="navbtn" data-s="budget" onclick="setSection('budget')"><span class="navico"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:inline-block;vertical-align:-3px"><circle cx="8" cy="8" r="5.6"/><path d="M8 8.2 10.6 5.8"/><circle cx="8" cy="8.2" r=".4" fill="currentColor" stroke="none"/></svg></span>Budget</button>
         <button class="navbtn" data-s="workspace" onclick="setSection('workspace')"><span class="navico"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" style="display:inline-block;vertical-align:-3px"><path d="M2.5 4.6h4l1.5 1.8h5.5v6.2h-11z"/></svg></span>Workspace</button>
-        <button class="navbtn" data-s="integr" onclick="setSection('integr')"><span class="navico">⧉</span>集成</button>
+        <button class="navbtn" data-s="integr" onclick="setSection('integr')"><span class="navico"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" style="display:inline-block;vertical-align:-3px"><rect x="2.5" y="5.5" width="8" height="8" rx="1.5"/><rect x="5.5" y="2.5" width="8" height="8" rx="1.5"/></svg></span>集成</button>
       </div>
       <div class="setpane" id="settings-body"></div>
     </div>
@@ -1796,7 +1819,7 @@ function chatHtml(chat){
   const closed=st==='closed';
   return `<div class="ccol">
     <div class="chead">
-      <div class="chrow">${pill}<span class="cmeta">${esc(chat.agent)} · ${esc(baseName(chat.cwd))}</span><span class="spacer"></span><span class="jid">${esc(chat.id)}</span>
+      <div class="chrow">${pill}<span class="cmeta">${esc(chat.agent)} · ${esc(baseName(chat.cwd))}</span><span class="spacer"></span><button type="button" class="ghost jumpdown" onclick="jumpDown(this)" style="display:none" title="滚回最新消息">↓ 底部</button><span class="jid">${esc(chat.id)}</span>
         <button class="ghost" onclick="endChat()" title="结束这个 agent 会话（释放进程）">结束对话</button></div>
     </div>
     <div class="cstream" id="cstream" data-stick="1" onscroll="stickTrack(this)">
@@ -1905,7 +1928,21 @@ function scheduleChatRefresh(){
   const busy=!!CHATS.find(c=>c.id===OPEN_CHAT&&c.status==='busy');
   CHAT_TIMER=setTimeout(async()=>{try{await refreshChats()}finally{scheduleChatRefresh()}},busy?400:1500);
 }
-function stickTrack(el){el.dataset.stick=(el.scrollTop+el.clientHeight>=el.scrollHeight-40)?'1':'0'}
+function stickTrack(el){
+  const on=(el.scrollTop+el.clientHeight>=el.scrollHeight-40);
+  el.dataset.stick=on?'1':'0';
+  // scoped, not by id: chat and conversation views each carry a jumpdown, and both sections
+  // stay in the DOM — a shared id would light the button of the HIDDEN view.
+  const jd=el.closest('.ccol')?.querySelector('.jumpdown');
+  if(jd)jd.style.display=on?'none':'';
+}
+/** One click back to the newest message; scrolling resumes following the stream. */
+function jumpDown(btn){
+  const root=btn?btn.closest('.ccol'):document;
+  const s=root.querySelector('.cstream');if(!s)return;
+  s.dataset.stick='1';s.scrollTop=s.scrollHeight;
+  const jd=root.querySelector('.jumpdown');if(jd)jd.style.display='none';
+}
 /* The review stages are visible in the event stream: the orchestrator emits ①②③④ status lines.
    Slicing on those marks is what lets a tree node show "just this agent's turn". */
 function stageBounds(j){
@@ -1945,7 +1982,7 @@ function renderConversation(j){
     :(j.status==='running'?'<div class="ev t-status">等待 agent 输出…</div>':'<div class="ev t-status">（这一段没有事件）</div>');
   return `<div class="ccol">
     <div class="chead">
-      <div class="chrow">${st.pill}<span class="cmeta">${esc(meta)}</span><span class="spacer"></span><span class="jid">${esc(j.id)}</span></div>
+      <div class="chrow">${st.pill}<span class="cmeta">${esc(meta)}</span><span class="spacer"></span><button type="button" class="ghost jumpdown" onclick="jumpDown(this)" style="display:none" title="滚回最新消息">↓ 底部</button><span class="jid">${esc(j.id)}</span></div>
       ${note}
     </div>
     <div class="cstream" id="cstream" data-stick="1" onscroll="stickTrack(this)">
@@ -2038,7 +2075,7 @@ function renderAgentPanel(){
     const sub=busy?'回复中':(chat?`会话 · ${chat.messages.length} 条`:((a.actualVendorNote&&a.actualVendorNote!=='unknown')?a.actualVendorNote:(a.transport||'')));
     const dot=a.authenticated===true?'ok':a.authenticated===false?'err':'';
     return`<div class="agrow${chat?' chatting':''}${busy?' busy':''}" onclick="openAgentChat('${esc(a.agent)}')" title="进入与 ${esc(a.agent)} 的对话（多轮）">
-      <span class="dot ${dot}"></span>
+      <span class="agav">${esc((a.agent||'?').slice(0,1).toUpperCase())}<span class="dot ${dot} agdot"></span></span>
       <span class="tval">${esc(a.agent)}</span>
       <span class="tsub">${esc(sub)}${n?' · '+n+' 会话':''}</span>
       <span class="agx" title="从快捷栏移除" onclick="event.stopPropagation();removeFav('${esc(a.agent)}')">✕</span></div>`;

@@ -188,8 +188,7 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 .wsrow:hover{background:var(--surface3)}
 .wsrow.on{background:var(--dsw-alias-bg-layer-3);color:var(--text)}
 .wsrow .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wsrow .caret{padding:0 4px;border-radius:5px}
-.wsrow .caret:hover{color:var(--text);background:var(--border)}
+.wsrow .caret{padding:0 4px;color:var(--faint);pointer-events:none}
 .wsico{width:22px;height:22px;border-radius:6px;background:var(--surface3);color:var(--dim);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
 .sessions{display:flex;flex-direction:column;gap:1px;margin:1px 0 4px 12px;padding-left:9px;border-left:1px solid var(--border2)}
 /* One leaf = one session. The .on state is the SAME one the conversation pane is showing, so the
@@ -1032,14 +1031,16 @@ function baseName(p){
 /** Parallel jobs carry the cwd on each sub-job, not on the batch envelope. */
 const jobCwd=j=>String(j.kind==='parallel'?(j.request?.jobs?.[0]?.cwd??''):(j.request?.cwd??''));
 
-/** cwd -> its jobs, in display order: current pick, then recents, then anything else seen. */
+/** cwd -> its jobs, in display order: recents first, then anything else seen. The current pick
+    is NOT pinned to the top — the tree keeps its natural order and the group just expands in
+    place. (A pick with no history yet is appended, so it stays reachable.) */
 function workspaceGroups(){
   const order=[],seen=new Set();
   const push=c=>{const k=String(c??'');if(seen.has(k))return;seen.add(k);order.push(k)};
-  const cur=($('f-cwd')?.value||'').trim();
-  if(cur)push(cur);
   for(const p of SETTINGS?.merged?.workspace?.recentCwds||[])push(p);
   for(const j of JOBS)push(jobCwd(j));
+  const cur=($('f-cwd')?.value||'').trim();
+  if(cur&&!seen.has(cur))push(cur);
   const byCwd=new Map(order.map(c=>[c,[]]));
   for(const j of JOBS)byCwd.get(jobCwd(j))?.push(j);
   // Directories with neither history nor a job are dropped; an empty cwd is kept only if some job
@@ -1067,7 +1068,10 @@ function renderWorkspaceList(){
   // swallow the click you are mid-way through, so bail out unless something visible moved. The
   // filters and the selection are part of "visible": they change which leaves show, which rows
   // are dropped, and which leaf is highlighted.
-  const sig=[cur,Object.keys(WS_OPEN).filter(k=>WS_OPEN[k]).join('|'),FILTER,FAGENT,FSEARCH,SELECTED||'',
+  // WS_OPEN goes in whole (JSON): an explicit COLLAPSE is a state change too — the old
+  // filter(open-only) signature could not see false values, so collapsing the default-open
+  // current group updated the state without ever repainting.
+  const sig=[cur,JSON.stringify(WS_OPEN),FILTER,FAGENT,FSEARCH,SELECTED||'',
     groups.map(g=>g.cwd+':'+g.jobs.filter(matchLeaf).map(j=>j.id+j.status).join('.')).join('~')].join('¶');
   if(sig===WS_SIG)return;
   WS_SIG=sig;
@@ -1093,29 +1097,29 @@ function renderWorkspaceList(){
     const more=!filtering&&fj.length>6?`<div class="sess" style="color:var(--faint);cursor:default">还有 ${fj.length-6} 条…</div>`:'';
     const empty=!filtering&&!fj.length?`<div class="sess" style="color:var(--faint);cursor:default">此目录暂无作业</div>`:'';
     const caret=open?ICO.chevD:ICO.chevR;
-    return`<div class="wsrow${on?' on':''}" data-cwd="${esc(g.cwd)}" title="${esc(g.cwd||'未指定目录 — 用默认目录派发')}">
+    return`<div class="wsrow${on?' on':''}" data-cwd="${esc(g.cwd)}" title="${esc(g.cwd||'未指定目录')} · 点击展开/收起">
         <span class="wsico">${g.cwd?esc(baseName(g.cwd).slice(0,2).toUpperCase()):'—'}</span>
         <span class="nm">${esc(name)}</span>
         ${g.jobs.length?`<span style="font-size:10.5px;color:var(--faint)">${g.jobs.length}</span>`:''}
-        <span class="caret" data-caret="1" title="${open?'收起':'展开会话'}">${caret}</span></div>
+        <span class="caret">${caret}</span></div>
       ${open?`<div class="sessions">${rows}${more}${empty}</div>`:''}`;
   }).join('');
   el.innerHTML=shown||'<div class="side-empty">没有符合条件的会话。</div>';
 }
 // Delegated, and driven by dataset rather than inline args: a Windows path inside an inline
 // onclick would be JS-unescaped on the way in ('D:\foo' -> a form feed), so paths never go there.
+// One click on a group row expands/collapses it IN PLACE — the whole row is the toggle, the
+// caret is only a state indicator. Clicking a session inside selects it.
 $('ws-list').onclick=e=>{
-  const caret=e.target.closest('[data-caret]');
-  if(caret){const c=caret.closest('.wsrow')?.dataset.cwd??'';WS_OPEN[c]=!WS_OPEN[c];renderWorkspaceList();return}
   const sess=e.target.closest('.sess[data-job]');
   if(sess){selectJob(sess.dataset.job);return}
   const row=e.target.closest('.wsrow');
-  if(row)useCwdEl(row);
+  if(!row)return;
+  const c=row.dataset.cwd??'';
+  const cur=($('f-cwd')?.value||'').trim();
+  WS_OPEN[c]=!(WS_OPEN[c]??(!!c&&c===cur));   // flip whatever expand state is in effect
+  renderWorkspaceList();
 };
-function useCwdEl(el){
-  $('f-cwd').value=el.dataset.cwd||'';
-  renderWorkspaceList();renderChips();renderWsPop();saveForm();
-}
 /** Fill #f-cwd from the ws popover's shortlist of directories already in play. */
 function renderWsPop(){
   const el=$('ws-pop-list');if(!el)return;

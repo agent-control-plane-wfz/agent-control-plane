@@ -877,7 +877,7 @@ const PRESETS=[
   ['快问快答',''],
 ];
 let mode='ask',STATUS=null,FILTER='all',FAGENT='',FSEARCH='',JOBS=[],SELECTED=null,NODEFILTER=null,CENTER_SIG='',TREE_SIG='',CHATS=[],OPEN_CHAT=null,CHAT_SIG='';
-let TYPEQ='',TYPEON=false,SHOWN='',TFRAME=0,CHAT_TIMER=null;   // live-stream: typewriter queue + adaptive poll timer
+let TYPEQ='',TYPEON=false,SHOWN='',SHOWKEY=null,TPROC=0,TFRAME=0,CHAT_TIMER=null;   // live-stream: SHOWN = what the screen has typed (prefix of the reply), SHOWKEY = which turn it belongs to, TPROC = which pump owns the queue
 /* Desktop shell: both side panes collapse independently; the choice survives a reload. */
 let PANES={};
 try{PANES=JSON.parse(localStorage.getItem('acp-panes')||'{}')}catch{}
@@ -1489,11 +1489,14 @@ function renderChat(force){
   if(!force&&sameChat&&sig===CHAT_SIG){appendLiveDelta(chat);return}
   CHAT_SIG=sig;
   ROWQ.length=0;ROWON=false;              // a rebuild paints every row itself; the queue must not replay them
-  // How much of the reply the live zone had already streamed (before the queue is dropped):
-  const allStreamed=(chat.events||[]).filter(e=>e.kind==='text').map(e=>String(e.text??'')).join('');
-  const shownLen=Math.max(0,allStreamed.length-TYPEQ.length);
-  SHOWN=chat.status==='busy'?allStreamed.slice(0,shownLen):'';   // keep the typewriter's cursor in sync
-  if(chat.status!=='busy')TYPEQ='';       // a finished turn drops the live queue; the handover below re-feeds it
+  // The stream cursor (SHOWN) belongs to ONE turn. Inferring "how much was shown" from the queue
+  // (arrived − pending) was wrong exactly when it mattered: text that lands in the SAME poll as the
+  // turn's completion had never been fed to the typewriter, yet the inference counted it as already
+  // displayed — so the reply snapped into place instead of streaming. The cursor is kept only while
+  // the rebuild is still that same turn, and is the only source of truth.
+  const key=streamKeyOf(chat);
+  const sameTurn=!!key&&key===SHOWKEY;
+  if(!sameTurn){SHOWN='';TYPEQ='';TYPEON=false;SHOWKEY=null;TPROC++}   // kill any pump left from an older turn
   const old=stream;const keep=old?old.scrollTop:0;const pinned=!old||old.dataset.stick!=='0';
   // The composer lives inside the repainted subtree; carry its content and focus across.
   const oldIn=$('chat-input');const keepVal=oldIn?oldIn.value:'';const keepFocus=document.activeElement===oldIn;
@@ -1508,24 +1511,57 @@ function renderChat(force){
   if(ni){ni.value=keepVal;if(keepFocus)ni.focus();
     if(keepVal)ni.style.height=Math.min(Math.max(ni.scrollHeight,40),170)+'px';
     ni.addEventListener('input',()=>{ni.style.height='auto';ni.style.height=Math.min(ni.scrollHeight,170)+'px'})}
-  if(chat.status==='busy'&&TYPEQ)typeTick();   // keep streaming whatever the queue still holds
-  // Turn done: the live zone is gone, but its text lives on in the answer. Continue the
-  // typewriter from where the stream stopped, so the reply finishes the way it was being
-  // written instead of the whole block snapping into place.
-  else if(chat.status!=='busy'&&shownLen>=4)handoverTypewriter(el,shownLen);
+
+  if(chat.status==='busy'){
+    // Entering (or re-entering) a running turn: the cursor stays where it was; everything the
+    // events hold but the screen has not typed yet becomes the backlog. TPROC++ retires whatever
+    // pump was running (its in-flight callbacks are now zombies) so exactly one pump types.
+    SHOWKEY=key;
+    TPROC++;
+    const allText=(chat.events||[]).filter(e=>e.kind==='text').map(e=>String(e.text??'')).join('');
+    const at=prefixLen(SHOWN,allText);
+    SHOWN=allText.slice(0,at);
+    TYPEQ=allText.slice(at);
+    TYPEON=false;
+    if(TYPEQ)typeTick();   // resume from the cursor, not from zero
+  }else if(sameTurn){
+    // The turn we were watching just finished: continue the reply from the cursor, so it lands the
+    // way it was being written instead of the whole block snapping into place.
+    handoverTypewriter(el);
+  }
 }
-function handoverTypewriter(root,shownLen){
-  // Source = the message DATA, not the DOM: the DOM now holds rendered markdown, whose
-  // textContent has lost the markers the typewriter needs to replay.
+/** Identity of the turn a stream cursor belongs to: the same string for the same reply whether it
+    is still running (busy) or has just landed as a message. */
+function streamKeyOf(chat){
+  if(!chat)return null;
+  const msgs=chat.messages||[];
+  if(chat.status==='busy')return chat.id+'|'+msgs.length;        // the reply will sit at this index
+  const last=msgs[msgs.length-1];
+  return last&&last.role==='agent'?chat.id+'|'+(msgs.length-1):null;
+}
+/** How many leading chars of `text` the cursor can honestly claim. If they ever disagree (events
+    truncated, text rewritten), replay from the top instead of gluing mismatched pieces. */
+function prefixLen(shown,text){
+  const n=Math.min(shown.length,text.length);
+  return n>0&&!text.startsWith(shown.slice(0,n))?0:n;
+}
+function handoverTypewriter(root){
+  // Source = the message DATA, not the DOM: the DOM now holds rendered markdown, whose textContent
+  // has lost the markers the typewriter replays from. Only the LAST message counts — a failed turn
+  // must not make the typewriter retype some older reply.
   const chat=CHATS.find(c=>c.id===OPEN_CHAT);
-  const last=[...(chat?.messages||[])].reverse().find(m=>m.role==='agent'&&m.text);
+  const msgs=chat?.messages||[];
+  const last=msgs[msgs.length-1];
   const target=[...root.querySelectorAll('.msg.assistant .chat-agent')].pop();
-  if(!last||!target){SHOWN='';return}
+  SHOWKEY=null;   // this turn is over as a stream; a later rebuild must render it statically
+  TPROC++;        // retire the live-mode pump: its next callback would find no live zone and clear OUR queue
+  if(!last||last.role!=='agent'||!last.text||!target){SHOWN='';TYPEQ='';TYPEON=false;return}
   const full=last.text;
-  if(full.length<=shownLen+2){SHOWN='';return}   // nothing left to finish
-  SHOWN=full.slice(0,shownLen);
+  const at=prefixLen(SHOWN,full);
+  if(at>=full.length-2){SHOWN='';TYPEQ='';TYPEON=false;return}   // nothing left to finish
+  SHOWN=full.slice(0,at);
   target.innerHTML=mdToHtml(SHOWN);
-  TYPEQ=full.slice(shownLen);
+  TYPEQ=full.slice(at);
   TYPEON=false;
   typeTick(target);
 }
@@ -1566,36 +1602,40 @@ function rowTick(){
   }
   setTimeout(rowTick,ROWQ.length>3?110:230);
 }
-/* The headless stream delivers reply text in segments, not tokens; the typewriter replays
-   them at a steady rate so an answer reads as it was written rather than arriving as a paste.
-   RATE DESIGN: a readable pace for the first stretch (the "it is being written" cue), then a
-   fast drain for big backlogs — a wall of text must finish in seconds, not minutes, but it
-   must never appear in one frame. Every frame re-renders markdown from the SHOWN prefix, so
-   headings/code/tables form AS the text flows. */
+/* The headless stream delivers reply text in segments, not tokens (dsh lands the whole reply in a
+   single event at the end; claude/codex stream chunks), so the typewriter replays it at a readable
+   rate — the answer reads as it was written instead of arriving as a paste. SHOWN is the cursor:
+   the exact prefix of the reply the screen has typed; the queue is just the not-yet-typed backlog,
+   derivable at any rebuild. RATE DESIGN: pace scales with the backlog (τ ≈ 1.5s) between a readable
+   floor (180 cps — the "it is being written" cue) and a fast ceiling (5000 cps — a wall of code
+   finishes in a few seconds, but never in one frame). Every frame re-renders markdown from the
+   SHOWN prefix, so headings/code/tables form AS the text flows. */
 function feedType(chunk){TYPEQ+=chunk;if(!TYPEON)typeTick()}
-function typeTick(target){
+function typeTick(target,_proc){
+  const proc=_proc??TPROC;
+  if(proc!==TPROC)return;                  // superseded: a newer pump owns the queue — touch nothing
   TYPEON=true;
   const el=target||$('live-text')||document.querySelector('#cstream .live-text');
-  if(!el||!el.isConnected){TYPEQ='';SHOWN='';TYPEON=false;return}
+  if(!el||!el.isConnected){TYPEQ='';TYPEON=false;return}   // SHOWN survives: it is the turn's cursor
   if(!target){
-    // live mode only pumps while the turn is running; the handover mode (target given) must
-    // be able to finish a reply after the turn has already been marked done.
+    // live mode only pumps while the turn is running; the handover mode (target given) must be
+    // able to finish a reply after the turn has already been marked done. A drained queue is NOT
+    // an ending: more chunks may come, and the completion rebuild will pick the cursor up.
     const busy=!!CHATS.find(c=>c.id===OPEN_CHAT&&c.status==='busy');
-    if(!busy){TYPEQ='';SHOWN='';TYPEON=false;return}
+    if(!busy){TYPEQ='';TYPEON=false;return}
   }
   if(!TYPEQ){
     TYPEON=false;
-    el.innerHTML=mdToHtml(SHOWN);   // settle: one final, fully formatted paint
-    SHOWN='';
+    el.innerHTML=mdToHtml(SHOWN);   // settle: one final, fully formatted paint; the cursor stays
     return;
   }
-  const rate=TYPEQ.length>200?1000:120;   // chars per second
+  const rate=Math.min(5000,Math.max(180,TYPEQ.length/1.5));   // chars per second
   const n=Math.max(1,Math.min(TYPEQ.length,Math.round(rate*16/1000)));
   SHOWN+=TYPEQ.slice(0,n);
   TYPEQ=TYPEQ.slice(n);
   if((++TFRAME%6)===0||!TYPEQ)el.innerHTML=mdToHtml(SHOWN);
   const s=$('cstream');if(s&&s.dataset.stick!=='0')s.scrollTop=s.scrollHeight;
-  setTimeout(()=>typeTick(target),16);
+  setTimeout(()=>typeTick(target,proc),16);
 }
 /* The trail rows shared by finished turns and the live stream: thinking · tool · result ·
    status. `text` events are skipped — that is the streaming body, and the final answer
@@ -1614,8 +1654,8 @@ function traceHtml(events){
   return rows?`<div class="trace">${rows}</div>`:'';
 }
 /** The busy zone: trail rows already arrived + the reply text so far + the working cursor.
-    Anything still sitting in the typewriter queue is subtracted so a rebuild mid-stream
-    continues the sentence instead of duplicating it. */
+    The text half is the SHOWN cursor (what the screen has typed), so a rebuild mid-stream
+    continues the sentence instead of duplicating it or losing what was already shown. */
 function liveZoneHtml(chat){
   const rows=[];
   let allText='';
@@ -1623,7 +1663,7 @@ function liveZoneHtml(chat){
     if(e.kind==='text'){allText+=String(e.text??'');continue}
     const h=traceRowHtml(e);if(h)rows.push(h);
   }
-  const shown=allText.slice(0,Math.max(0,allText.length-TYPEQ.length));
+  const shown=allText.slice(0,prefixLen(SHOWN,allText));
   return `<div class="live-zone">${rows.join('')}<div class="live-text md enter" id="live-text">${mdToHtml(shown)}</div><div class="chat-typing">▸ 处理中…</div></div>`;
 }
 function chatMsgHtml(m){

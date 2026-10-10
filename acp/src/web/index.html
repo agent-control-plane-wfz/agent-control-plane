@@ -72,15 +72,15 @@ label{display:block;font-size:11px;color:var(--dim);margin:11px 0 4px;font-weigh
 textarea,input,select{width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font:13px var(--mono);transition:border-color .15s}
 textarea{resize:vertical;min-height:90px;line-height:1.55}
 textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);box-shadow:0 0 0 3px rgba(240,119,175,.15)}
-.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;user-select:none}
 .check input{width:15px;height:15px;accent-color:var(--acc1)}
 /* Primary action button. This used to be an id selector (`#btn-go`) from the pre-rebuild console,
    where the only such button was the full-width "start" CTA. The rebuilt console kept the id for
    the composer's round send button, so the old rule (specificity 100) silently beat `.sendbtn`
    (10) and stretched the send button into a full-width bar. A class cannot collide like that. */
-.pbtn{width:100%;margin-top:16px;padding:11px;border:0;border-radius:10px;background:linear-gradient(135deg,var(--acc1),var(--acc2));color:#fff;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.5px;box-shadow:0 4px 18px rgba(240,119,175,.3);transition:.15s}
+.pbtn{width:auto;min-width:104px;margin-top:0;padding:8px 18px;border:0;border-radius:8px;background:var(--acc1);color:#fff;font-size:13px;font-weight:500;cursor:pointer;letter-spacing:0;box-shadow:none;transition:background .13s ease,transform .07s ease}
 .pbtn:hover{filter:brightness(1.12);transform:translateY(-1px)}
 .pbtn:disabled{opacity:.6;cursor:wait;transform:none}
 .form-err{color:var(--err);font-size:12px;margin-top:8px;font-family:var(--mono);min-height:16px}
@@ -184,17 +184,17 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 .newbtn:hover{border-color:var(--acc1);color:#fff}
 .wshead{display:flex;align-items:center;justify-content:space-between;font-size:10px;letter-spacing:1.6px;color:var(--faint);font-weight:700;margin:4px 2px 2px}
 .wslist{display:flex;flex-direction:column;gap:1px}
-.wsrow{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:9px;cursor:pointer;color:var(--dim);font-size:12.5px;border:1px solid transparent}
+.wsrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;cursor:pointer;color:var(--dim);font-size:12px;border:1px solid transparent}
 .wsrow:hover{background:var(--surface3)}
 .wsrow.on{background:var(--dsw-alias-bg-layer-3);color:var(--text)}
 .wsrow .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wsrow .caret{padding:0 4px;border-radius:5px}
 .wsrow .caret:hover{color:var(--text);background:var(--border)}
-.wsico{width:24px;height:24px;border-radius:7px;background:var(--surface3);color:var(--dim);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.wsico{width:22px;height:22px;border-radius:6px;background:var(--surface3);color:var(--dim);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
 .sessions{display:flex;flex-direction:column;gap:1px;margin:1px 0 4px 12px;padding-left:9px;border-left:1px solid var(--border2)}
 /* One leaf = one session. The .on state is the SAME one the conversation pane is showing, so the
    sidebar always tells you which job the middle is displaying. */
-.sess{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--dsw-radius-sm);font-size:12.5px;color:var(--dim);cursor:pointer;border:1px solid transparent}
+.sess{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--dsw-radius-sm);font-size:12px;color:var(--dim);cursor:pointer;border:1px solid transparent}
 .sess:hover{background:var(--dsw-alias-bg-hover)}
 .sess.on{color:var(--text);background:var(--dsw-alias-bg-hover);box-shadow:inset 2px 0 0 var(--acc1)}
 .sess .st{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -265,7 +265,7 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 details.raw{margin-top:10px}
 details.raw summary{cursor:pointer;font-size:12px;color:var(--faint)}
 details.raw pre{margin-top:6px}
-pre.rawj{background:#1a1a1a;border:1px solid var(--border);border-radius:9px;padding:11px;font:11.5px var(--mono);white-space:pre-wrap;word-break:break-all;max-height:320px;overflow-y:auto;color:#ababab}
+pre.rawj{background:var(--dsw-alias-bg-layer-1);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm);padding:12px;font:11.5px var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow-y:auto;color:#ababab}
 .btn-copy{background:var(--surface3);border:1px solid var(--border);color:var(--dim);border-radius:7px;padding:3px 10px;font-size:11px;cursor:pointer;margin-top:8px}
 .btn-copy:hover{color:var(--text)}
 .pathrow{display:flex;gap:8px;align-items:center}
@@ -343,8 +343,9 @@ pre.rawj{background:#1a1a1a;border:1px solid var(--border);border-radius:9px;pad
 .rule-row select{flex:1.4}
 .rule-row input{flex:1}
 .chip-x{background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:4px 8px 4px 12px;font:12px var(--mono);color:var(--dim);display:inline-flex;gap:6px;align-items:center;margin:0 6px 6px 0}
-.chip-x button{background:none;border:0;color:var(--err);cursor:pointer;font-size:12px;padding:0 2px}
-.usage-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--dim);padding:4px 0;border-bottom:1px dashed var(--border)}
+.chip-x button{background:none;border:0;color:var(--faint);cursor:pointer;font-size:12px;padding:0 2px}
+.chip-x button:hover{color:var(--err)}
+.usage-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--dim);padding:5px 0;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
 .usage-row b{color:var(--text);font-family:var(--mono)}
 .sidenav{display:flex;flex-direction:column;gap:2px;margin-top:-4px}
 .navrow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:transparent;border:0;color:var(--dim);font:500 13.5px/1 Montserrat,'PingFang SC','Microsoft YaHei',sans-serif;padding:9px 11px;border-radius:var(--dsw-radius-sm);cursor:pointer;transition:background .12s}
@@ -545,7 +546,9 @@ body.hideR #expR{display:inline-flex}
 /* an agent with a live conversation reads as "open", not as just another list row */
 .agrow.chatting{color:var(--text)}
 .agrow.chatting .tval{font-weight:600}
-.agrow.chatting .tsub{color:var(--acc1)}
+/* the status is ONE small pulse dot, not four rows of pink text */
+.agrow.chatting .tsub{color:var(--faint)}
+.agrow.chatting .tsub::before{content:'●';font-size:7px;color:var(--acc1);margin-right:5px;vertical-align:2px}
 
 /* ---------- chat: talk to one agent, multi-turn (standalone-agent mode) ---------- */
 .chat-agent,.live-text{font-size:13.5px;line-height:1.75;color:#dcdcdc;word-break:break-word}
@@ -2291,7 +2294,7 @@ function renderRouting(){
   }).join('');
   return`<div class="card"><h2 class="ct">路由规则（任务类型 → agent）</h2>${rows}
     <label class="check"><input type="checkbox" id="rt-llm" ${SETTINGS?.merged?.routing?.llmRouter!==false?'checked':''}> LLM 路由兜底（规则未命中时用便宜模型分类任务类型，可用 0 关闭）</label>
-    <button class="pbtn" onclick="saveRouting()">保存路由设置</button><div class="form-err" id="rt-err"></div></div>`;
+    <div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="pbtn" onclick="saveRouting()">保存路由设置</button></div><div class="form-err" id="rt-err"></div></div>`;
 }
 async function saveRouting(){
   const rules={};
@@ -2322,9 +2325,9 @@ function renderBudget(){
       <div><label>请求次数上限</label><input id="bd-req" type="number" value="${m.dailyRequests??0}"></div>
       <div><label>token 上限</label><input id="bd-tok" type="number" value="${m.dailyTokens??0}"></div>
     </div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="ghost" style="flex:1;margin:0" onclick="resetBudget()">重置今日计数</button>
-      <button class="pbtn" style="flex:1;margin:0" onclick="saveBudget()">保存上限</button>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;align-items:center">
+      <button class="ghost" style="width:auto;margin:0" onclick="resetBudget()">重置今日计数</button>
+      <button class="pbtn" onclick="saveBudget()">保存上限</button>
     </div><div class="form-err" id="bd-err"></div></div>`;
 }
 async function saveBudget(){
@@ -2347,7 +2350,7 @@ function renderWorkspace(){
     <h2 class="ct" style="margin-top:16px">worktree 基目录</h2>
     <label>隔离 worktree 的创建位置（不要放在含 package.json 的目录树内）</label>
     <div class="pathrow"><input id="ws-basedir" value="${esc(w.worktreeBaseDir||'')}" placeholder="默认：<repo>/../.acp-worktrees"><button type="button" class="ghost" onclick="openDirPicker('ws-basedir')">▸ 浏览…</button></div>
-    <button class="pbtn" style="margin-top:12px" onclick="saveWorkspace()">保存</button><div class="form-err" id="ws-err"></div></div>`;
+    <div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="pbtn" onclick="saveWorkspace()">保存</button></div><div class="form-err" id="ws-err"></div></div>`;
 }
 function rmCwd(c){
   const list=(SETTINGS?.merged?.workspace?.recentCwds||[]).filter(x=>x!==c);

@@ -649,6 +649,16 @@ body.hideL #asideL>.rail{animation:fadein .18s ease}
 @keyframes popin{from{opacity:0;transform:translateY(-4px) scale(.985)}}
 @keyframes dpin{from{opacity:0;transform:translateY(12px) scale(.98)}}
 @keyframes viewin{from{opacity:0;transform:translateY(5px)}}
+/* ---------- settings surfaces: stat tiles and code cards, not a form on a field ---------- */
+.statrow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--dsw-alias-bg-layer-1);box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-md);padding:12px 14px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.stat .sl{font-size:11px;color:var(--faint)}
+.stat .sv{font-size:20px;font-weight:600;line-height:1.25;font-variant-numeric:tabular-nums}
+.stat .sc{font-size:11px;color:var(--faint);letter-spacing:0}
+.codecard{background:var(--dsw-alias-bg-layer-1);box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-md);overflow:hidden;margin:2px 0}
+.codehead{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);font:12px var(--mono);color:var(--dim)}
+.codehead .btn-copy{margin:0 0 0 auto;padding:2px 9px}
+.codecard pre.rawj{box-shadow:none;background:transparent;border-radius:0;max-height:300px}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
@@ -2315,12 +2325,15 @@ async function saveRouting(){
 /* --- budget --- */
 function renderBudget(){
   const b=STATUS?.budget||{};const m=SETTINGS?.merged?.budget||{};
-  const pa=b.perAgent?Object.entries(b.perAgent).map(([k,v])=>`<span class="credchip">${esc(k)} × ${v}</span>`).join(''):'<span style="color:var(--faint)">（本日暂无分 agent 数据）</span>';
+  const pa=b.perAgent?Object.entries(b.perAgent).map(([k,v])=>`<span class="credchip">${esc(k)} × ${v}</span>`).join(''):'';
   return`<div class="card"><h2 class="ct">今日用量</h2>
-    <div class="usage-row"><span>请求次数</span><b>${b.requests??0}${b.caps?.dailyRequests?` / ${b.caps.dailyRequests}`:''}</b></div>
-    <div class="usage-row"><span>tokens（入/出）</span><b>${fmtN(b.tokensIn??0)} / ${fmtN(b.tokensOut??0)}</b></div>
-    <div style="margin-top:8px">${pa}</div>
-    <h2 class="ct" style="margin-top:16px">每日上限（0 = 不限）</h2>
+    <div class="statrow">
+      <div class="stat"><span class="sl">请求次数</span><b class="sv">${b.requests??0}</b>${m.dailyRequests?`<span class="sc">上限 ${m.dailyRequests}</span>`:'<span class="sc">不限</span>'}</div>
+      <div class="stat"><span class="sl">tokens 入</span><b class="sv">${fmtN(b.tokensIn??0)}</b></div>
+      <div class="stat"><span class="sl">tokens 出</span><b class="sv">${fmtN(b.tokensOut??0)}</b></div>
+    </div>
+    ${pa?`<div style="margin:12px 0 0">${pa}</div>`:''}
+    <h2 class="ct" style="margin-top:20px">每日上限<span class="sc" style="font-weight:400;letter-spacing:0">0 = 不限</span></h2>
     <div class="grid2">
       <div><label>请求次数上限</label><input id="bd-req" type="number" value="${m.dailyRequests??0}"></div>
       <div><label>token 上限</label><input id="bd-tok" type="number" value="${m.dailyTokens??0}"></div>
@@ -2346,9 +2359,8 @@ async function resetBudget(){
 function renderWorkspace(){
   const w=SETTINGS?.merged?.workspace||{};
   const chips=(w.recentCwds||[]).map(c=>`<span class="chip-x">${esc(c)}<button onclick="rmCwd('${esc(c)}')">✕</button></span>`).join('')||'<span style="color:var(--faint)">暂无记录</span>';
-  return`<div class="card"><h2 class="ct">常用 cwd（派任务时下拉可选）</h2><div>${chips}</div>
-    <h2 class="ct" style="margin-top:16px">worktree 基目录</h2>
-    <label>隔离 worktree 的创建位置（不要放在含 package.json 的目录树内）</label>
+  return`<div class="card"><h2 class="ct">常用 cwd<span class="sc" style="font-weight:400;letter-spacing:0">派任务时下拉可选</span></h2><div style="margin-bottom:4px">${chips}</div>
+    <h2 class="ct" style="margin-top:20px">worktree 基目录<span class="sc" style="font-weight:400;letter-spacing:0">不要放在含 package.json 的目录树内</span></h2>
     <div class="pathrow"><input id="ws-basedir" value="${esc(w.worktreeBaseDir||'')}" placeholder="默认：<repo>/../.acp-worktrees"><button type="button" class="ghost" onclick="openDirPicker('ws-basedir')">▸ 浏览…</button></div>
     <div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="pbtn" onclick="saveWorkspace()">保存</button></div><div class="form-err" id="ws-err"></div></div>`;
 }
@@ -2373,10 +2385,10 @@ async function renderIntegr(){
   try{
     const r=await api('/api/integrations');
     if(my!==SETSECTION)return;
-    $('settings-body').innerHTML=`<div class="card"><h2 class="ct">MCP 接入（给 Claude Code / Codex 的 .mcp.json）</h2>
-      <pre class="rawj">${esc(r.mcpSnippet)}</pre>
-      <button class="btn-copy" onclick="copyRaw(this)">复制配置</button>
-      <h2 class="ct" style="margin-top:16px">Web 控制台</h2>
+    $('settings-body').innerHTML=`<div class="card"><h2 class="ct">MCP 接入 · .mcp.json</h2>
+      <div class="codecard"><div class="codehead">${ICO.file} .mcp.json<button class="btn-copy" onclick="copyRaw(this)">复制配置</button></div>
+        <pre class="rawj">${esc(r.mcpSnippet)}</pre></div>
+      <h2 class="ct" style="margin-top:18px">Web 控制台</h2>
       <div class="usage-row"><span>监听地址</span><b>${r.bind}:${r.webPort}</b></div>
       <div style="color:var(--faint);font-size:12px;margin-top:8px">仅绑定本机回环地址；不要暴露到局域网/公网。</div></div>`;
   }catch(e){
@@ -2385,7 +2397,8 @@ async function renderIntegr(){
   }
 }
 function copyRaw(btn){
-  const txt=btn.parentElement.querySelector('pre').textContent;
+  const root=btn.closest('.codecard')??btn.parentElement;
+  const txt=root.querySelector('pre')?.textContent??'';
   navigator.clipboard.writeText(txt).then(()=>{btn.textContent='已复制 ✓';setTimeout(()=>btn.textContent='复制配置',1200)});
 }
 function renderAgents(){

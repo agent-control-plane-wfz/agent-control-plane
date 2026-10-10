@@ -199,3 +199,35 @@ test('F7: saving other settings must not drop the consent flag', () => {
   saveSettings({ agents: { claude: { defaults: { effort: 'max' } } } });
   assert.equal(getMerged().agents.claude.confirmed, false);
 });
+
+test('F7: a settings save must not materialise the setup marker (the "{}" revoke bug)', () => {
+  // Regression: saveSettings spread `...(cur.setup ?? {})` into every write, so an UNRELATED
+  // save (e.g. noteRecentCwd after a dispatch) birthed `setup: {}` on a legacy machine — and
+  // the next load read {} as "wizard re-opened", flipping every grandfathered agent to
+  // unconfirmed and refusing all dispatches. A save must only ever pass the marker through.
+  writeConfig({ agents: {}, routing: {}, budget: {}, workspace: {} });
+  assert.equal(setupState(), 'legacy');
+  saveSettings({ workspace: { recentCwds: ['D:/somewhere'] } });
+  const raw = JSON.parse(readFileSync(USER_CONFIG_FILE, 'utf8'));
+  assert.equal('setup' in raw, false, 'an unrelated save must not write a setup key it was never given');
+  assert.equal(setupState(), 'legacy', 'and the machine must stay grandfathered');
+  for (const id of BUILTINS) {
+    assert.equal(configuredAgent(id), true, `${id} keeps working after an unrelated save`);
+  }
+  // When the caller DOES write the marker, it goes through as before.
+  saveSettings({ setup: { completedAt: null } });
+  assert.equal(setupState(), 'pending');
+});
+
+test('F7: an empty setup object is not a marker (heals configs the bug already wrote)', () => {
+  // Configs on disk that already carry the accidental `setup: {}` must keep behaving as
+  // legacy — otherwise the machine stays bricked until the wizard is walked through.
+  writeConfig({ setup: {} });
+  assert.equal(setupState(), 'legacy');
+  assert.equal(configuredAgent('dsh'), true, 'a grandfathered agent stays live');
+  // Real markers are unaffected: null = re-opened wizard, a string = done.
+  writeConfig({ setup: { completedAt: null } });
+  assert.equal(setupState(), 'pending');
+  writeConfig({ setup: { completedAt: '2026-01-01T00:00:00.000Z' } });
+  assert.equal(setupState(), 'done');
+});

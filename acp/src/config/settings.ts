@@ -234,7 +234,11 @@ export function getMerged(): AppSettings {
 export function setupState(): 'pending' | 'done' | 'legacy' {
   const { config, error } = loadUserConfig();
   const st = config.setup;
-  if (st) return typeof st.completedAt === 'string' ? 'done' : 'pending';
+  // An EMPTY setup object is NOT a marker: a settings save used to materialise `setup: {}`
+  // for machines that never had the key (spreading `...(cur.setup ?? {})`), and that flipped
+  // a legacy machine to 'pending' — revoking every grandfathered agent on the next save.
+  // Only a real marker counts: 'completedAt' present (string = done, null = re-opened wizard).
+  if (st && typeof st.completedAt !== 'undefined') return typeof st.completedAt === 'string' ? 'done' : 'pending';
   // An unreadable config must not be treated as "fresh" — that would pop a wizard over a
   // machine that is already configured and would silently drop the user's settings.
   if (error) return 'legacy';
@@ -380,7 +384,13 @@ export function saveSettings(patch: Partial<AppSettings>): AppSettings {
     // likewise for presets). Merge each named entry too.
     teams: mergeNamed(cur.teams, patch.teams),
     presets: mergeNamed(cur.presets, patch.presets),
-    setup: { ...(cur.setup ?? {}), ...(patch.setup ?? {}) },
+    // `setup` is a MARKER ("this machine has been through / is going through the wizard"),
+    // not a settings section. Materialising it as `{}` on an unrelated save used to flip a
+    // legacy machine to 'pending' and revoke every grandfathered agent — so it is passed
+    // through untouched unless the caller explicitly writes it.
+    ...(patch.setup
+      ? { setup: { ...(cur.setup ?? {}), ...patch.setup } }
+      : cur.setup !== undefined ? { setup: cur.setup } : {}),
   };
   mkdirSync(dirname(USER_CONFIG_FILE), { recursive: true });
   atomicWrite(USER_CONFIG_FILE, JSON.stringify(next, null, 2));

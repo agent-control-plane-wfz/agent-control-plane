@@ -578,9 +578,15 @@ body.hideR #expR{display:inline-flex}
 .trow .tico{flex:0 0 14px;text-align:center;color:var(--faint);font-size:11px;padding-top:1px}
 .trow .ttext{min-width:0;overflow-wrap:break-word}
 .trow.expandable{cursor:pointer}
-.trow.t-think{color:#8f8f8f}
-.trow.t-think .ttext{white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.trow.t-think.open .ttext{-webkit-line-clamp:unset}
+.trow.t-think{color:#8f8f8f;flex-wrap:wrap}
+.trow.t-think .tlabel{font-size:12px;color:var(--faint);user-select:none}
+.trow.t-think:hover .tlabel{color:#c9c9c9}
+.trow.t-think .ttext{display:none;flex-basis:100%;white-space:pre-wrap;margin:2px 0 0 3px;color:#8f8f8f}
+.trow.t-think.open .ttext{display:block}
+/* live thinking reads as one pulsing line — the way every agent GUI folds it */
+.live-zone .trow.t-think .tlabel{animation:thinkpulse 1.6s ease-in-out infinite}
+.live-zone .trow.t-think .tlabel::after{content:'…'}
+@keyframes thinkpulse{0%,100%{opacity:.5}50%{opacity:1}}
 .trow.t-tool{color:var(--warn)}
 .trow.t-tool .ttext{font-family:var(--mono);font-size:11.5px}
 .trow.t-res{color:var(--faint);font-size:11.5px}
@@ -1714,7 +1720,16 @@ function typeTick(target,_proc){
 /* The trail rows shared by finished turns and the live stream: thinking · tool · result ·
    status. `text` events are skipped — that is the streaming body, and the final answer
    already renders it in full. Rows that clamp (think / result) toggle open on click. */
-const thinkRow=s=>`<div class="trow t-think solo expandable" onclick="this.classList.toggle('open')"><span class="tico tcaret">${ICO.chevR}</span><span class="ttext">${esc(s)}</span></div>`;
+/* Thinking folds to ONE quiet line — "思考" (pulsing while streaming), click to expand. The
+   expanded state survives rebuilds by remembering which block was opened (keyed on the first
+   40 chars: append-only growth keeps the prefix stable). */
+let THINK_OPEN_KEY=null;
+function thinkToggle(el){
+  el.classList.toggle('open');
+  const t=el.querySelector('.ttext')?.textContent||'';
+  THINK_OPEN_KEY=el.classList.contains('open')?t.slice(0,40):null;
+}
+const thinkRow=s=>`<div class="trow t-think solo expandable${THINK_OPEN_KEY&&String(s).startsWith(THINK_OPEN_KEY)?' open':''}" onclick="thinkToggle(this)"><span class="tico tcaret">${ICO.chevR}</span><span class="tlabel">思考</span><span class="ttext">${esc(s)}</span></div>`;
 function traceRowHtml(e){
   const t=String(e.text??'');
   if(!t)return '';

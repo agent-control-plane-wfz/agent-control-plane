@@ -508,11 +508,14 @@ body.hideR #expR{display:inline-flex}
 .cresult{flex:0 0 auto;padding:0 2px 16px}
 .msg{display:flex;gap:10px;align-items:flex-start}
 /* The user's message is a right-aligned magenta bubble (no avatar); the assistant answers
-   as plain running text, exactly like the reference conversation. */
+   as plain running text, exactly like the reference conversation. The user bubble needs the
+   row flex to right-align; the assistant turn must NOT inherit it — its children (trail,
+   answer, meta) are a vertical stack, and as flex items they once sat side by side: the
+   thinking trail in a left column, the answer squeezed into the right one. */
 .msg.user{justify-content:flex-end}
+.msg.assistant{display:block}
 .msg .bubble{background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-md);padding:8px 12px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;min-width:0}
 .msg.user .bubble{background:var(--bubble);color:#fff;border-radius:15px 15px 4px 15px;padding:10px 15px;max-width:82%}
-.msg.assistant .bubble{color:#cfcfcf}
 .cstream .ev{font:12px/1.65 var(--mono);color:var(--dim);word-break:break-all;display:flex;gap:8px}
 .cstream .ev .k{opacity:.55;flex-shrink:0;user-select:none;font-variant-numeric:tabular-nums}
 .cstream .ev.t-text{color:#c9c9c9}

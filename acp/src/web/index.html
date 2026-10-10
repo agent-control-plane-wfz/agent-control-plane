@@ -5,41 +5,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agent Control Plane</title>
 <meta name="description" content="本地多 agent 控制台：把任务派给最合适的 coding harness，跨厂商评审，作业实时可见。">
-<meta name="theme-color" content="#151517">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234176e6'/%3E%3Cpath d='M16 6l2.7 7.3L26 16l-7.3 2.7L16 26l-2.7-7.3L6 16l7.3-2.7z' fill='%23fff'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#1a1a1a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23f077af'/%3E%3Cpath d='M16 6l2.7 7.3L26 16l-7.3 2.7L16 26l-2.7-7.3L6 16l7.3-2.7z' fill='%23fff'/%3E%3C/svg%3E">
 <style>
 :root{
-  --bg:#0a0c10; --surface:#12151d; --surface2:#181c26; --surface3:#1f2432;
-  --border:#242a38; --border2:#2e3546;
+  --bg:#1a1a1a; --surface:#252525; --surface2:#252525; --surface3:#3a3a3a;
+  --border:#ffffff12; --border2:#ffffff20;
   --text:#e8ebf4; --dim:#98a0b3; --faint:#5d6577;
-  --acc1:#5b7cfa; --acc2:#9a6bff; --ok:#34d399; --warn:#fbbf24; --err:#f87171;
+  --acc1:#f077af; --acc2:#f78fc0; --ok:#34d399; --warn:#fbbf24; --err:#f87171;
   --mono:'Cascadia Code',Consolas,'Courier New',monospace;
 }
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
 body{background:var(--bg);color:var(--text);font:14px/1.6 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;display:flex}
 ::-webkit-scrollbar{width:9px;height:9px}
-::-webkit-scrollbar-thumb{background:#2b3244;border-radius:9px}
-::-webkit-scrollbar-thumb:hover{background:#39415a}
+::-webkit-scrollbar-thumb{background:#333;border-radius:9px}
+::-webkit-scrollbar-thumb:hover{background:#444}
 ::-webkit-scrollbar-track{background:transparent}
-::selection{background:rgba(65,118,230,.35)}
+::selection{background:rgba(240,119,175,.35)}
 /* Keyboard focus is a requirement, not decoration: buttons/chips previously had no ring. */
 :focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
 
 /* ---------- sidebar ---------- */
 aside{width:252px;min-width:252px;height:100vh;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);padding:18px 14px;display:flex;flex-direction:column;gap:14px;position:sticky;top:0}
 .brand{font-size:15.5px;font-weight:500;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
-.brand .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--acc1),var(--acc2));display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#fff;box-shadow:0 2px 12px rgba(91,124,250,.4)}
+.brand .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--acc1),var(--acc2));display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#fff;box-shadow:0 2px 12px rgba(240,119,175,.35)}
 .side-title{font-size:10px;letter-spacing:1.6px;color:var(--faint);font-weight:700;margin:4px 2px 0}
-.agent{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:background .15s,border-color .15s}
-.agent:hover{background:var(--surface3)}
-.agent.sel{background:var(--surface3);border-color:var(--acc1)}
-.avatar{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;letter-spacing:.5px}
-.agent .info{flex:1;min-width:0}
-.agent .nm{font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px}
-.agent .sub{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.agent .vn{font-size:10px;color:var(--warn);margin-top:1px}
-.agent .vn.dim{color:var(--dim)}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--faint);display:inline-block;flex-shrink:0}
 .dot.ok{background:var(--ok);box-shadow:0 0 6px rgba(52,211,153,.7)}
 .dot.err{background:var(--err)}
@@ -80,7 +71,7 @@ h2.ct .n{background:var(--surface3);border-radius:99px;padding:0 8px;font-size:1
 label{display:block;font-size:11px;color:var(--dim);margin:11px 0 4px;font-weight:600;letter-spacing:.3px}
 textarea,input,select{width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font:13px var(--mono);transition:border-color .15s}
 textarea{resize:vertical;min-height:90px;line-height:1.55}
-textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);box-shadow:0 0 0 3px rgba(91,124,250,.15)}
+textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);box-shadow:0 0 0 3px rgba(240,119,175,.15)}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;user-select:none}
@@ -89,7 +80,7 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
    where the only such button was the full-width "start" CTA. The rebuilt console kept the id for
    the composer's round send button, so the old rule (specificity 100) silently beat `.sendbtn`
    (10) and stretched the send button into a full-width bar. A class cannot collide like that. */
-.pbtn{width:100%;margin-top:16px;padding:11px;border:0;border-radius:10px;background:linear-gradient(135deg,var(--acc1),var(--acc2));color:#fff;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.5px;box-shadow:0 4px 18px rgba(91,124,250,.35);transition:.15s}
+.pbtn{width:100%;margin-top:16px;padding:11px;border:0;border-radius:10px;background:linear-gradient(135deg,var(--acc1),var(--acc2));color:#fff;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.5px;box-shadow:0 4px 18px rgba(240,119,175,.3);transition:.15s}
 .pbtn:hover{filter:brightness(1.12);transform:translateY(-1px)}
 .pbtn:disabled{opacity:.6;cursor:wait;transform:none}
 .form-err{color:var(--err);font-size:12px;margin-top:8px;font-family:var(--mono);min-height:16px}
@@ -107,24 +98,25 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
    stage would push every job below the fold — an empty screen that looks broken. */
 .stage{background:var(--surface);border:1px solid var(--border);border-radius:14px;min-height:clamp(340px,calc(100vh - 330px),600px);padding:32px 34px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;position:relative;box-shadow:0 16px 48px rgba(0,0,0,.28)}
 .welcome{text-align:center}
-.welcome .mark{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,var(--acc1),var(--acc2));display:inline-flex;align-items:center;justify-content:center;font-size:20px;color:#fff;margin-bottom:12px;box-shadow:0 4px 18px rgba(91,124,250,.35)}
+.welcome .mark{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,var(--acc1),var(--acc2));display:inline-flex;align-items:center;justify-content:center;font-size:20px;color:#fff;margin-bottom:12px;box-shadow:0 4px 18px rgba(240,119,175,.3)}
 .welcome h3{font-size:17px;font-weight:700;text-wrap:balance}
 .welcome p{color:var(--dim);font-size:13px;margin-top:6px}
-.composer{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--dsw-radius-lg);padding:12px 14px 10px;position:relative}
-.composer:focus-within{border-color:var(--acc1);box-shadow:0 0 0 3px rgba(91,124,250,.12)}
-.composer textarea{width:100%;background:transparent;border:0;padding:2px 2px 6px;min-height:78px;font:13.5px/1.7 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;color:var(--text);resize:none;box-shadow:none}
+.composer{width:100%;background:var(--dsw-alias-bg-layer-2);border:0;border-radius:var(--dsw-radius-xl);padding:12px 14px 10px;position:relative}
+.composer:focus-within{border-color:var(--acc1);box-shadow:0 0 0 3px rgba(240,119,175,.14)}
+.composer textarea{width:100%;background:transparent;border:0;padding:2px 2px 6px;min-height:92px;font:13.5px/1.7 'Segoe UI','Microsoft YaHei',system-ui,sans-serif;color:var(--text);resize:none;box-shadow:none}
 .composer textarea:focus{outline:none;border:0;box-shadow:none}
 .crow-top{display:flex;gap:7px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
 .crow-bottom{display:flex;align-items:center;gap:8px;margin-top:4px}
-.chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface3);border:1px solid var(--border);color:var(--dim);border-radius:var(--dsw-radius-sm);padding:4px 12px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;max-width:270px;transition:.15s}
-.chip:hover{color:var(--text);border-color:var(--acc1)}
-.chip.on{color:#fff;border-color:var(--acc1)}
+.chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface3);border:0;color:var(--dim);border-radius:var(--dsw-radius-sm);padding:4px 12px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;max-width:270px;transition:.15s}
+.chip:hover{color:var(--text);filter:brightness(1.15)}
+.chip.on{color:#fff}
 .chip .cnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .caret{font-size:10px;opacity:.75;flex-shrink:0}
-.cbtn{background:transparent;border:1px solid var(--border2);color:var(--dim);width:28px;height:28px;border-radius:50%;font:inherit;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:.15s}
-.cbtn:hover{color:var(--text);border-color:var(--acc1)}
-.sendbtn{width:30px;height:30px;border-radius:50%;border:0;background:var(--acc1);color:#fff;font-size:15px;cursor:pointer;flex-shrink:0;padding:0;line-height:1}
-.sendbtn:hover{filter:brightness(1.12)}
+.cbtn{background:transparent;border:0;color:var(--dim);width:28px;height:28px;border-radius:8px;font:inherit;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:.15s}
+.cbtn:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
+/* Round magenta send key — the reference's one saturated control, kept that way here. */
+.sendbtn{width:32px;height:32px;border-radius:50%;border:0;background:var(--acc1);color:#fff;font-size:15px;cursor:pointer;flex-shrink:0;padding:0;line-height:1;transition:filter .15s}
+.sendbtn:hover{filter:brightness(1.1)}
 .sendbtn:disabled{opacity:.5;cursor:wait}
 /* Press feedback: a 1px sink makes a click feel physical (hover already lifts .pbtn by 1px). */
 .pbtn:active,.sendbtn:active,.chip:active,.cbtn:active,.segb:active,.newbtn:active,.navrow:active,.navbtn:active,button.ghost:active{transform:translateY(1px)}
@@ -151,7 +143,7 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
    switch that stands alone — several can be on at once. A segmented control is one choice among a
    few, drawn as a tablist with a single sliding indicator. Making them look alike would imply the
    wrong thing about what turning one on does to the others. */
-.chip.pill.on{background:rgba(91,124,250,.16);border-color:var(--acc1);color:var(--text)}
+.chip.pill.on{background:rgba(240,119,175,.20);border-color:rgba(240,119,175,.55);color:var(--text)}
 .seg{position:relative;display:inline-flex;background:var(--surface3);border-radius:99px;padding:2px;flex-shrink:0}
 .seg-ind{position:absolute;top:2px;bottom:2px;left:2px;width:calc((100% - 4px) / 3);background:var(--surface);border-radius:99px;transition:transform .18s cubic-bezier(.4,0,.2,1)}
 .seg[data-i="1"] .seg-ind{transform:translateX(100%)}
@@ -164,13 +156,23 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
    (agent + model + effort), which is the atomic unit: picking one half is meaningless alone. */
 .seats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 .seats:empty{display:none}
+/* Inline seats double as the "model picker" at the composer's bottom-right: plain text,
+   caret, no chrome — the same shape as the reference's GPT selector. */
+.seats.inline{display:flex;align-items:center;gap:0;margin:0;flex-wrap:nowrap}
+.seats.inline:empty{display:none}
+.seats.inline .seat{background:transparent;border:0;padding:2px 4px;color:var(--dim);max-width:none}
+.seats.inline .seat:hover{border-color:transparent;color:var(--text)}
+.seats.inline .seat .role{color:var(--faint)}
+.seats.inline .seat .val{color:var(--dim);font-weight:400}
+.seats.inline .seat:hover .val{color:var(--text)}
+.ssep{color:var(--faint);opacity:.55;margin:0 5px;font-size:11px}
 .seat{display:inline-flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:var(--dsw-radius-sm);padding:3px 7px 3px 10px;font-size:12px;cursor:pointer;color:var(--dim);max-width:100%;transition:.15s}
 .seat:hover{border-color:var(--acc1);color:var(--text)}
 .seat .role{font-size:10px;letter-spacing:.7px;color:var(--faint);flex-shrink:0}
 .seat .val{color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .seat .sub{color:var(--faint);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .seat .caret{font-size:10px;opacity:.7;flex-shrink:0}
-.seat.s-implementer{border-color:rgba(91,124,250,.4)}
+.seat.s-implementer{border-color:rgba(240,119,175,.35)}
 .seat.s-reviewer,.seat.s-arbiter{border-color:rgba(62,207,142,.32)}
 .seathint{padding:7px 10px;margin:2px 0 5px;border-radius:8px;font-size:11.5px;line-height:1.6}
 .seathint:empty{display:none}
@@ -194,7 +196,7 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
    sidebar always tells you which job the middle is displaying. */
 .sess{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--dsw-radius-sm);font-size:12.5px;color:var(--dim);cursor:pointer;border:1px solid transparent}
 .sess:hover{background:var(--dsw-alias-bg-hover)}
-.sess.on{color:var(--text);background:var(--dsw-alias-bg-layer-3);box-shadow:0 0 0 1px var(--dsw-alias-brand-primary)}
+.sess.on{color:var(--text);background:var(--dsw-alias-bg-hover);box-shadow:inset 2px 0 0 var(--acc1)}
 .sess .st{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sess .t{margin-left:auto;font-size:10.5px;color:var(--faint);flex-shrink:0;font-variant-numeric:tabular-nums}
 .side-empty{color:var(--faint);font-size:11.5px;padding:10px 8px;line-height:1.7}
@@ -222,10 +224,10 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 .fsearch{width:150px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:var(--dsw-radius-sm);padding:4px 12px;font-size:12px}
 
 .pill{padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.3px;flex-shrink:0}
-.pill.running{background:rgba(91,124,250,.15);color:#9db4ff}
+.pill.running{background:rgba(240,119,175,.16);color:#f4a8cd}
 .pill.ok{background:rgba(52,211,153,.13);color:var(--ok)}
 .pill.err{background:rgba(248,113,113,.13);color:var(--err)}
-.pill.batch{background:rgba(154,107,255,.15);color:#c3a6ff}
+.pill.batch{background:rgba(255,255,255,.09);color:#cfcfcf}
 .pill.warn{background:rgba(245,166,35,.15);color:var(--warn)}
 /* Heterogeneous review: which seats ran, then one block per stage. The stages are the point of
    this job kind, so they are laid out in order rather than collapsed into a single blob. */
@@ -241,7 +243,19 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 .jtask{flex:1;min-width:180px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jmeta{color:var(--faint);font-size:11.5px;font-family:var(--mono);flex-shrink:0}
 
-.reply{background:#0c0e13;border:1px solid var(--border);border-radius:9px;padding:11px 13px;font-size:13px;white-space:pre-wrap;word-break:break-word;max-height:380px;overflow-y:auto;line-height:1.65}
+/* Result text reads as plain running text on the page (no box) — the assistant answer in
+   the reference is unboxed body copy, not a terminal panel. Terminal-ish blocks (raw JSON,
+   probe output) keep their own framed look below. */
+.reply{background:transparent;border:0;border-radius:0;padding:2px 0;font-size:13.5px;color:#dcdcdc;white-space:pre-wrap;word-break:break-word;max-height:380px;overflow-y:auto;line-height:1.75}
+/* edited-files card: grey panel, mono file rows — the reference's diff summary, minus the
+   numbers we do not have */
+.fcard{background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-md);margin-bottom:12px;overflow:hidden}
+.fcard .fch{padding:10px 14px 8px;font-size:12.5px;color:var(--dim);display:flex;align-items:center;gap:7px}
+.fcard .fch b{color:var(--text);font-weight:600}
+.fcard .fic{color:var(--faint);font-size:12px}
+.fcard .fl{display:flex;align-items:center;gap:9px;padding:6.5px 14px;font-size:12.5px;color:#d7d7d7;font-family:var(--mono);border-top:1px solid var(--border)}
+.fcard .fl .fi{color:var(--faint);font-size:10px;width:10px;flex-shrink:0}
+.fcard .fl .fn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .verdict{background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.25);border-radius:9px;padding:11px 13px;margin-top:10px;font-size:12.5px}
 .verdict b{color:var(--ok)}
 .verdict ul{margin:6px 0 0 18px}
@@ -250,7 +264,7 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);bo
 details.raw{margin-top:10px}
 details.raw summary{cursor:pointer;font-size:12px;color:var(--faint)}
 details.raw pre{margin-top:6px}
-pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;padding:11px;font:11.5px var(--mono);white-space:pre-wrap;word-break:break-all;max-height:320px;overflow-y:auto;color:#9aa6c4}
+pre.rawj{background:#1a1a1a;border:1px solid var(--border);border-radius:9px;padding:11px;font:11.5px var(--mono);white-space:pre-wrap;word-break:break-all;max-height:320px;overflow-y:auto;color:#ababab}
 .btn-copy{background:var(--surface3);border:1px solid var(--border);color:var(--dim);border-radius:7px;padding:3px 10px;font-size:11px;cursor:pointer;margin-top:8px}
 .btn-copy:hover{color:var(--text)}
 .pathrow{display:flex;gap:8px;align-items:center}
@@ -279,7 +293,7 @@ pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;pad
 .schip{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:4px 11px;font-size:12px;color:var(--dim);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .schip.ok{border-color:rgba(52,211,153,.4)}
 .schip.err{border-color:rgba(248,113,113,.4);color:var(--err)}
-.schip.run{border-color:rgba(91,124,250,.4);color:#9db4ff}
+.schip.run{border-color:rgba(240,119,175,.4);color:#f4a8cd}
 .empty{color:var(--faint);text-align:center;padding:44px 0;font-size:13px}
 .empty .emico{display:block;font-size:20px;opacity:.6;margin-bottom:9px}
 .empty b{display:block;color:var(--dim);font-weight:600;font-size:13.5px;margin-bottom:4px}
@@ -316,7 +330,7 @@ pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;pad
 .agentrow .aedit{display:none;border-top:1px solid var(--border);padding:13px}
 .agentrow.open .aedit{display:block}
 .badge-dis{background:#3a2f1c;color:var(--warn);border-radius:99px;padding:1px 9px;font-size:11px;font-weight:700}
-.probebox{background:#0c0e13;border:1px solid var(--border);border-radius:9px;padding:9px 11px;font:12px var(--mono);margin-top:9px;white-space:pre-wrap;word-break:break-all}
+.probebox{background:#1a1a1a;border:1px solid var(--border);border-radius:9px;padding:9px 11px;font:12px var(--mono);margin-top:9px;white-space:pre-wrap;word-break:break-all}
 .switch{position:relative;width:34px;height:19px;flex-shrink:0}
 .switch input{opacity:0;width:0;height:0}
 .switch span{position:absolute;inset:0;background:var(--surface3);border:1px solid var(--border2);border-radius:99px;cursor:pointer;transition:.2s}
@@ -338,22 +352,25 @@ pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;pad
 .navico{font-size:13px;opacity:.85;width:15px;text-align:center}
 
 /* =====================================================================================
-   dsh design system — token values copied verbatim from @deepseek-ai/dsh-client-ui-theme
-   (DeepSeek Harness, MIT License). Font: Montserrat, SIL Open Font License (fonts/).
-   We re-map our palette variables onto dsh's real tokens so the whole UI inherits its
-   look: bg-base/layer ramp, half-pixel elevation stroke, radii scale, brand blue.
+   Design system — two sources, both from the real app (not invented):
+   · geometry, elevation rules and component patterns: @deepseek-ai/dsh (MIT)
+   · the greys and the magenta accent: pixel-sampled from the desktop GUI reference
+     (chrome #1a1a1a / content #1e1e1e / card #252525 / composer #323232 /
+      user bubble #873e60 / send #f077af).
    ===================================================================================== */
 @font-face{font-family:'Montserrat';font-style:normal;font-weight:400;font-display:swap;src:url(./fonts/montserrat-regular.woff2) format('woff2')}
 @font-face{font-family:'Montserrat';font-style:normal;font-weight:300;font-display:swap;src:url(./fonts/montserrat-light.woff2) format('woff2')}
 @font-face{font-family:'Montserrat';font-style:normal;font-weight:500;font-display:swap;src:url(./fonts/montserrat-medium.woff2) format('woff2')}
 
 :root{
-  /* raw palette (dsw-static-*) */
-  --dsw-neutral-bluish-950:#151517; --dsw-neutral-bluish-875:#232324;
-  --dsw-neutral-bluish-850:#2c2c2e; --dsw-neutral-bluish-800:#353638;
-  --dsw-neutral-bluish-400:#adb2b8; --dsw-neutral-bluish-600:#81858c; --dsw-neutral-bluish-700:#61666b;
-  --dsw-deepseek-500:#4176e6; --dsw-deepseek-450:#5686fe;
+  /* palette (pixel-sampled from the reference GUI) */
+  --dsw-neutral-bluish-950:#1e1e1e; --dsw-neutral-bluish-875:#252525;
+  --dsw-neutral-bluish-850:#323232; --dsw-neutral-bluish-800:#3a3a3a;
+  --dsw-neutral-bluish-400:#a3a3a3; --dsw-neutral-bluish-600:#7a7a7a; --dsw-neutral-bluish-700:#666666;
+  --dsw-deepseek-500:#f077af; --dsw-deepseek-450:#f78fc0;
   --dsw-red-400:#f25a5a; --dsw-amber:#f7ad31; --dsw-green-400:#4ed17e; --dsw-green-500:#22c55e;
+  /* the window chrome sits one step BELOW the content, exactly like the reference */
+  --chrome:#1a1a1a; --bubble:#873e60;
   /* alias tokens (dsw-alias-*, dark theme) */
   --dsw-alias-bg-base:var(--dsw-neutral-bluish-950);
   --dsw-alias-bg-layer-1:var(--dsw-neutral-bluish-875);
@@ -363,8 +380,8 @@ pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;pad
   --dsw-alias-border-l1:#ffffff0f; --dsw-alias-border-l2:#ffffff1f;
   --dsw-alias-border-l3:#ffffff29; --dsw-alias-border-l4:#ffffff33;
   --dsw-alias-brand-text:#f9fafb;
-  --dsw-alias-brand-primary:#4176e6;      /* deepseek-500 */
-  --dsw-alias-brand-primary-hover:#5686fe;/* deepseek-450 */
+  --dsw-alias-brand-primary:var(--dsw-deepseek-500);      /* magenta, from the reference */
+  --dsw-alias-brand-primary-hover:var(--dsw-deepseek-450);/* magenta hover */
   --dsw-alias-state-error-primary:var(--dsw-red-400);
   --dsw-alias-state-success-primary:var(--dsw-green-500);
   --dsw-alias-bg-hover:#ffffff14;
@@ -392,11 +409,13 @@ pre.rawj{background:#0c0e13;border:1px solid var(--border);border-radius:9px;pad
   --err:var(--dsw-alias-state-error-primary);
   --mono:'Cascadia Code',Consolas,'Courier New',monospace;
 }
-body{font-family:Montserrat,'PingFang SC','Microsoft YaHei',system-ui,sans-serif;letter-spacing:.012em}
+body{font-family:'Segoe UI','Microsoft YaHei',system-ui,sans-serif;letter-spacing:.01em}
 /* dsh signature: half-pixel stroke instead of solid 1px borders; real radii scale */
 .card{background:var(--dsw-alias-settings-card-fill);border:0;border-radius:var(--dsw-radius-lg);box-shadow:var(--dsw-elevation-stroke), var(--dsw-shadow-lv2)}
-aside{background:var(--dsw-alias-bg-base);border-right:0;box-shadow:var(--dsw-elevation-stroke)}
-header.main{background:linear-gradient(var(--dsw-alias-bg-base) 82%,transparent)}
+/* The chrome (both sidebars) sits one step darker than the content — the reference's
+   strongest structural signal, and it is what the eye uses to read the three columns. */
+aside{background:var(--chrome);border-right:0;box-shadow:none}
+header.main{background:linear-gradient(var(--chrome) 82%,transparent)}
 .agentrow,.credchip,.chip-x,.schip,.usage-row{box-shadow:var(--dsw-elevation-stroke)}
 .agentrow{border:0;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1)}
 .agentrow.open{border-radius:var(--dsw-radius-md);box-shadow:0 0 0 1.5px var(--dsw-alias-brand-primary)}
@@ -412,7 +431,7 @@ button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
 .pill,.fchip,.credchip,.chip-x,.presets button,.schip,.seat,.nfilter{border-radius:var(--dsw-radius-sm)}
 .presets button{background:var(--dsw-alias-bg-layer-1);border:0;box-shadow:var(--dsw-elevation-stroke)}
 .presets button:hover{border-color:transparent;background:var(--dsw-alias-bg-layer-3)}
-.reply,pre.rawj,.probebox{background:var(--dsw-alias-bg-base);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm)}
+pre.rawj,.probebox{background:var(--chrome);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm)}
 .verdict{background:#22c55e14;border:0;box-shadow:0 0 0 1px #22c55e1f;border-radius:var(--dsw-radius-sm)}
 .side-title,h2.ct{letter-spacing:.08em;font-weight:500}
 .arow:hover{background:var(--dsw-alias-bg-hover)}
@@ -426,20 +445,31 @@ button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
    scrolls on its own and the page itself never scrolls. */
 main{overflow:hidden;padding:0 20px;display:flex;flex-direction:column;min-width:0}
 header.main{flex:0 0 auto;padding:12px 0 6px}
-header.main h1{font-size:15px}
+header.main h1{font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:9px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The ✎ flag before the title row mirrors the reference's toolbar; only drawn when there is
+   actually a title to flag. */
+header.main h1:not(:empty)::before{content:'✎';color:var(--faint);font-size:13px;font-weight:400;flex-shrink:0}
 /* The empty stage has no page label; an empty h1 must take no space and draw no separator. */
 header.main h1:empty{display:none}
 #view-console{flex:1;min-height:0;display:flex;flex-direction:column}
 #view-setup{flex:1;min-height:0;overflow-y:auto}
-aside#asideR{width:264px;min-width:264px;border-right:0;border-left:1px solid var(--border);gap:12px}
+aside#asideR{width:264px;min-width:264px;gap:12px}
 .panerow{display:flex;align-items:center;gap:8px}
 .panetgl{margin-left:auto;background:transparent;border:0;color:var(--faint);font:14px/1 inherit;padding:4px 8px;border-radius:var(--dsw-radius-xs);cursor:pointer;flex-shrink:0}
 .panetgl:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
 .expbtn{display:none;background:transparent;border:0;color:var(--faint);font:15px/1 inherit;padding:4px 8px;border-radius:var(--dsw-radius-xs);cursor:pointer;flex-shrink:0}
 .expbtn:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
-body.hideL #asideL{display:none}
+/* Collapsing the left pane leaves a 56px icon rail behind, not an empty edge — the same
+   collapse behaviour the reference app has. Every icon stays a real action. */
+.rail{display:none;flex-direction:column;align-items:center;gap:10px;width:100%}
+.railbtn{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font:17px/1 inherit;color:var(--dim);background:transparent;border:0;cursor:pointer;flex-shrink:0;transition:background .12s,color .12s}
+.railbtn:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
+body.hideL #asideL{width:56px;min-width:56px;padding:12px 7px;gap:8px;align-items:center}
+body.hideL #asideL>.rail{display:flex}
+body.hideL #asideL>:not(.rail){display:none}
 body.hideR #asideR{display:none}
-body.hideL #expL{display:inline-flex}
+/* the rail already owns "reopen" — the header's › would just be a second copy of it */
+body.hideL #expL{display:none}
 body.hideR #expR{display:inline-flex}
 
 /* conversation list (left pane) */
@@ -465,19 +495,20 @@ body.hideR #expR{display:inline-flex}
 .ccol{max-width:920px;width:100%;margin:0 auto;display:flex;flex-direction:column;min-height:0;flex:1}
 .chead{flex:0 0 auto;display:flex;flex-direction:column;gap:6px;padding:12px 2px 8px}
 .chrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.ctitle{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:52ch}
 .chrow .spacer{flex:1}
 .chead .cmeta{font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums}
 .cstream{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:2px 2px 14px}
 .cresult{flex:0 0 auto;padding:0 2px 16px}
 .msg{display:flex;gap:10px;align-items:flex-start}
-.msg .who{width:22px;height:22px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff}
+/* The user's message is a right-aligned magenta bubble (no avatar); the assistant answers
+   as plain running text, exactly like the reference conversation. */
+.msg.user{justify-content:flex-end}
 .msg .bubble{background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-md);padding:8px 12px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;min-width:0}
-.msg.user .bubble{background:rgba(65,118,230,.10);box-shadow:0 0 0 1px rgba(65,118,230,.22)}
-.msg.assistant .bubble{color:#c6cfe2}
+.msg.user .bubble{background:var(--bubble);color:#fff;border-radius:15px 15px 4px 15px;padding:10px 15px;max-width:82%}
+.msg.assistant .bubble{color:#cfcfcf}
 .cstream .ev{font:12px/1.65 var(--mono);color:var(--dim);word-break:break-all;display:flex;gap:8px}
 .cstream .ev .k{opacity:.55;flex-shrink:0;user-select:none;font-variant-numeric:tabular-nums}
-.cstream .ev.t-text{color:#b8c4e0}
+.cstream .ev.t-text{color:#c9c9c9}
 .cstream .ev.t-tool{color:var(--warn)}
 .cstream .ev.t-status{color:var(--faint);font-style:italic}
 .cstream .ev.t-done{color:var(--ok)}
@@ -489,7 +520,7 @@ body.hideR #expR{display:inline-flex}
 .tree{display:flex;flex-direction:column;gap:1px;font-size:12.5px}
 .tnode{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--dsw-radius-sm);cursor:pointer;color:var(--dim);border:1px solid transparent;min-width:0}
 .tnode:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
-.tnode.on{background:var(--dsw-alias-bg-layer-3);color:var(--text);box-shadow:0 0 0 1px var(--dsw-alias-brand-primary)}
+.tnode.on{background:var(--dsw-alias-bg-hover);color:var(--text);box-shadow:inset 2px 0 0 var(--acc1)}
 .tnode .tdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .tnode .tro{font-size:10px;letter-spacing:.4px;color:var(--faint);flex-shrink:0;min-width:30px}
 .tnode .tval{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
@@ -505,6 +536,12 @@ body.hideR #expR{display:inline-flex}
 <body>
 
 <aside id="asideL">
+  <div class="rail">
+    <button class="railbtn" onclick="togglePane('l')" title="展开侧栏">◈</button>
+    <button class="railbtn" onclick="newTask()" title="新任务">＋</button>
+    <div class="side-grow"></div>
+    <button class="railbtn" onclick="switchView('settings')" title="设置">⚙</button>
+  </div>
   <div class="panerow">
     <div class="brand"><span class="logo">◈</span> Control Plane</div>
     <button class="panetgl" onclick="togglePane('l')" title="折叠左栏">‹</button>
@@ -578,6 +615,7 @@ body.hideR #expR{display:inline-flex}
           <span>▤</span><span class="cnm" id="chip-wsmode-name">工作区内修改</span></button>
         <span class="grow"></span>
         <button type="button" class="chip pill" id="chip-verdict" onclick="toggleVerdict()" title="结构化 verdict：要求 JSON 结论 / 风险 / 建议，解析失败自动重试一次">✓ verdict</button>
+        <div class="seats inline" id="seats-inline"></div>
         <button type="button" class="sendbtn" id="btn-go" title="派发任务">↑</button>
       </div>
 
@@ -674,8 +712,6 @@ body.hideR #expR{display:inline-flex}
 <script>
 const $=id=>document.getElementById(id);
 const COPYBUF={};
-const AGENT_COLORS={opencode:'#3ecf8e',claude:'#f5a623',codex:'#4f8cff',dsh:'#c3a6ff',review:'#9a6bff'};
-const AGENT_SHORT={opencode:'OC',claude:'CL',codex:'CX',dsh:'DS',review:'RV'};
 /* FIX (P1): which vendor each adapter is EXPECTED to run. The backend reports the vendor the
    default model ACTUALLY runs on (adapter name != vendor). Only flag a mismatch against this
    expectation — previously any non-empty value rendered as a warning, so all four agents
@@ -913,15 +949,22 @@ const seatSlots=()=>mode==='review'?['implementer','reviewer','arbiter']:['imple
 const seatSummary=s=>[s.agent||'auto 路由',s.model,s.effort].filter(Boolean).join(' · ');
 
 function renderSeats(){
-  const el=$('seats');if(!el)return;
-  el.innerHTML=seatSlots().map(slot=>{
+  // ask/batch render their single seat as the bottom-right picker (next to send), matching the
+  // reference's model selector; review keeps its three role seats on their own row above the
+  // box, where three cards have room to breathe.
+  const inline=mode!=='review';
+  const host=$(inline?'seats-inline':'seats');
+  const other=$(inline?'seats':'seats-inline');
+  if(other)other.innerHTML='';
+  if(!host)return;
+  host.innerHTML=seatSlots().map(slot=>{
     const s=SEATS[slot];
+    const parts=[`<span class="role">${SEAT_LABEL[slot]}</span>`,`<span class="val">${esc(s.agent||'auto 路由')}</span>`];
+    if(s.model)parts.push(`<span class="sub">${esc(s.model)}</span>`);
+    if(s.effort)parts.push(`<span class="sub">${esc(s.effort)}</span>`);
+    const body=inline?parts.join('<span class="ssep">·</span>'):parts.join('');
     return`<button type="button" class="seat s-${slot}" onclick="openSeat(event,'${slot}')" title="${esc(SEAT_TITLE[slot])}">
-      <span class="role">${SEAT_LABEL[slot]}</span>
-      <span class="val">${esc(s.agent||'auto 路由')}</span>
-      ${s.model?`<span class="sub">${esc(s.model)}</span>`:''}
-      ${s.effort?`<span class="sub">${esc(s.effort)}</span>`:''}
-      <span class="caret">⌄</span></button>`;
+      ${body}<span class="caret">⌄</span></button>`;
   }).join('');
 }
 /** Push the target seat's values into the shared editor controls (one editor, N seats). */
@@ -1245,13 +1288,14 @@ function clearSelection(){
   SELECTED=null;NODEFILTER=null;CENTER_SIG='';TREE_SIG='';
   renderJobs(JOBS);renderCenter(true);renderTree();setViewTitle();document.title='Control Plane';
 }
-/** The main header carries exactly one label: the wizard's name while the wizard is open.
-    The console itself shows nothing there — the stage speaks for itself, and an open
-    conversation carries its own title inside the column (see .chead), where it stays
-    aligned with the content instead of floating in a second place. */
+/** The header carries the conversation title on the left, like the reference's window bar
+    (✎ mark + title); the wizard borrows the same slot. Empty on the stage — the centred
+    composer needs no label. */
 function setViewTitle(){
   const t=$('view-title');if(!t)return;
-  t.textContent=$('view-setup').style.display!=='none'?'首启向导':'';
+  if($('view-setup').style.display!=='none'){t.textContent='首启向导';return}
+  const j=JOBS.find(x=>x.id===SELECTED);
+  t.textContent=j?jobTitle(j):'';
 }
 function centerSig(j){return [j.id,NODEFILTER||'',j.status,(j.events||[]).length,j.error||'',j.result?1:0].join('|')}
 function renderCenter(force){
@@ -1306,15 +1350,14 @@ function renderConversation(j){
     :(j.status==='running'?'<div class="ev t-status">等待 agent 输出…</div>':'<div class="ev t-status">（这一段没有事件）</div>');
   return `<div class="ccol">
     <div class="chead">
-      <div class="chrow">${st.pill}<span class="ctitle">${esc(jobTitle(j))}</span><span class="spacer"></span><span class="jid">${esc(j.id)}</span></div>
-      <div class="cmeta">${esc(meta)}</div>
+      <div class="chrow">${st.pill}<span class="cmeta">${esc(meta)}</span><span class="spacer"></span><span class="jid">${esc(j.id)}</span></div>
       ${note}
     </div>
     <div class="cstream" id="cstream" data-stick="1" onscroll="stickTrack(this)">
-      <div class="msg user"><span class="who" style="background:#39415a">你</span><div class="bubble">${esc(taskTxt)}</div></div>
+      <div class="msg user"><div class="bubble">${esc(taskTxt)}</div></div>
       ${stream}
     </div>
-    <div class="cresult">${j.status==='running'?'':renderResult(j)}</div>
+    <div class="cresult">${j.status==='running'?'':fileCard(j)+renderResult(j)}</div>
   </div>`;
 }
 
@@ -1385,6 +1428,35 @@ function focusAgent(id){
   renderJobs(JOBS);
   const first=JOBS.find(j=>j.kind!=='parallel'&&(j.request.agent||j.result?.agent)===id);
   if(first)selectJob(first.id);
+}
+
+/* ---------- edited-files card (the reference's "已编辑 N 个文件" block) ---------- */
+// Honest edition of the reference card: this console has no diff counts and no undo, so it
+// lists exactly what the tool stream shows — files handed to an edit-shaped tool call.
+// Anything the adapter formats differently simply does not match and does not render.
+const EDIT_RE=/(?:^|[\s:])(Edit|Write|MultiEdit|str_replace_editor|str_replace|apply_patch|create_file|write_file)[\s:]+([^\s]+)/i;
+function editedFiles(j){
+  const seen=new Set(),out=[];
+  for(const e of j.events||[]){
+    if(e.kind!=='tool')continue;
+    const m=EDIT_RE.exec(String(e.text||''));
+    if(!m)continue;
+    const f=m[2];
+    if(seen.has(f))continue;
+    seen.add(f);out.push(f);
+  }
+  return out;
+}
+function fileCard(j){
+  const files=editedFiles(j);
+  if(!files.length)return '';
+  const shown=files.slice(0,8);
+  const more=files.length-shown.length;
+  return `<div class="fcard">
+    <div class="fch"><span class="fic">✎</span>本会话编辑了 <b>${files.length}</b> 个文件</div>
+    ${shown.map(f=>`<div class="fl"><span class="fi">▤</span><span class="fn">${esc(f)}</span></div>`).join('')}
+    ${more>0?`<div class="fl" style="color:var(--faint)"><span class="fi"></span><span class="fn">还有 ${more} 个…</span></div>`:''}
+  </div>`;
 }
 
 /* ---------- result blocks (shared by the conversation view) ---------- */

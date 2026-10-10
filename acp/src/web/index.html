@@ -305,7 +305,7 @@ pre.rawj{background:#1a1a1a;border:1px solid var(--border);border-radius:9px;pad
    directory picker, which the Workspace section opens, still lands on top of us. */
 .setmask{position:fixed;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;padding:24px;background:#000000a6;opacity:0;transition:opacity .16s ease}
 .setmask.on{opacity:1}
-.setmodal{display:flex;flex-direction:column;width:min(780px,100%);max-height:min(640px,86vh);background:var(--dsw-alias-settings-card-fill);border:0;border-radius:var(--dsw-radius-lg);box-shadow:0 0 0 .5px var(--dsw-alias-border-l3),0 28px 72px #000000b8;overflow:hidden;transform:translateY(8px) scale(.988);transition:transform .18s cubic-bezier(.4,0,.2,1)}
+.setmodal{display:flex;flex-direction:column;width:min(780px,100%);height:min(640px,86vh);background:var(--dsw-alias-settings-card-fill);border:0;border-radius:var(--dsw-radius-lg);box-shadow:0 0 0 .5px var(--dsw-alias-border-l3),0 28px 72px #000000b8;overflow:hidden;transform:translateY(8px) scale(.988);transition:transform .18s cubic-bezier(.4,0,.2,1)}
 .setmask.on .setmodal{transform:none}
 .sethead{display:flex;align-items:center;gap:10px;padding:16px 18px 12px}
 .sethead h2{margin:0;font-size:14px;font-weight:500;letter-spacing:.07em}
@@ -1632,20 +1632,29 @@ function appendLiveDelta(chat){
   stream.dataset.liven=String(evs.length);
   if(!ROWON)rowTick();
 }
-/** Append to the live zone's LAST think block; create it (queued, so it still animates in)
-    only when there is none. textContent keeps the appended chunk escaped. */
+/** Append to the live zone's LAST think block while no body text has started (that is how the
+    rebuild will group them too); once the reply is typing, a later thinking event gets its OWN
+    queued row — it lands right above the typing text, in event order, exactly where the rebuild
+    will put it. Merging it into the upper block instead would make the turn-end rebuild reshuffle
+    every caret. textContent keeps the appended chunk escaped. */
 function feedThink(s){
   if(!s)return;
   const zone=document.querySelector('#cstream .live-zone');
-  const rows=zone?zone.querySelectorAll('.trow.t-think'):[];
-  const last=rows[rows.length-1];
-  if(last){
-    last.querySelector('.ttext').append(s);
-    const st=$('cstream');
-    if(st&&st.dataset.stick!=='0')st.scrollTop=st.scrollHeight;
-    return;
+  if(zone){
+    const textEl=zone.querySelector('.live-text');
+    const started=!!(textEl&&textEl.textContent.trim());
+    if(!started){
+      const rows=zone.querySelectorAll('.trow.t-think');
+      const last=rows[rows.length-1];
+      if(last){
+        last.querySelector('.ttext').append(s);
+        const st=$('cstream');
+        if(st&&st.dataset.stick!=='0')st.scrollTop=st.scrollHeight;
+        return;
+      }
+    }
   }
-  ROWQ.push(thinkRow(s));
+  ROWQ.push(thinkRow(s));   // queued rows insert just above the typing text, in event order
 }
 function rowTick(){
   ROWON=true;
@@ -1719,9 +1728,11 @@ function traceRowHtml(e){
 /** Conversation-flow layout, shared with the chat view: consecutive text events become ONE
     markdown body, consecutive thinking events become one collapsible think block, and tool /
     status rows group into a trace container. Raw log rows (12px mono + break-all) are what made
-    the stream read as a dump. Parallel batches keep the tagged log rows — with interleaved
-    sub-jobs, body aggregation would blur who said what. */
-function streamBlocks(evs){
+    the stream read as a dump. includeText=false (chat messages) skips text events entirely —
+    the final answer already renders m.text, and rendering the streamed copy too DOUBLED the
+    body and shoved every caret around on rebuild. Parallel batches keep the tagged log rows
+    via their own path — with interleaved sub-jobs, body aggregation would blur who said what. */
+function streamBlocks(evs,includeText){
   const out=[];
   let buf=null;   // {type:'text'|'think'|'trace', parts:[], job}
   const flush=()=>{
@@ -1735,6 +1746,7 @@ function streamBlocks(evs){
   for(const e of evs){
     const job=e.jobId??'';
     if(e.kind==='text'||e.kind==='thinking'){
+      if(e.kind==='text'&&!includeText){flush();continue}
       const type=e.kind==='text'?'text':'think';
       if(!buf||buf.type!==type||buf.job!==job)flush();
       buf=buf||{type,parts:[],job};
@@ -1751,9 +1763,10 @@ function streamBlocks(evs){
   return out.join('');
 }
 function traceHtml(events){
-  // Same aggregation as the conversation stream: many small thinking events collapse into ONE
-  // block, so a finished turn is laid out the way it streamed — not as a pile of separate rows.
-  const blocks=streamBlocks(events||[]);
+  // Same aggregation as the conversation stream, but text events are SKIPPED: the message's
+  // final answer is rendered once from m.text below — including the streamed copy doubled the
+  // body on rebuild and threw every think-block caret out of place.
+  const blocks=streamBlocks(events||[],false);
   return blocks?`<div class="tracewrap">${blocks}</div>`:'';
 }
 /** The busy zone: trail rows already arrived + the reply text so far + the working cursor.
@@ -1936,7 +1949,7 @@ function renderConversation(j){
   const note=node?`<div class="nfilter">只看：${esc(node.label)}${node.agent?' · '+esc(node.agent):''}<button onclick="clearNode()">✕ 回到完整会话</button></div>`:'';
   // Batches without a node filter keep the tagged log rows; everything else reads like the chat view.
   const logMode=j.kind==='parallel'&&!NODEFILTER;
-  const stream=slice.length?(logMode?slice.map(evLine).join(''):streamBlocks(slice))
+  const stream=slice.length?(logMode?slice.map(evLine).join(''):streamBlocks(slice,true))
     :(j.status==='running'?'<div class="ev t-status">等待 agent 输出…</div>':'<div class="ev t-status">（这一段没有事件）</div>');
   return `<div class="ccol">
     <div class="chead">

@@ -577,7 +577,7 @@ body.hideR #expR{display:inline-flex}
 .trow .tico{flex:0 0 14px;text-align:center;color:var(--faint);font-size:11px;padding-top:1px}
 .trow .ttext{min-width:0;overflow-wrap:break-word}
 .trow.expandable{cursor:pointer}
-.trow.t-think{color:#909090;font-style:italic}
+.trow.t-think{color:#8f8f8f}
 .trow.t-think .ttext{white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .trow.t-think.open .ttext{-webkit-line-clamp:unset}
 .trow.t-tool{color:var(--warn)}
@@ -586,7 +586,7 @@ body.hideR #expR{display:inline-flex}
 .trow.t-res .ttext{font-family:var(--mono);white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .trow.t-res.open .ttext{-webkit-line-clamp:unset}
 .trow.t-res.err{color:var(--err)}
-.trow.t-status{color:var(--faint);font-style:italic;font-size:11px}
+.trow.t-status{color:var(--faint);font-size:11px}
 /* Live zone: rows land here the moment they arrive (incremental append), so each one can
    animate in on its own instead of a whole batch "jumping" into place on a poll tick. */
 .live-zone{display:flex;flex-direction:column;gap:4px;margin-top:2px}
@@ -642,6 +642,14 @@ body.hideL #asideL>.rail{animation:fadein .18s ease}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+/* thinking blocks read as one quoted passage: a trace-style left rail on the standalone rows
+   (rows inside .trace already sit behind the container's rail), and a caret that turns as
+   the block expands. Fake-italic is gone — CJK italics are synthesized and look cheap. */
+.cstream>.trow.t-think{border-left:2px solid var(--dsw-alias-border-l2);padding-left:11px;margin:2px 0}
+.trow.t-done{color:var(--ok);font-size:11.5px}
+.trow .tcaret{display:inline-flex;justify-content:center;transition:transform .16s cubic-bezier(.4,0,.2,1)}
+.trow.open .tcaret{transform:rotate(90deg)}
+.trow.expandable:hover .ttext{color:#c9c9c9}
 </style>
 </head>
 <body>
@@ -1678,14 +1686,50 @@ function typeTick(target,_proc){
 /* The trail rows shared by finished turns and the live stream: thinking · tool · result ·
    status. `text` events are skipped — that is the streaming body, and the final answer
    already renders it in full. Rows that clamp (think / result) toggle open on click. */
+const thinkRow=s=>`<div class="trow t-think expandable" onclick="this.classList.toggle('open')"><span class="tico tcaret">${ICO.chevR}</span><span class="ttext">${esc(s)}</span></div>`;
 function traceRowHtml(e){
   const t=String(e.text??'');
   if(!t)return '';
-  if(e.kind==='thinking')return `<div class="trow t-think expandable" onclick="this.classList.toggle('open')"><span class="tico">▸</span><span class="ttext">${esc(t)}</span></div>`;
+  if(e.kind==='thinking')return thinkRow(t);
   if(e.kind==='tool')return `<div class="trow t-tool"><span class="tico">⚙</span><span class="ttext">${esc(t)}</span></div>`;
   if(e.kind==='tool_result')return `<div class="trow t-res expandable${e.status==='error'?' err':''}" onclick="this.classList.toggle('open')"><span class="tico">${e.status==='error'?'✕':'✓'}</span><span class="ttext">${esc(t)}</span></div>`;
+  if(e.kind==='subtask_done')return `<div class="trow t-done"><span class="tico">✓</span><span class="ttext">${esc(t)}</span></div>`;
   if(e.kind==='status')return `<div class="trow t-status"><span class="tico">·</span><span class="ttext">${esc(t)}</span></div>`;
   return '';
+}
+/** Conversation-flow layout, shared with the chat view: consecutive text events become ONE
+    markdown body, consecutive thinking events become one collapsible think block, and tool /
+    status rows group into a trace container. Raw log rows (12px mono + break-all) are what made
+    the stream read as a dump. Parallel batches keep the tagged log rows — with interleaved
+    sub-jobs, body aggregation would blur who said what. */
+function streamBlocks(evs){
+  const out=[];
+  let buf=null;   // {type:'text'|'think'|'trace', parts:[], job}
+  const flush=()=>{
+    if(!buf)return;
+    const s=buf.parts.join('');
+    if(buf.type==='text'&&s.trim())out.push(`<div class="chat-agent md">${mdToHtml(s)}</div>`);
+    else if(buf.type==='think'&&s.trim())out.push(thinkRow(s));
+    else if(buf.type==='trace'&&buf.parts.length)out.push(`<div class="trace">${buf.parts.join('')}</div>`);
+    buf=null;
+  };
+  for(const e of evs){
+    const job=e.jobId??'';
+    if(e.kind==='text'||e.kind==='thinking'){
+      const type=e.kind==='text'?'text':'think';
+      if(!buf||buf.type!==type||buf.job!==job)flush();
+      buf=buf||{type,parts:[],job};
+      buf.parts.push(String(e.text??''));
+      continue;
+    }
+    const h=(e.kind==='tool'||e.kind==='tool_result'||e.kind==='status'||e.kind==='subtask_done')?traceRowHtml(e):'';
+    if(!h){flush();continue}
+    if(!buf||buf.type!=='trace'||buf.job!==job)flush();
+    buf=buf||{type:'trace',parts:[],job};
+    buf.parts.push(h);
+  }
+  flush();
+  return out.join('');
 }
 function traceHtml(events){
   const rows=(events||[]).map(traceRowHtml).join('');
@@ -1868,7 +1912,9 @@ function renderConversation(j){
   const slice=flt?evs.filter((e,i)=>flt(e,i)):evs;
   const node=NODEFILTER?treeNodes(j).find(n=>n.key===NODEFILTER):null;
   const note=node?`<div class="nfilter">只看：${esc(node.label)}${node.agent?' · '+esc(node.agent):''}<button onclick="clearNode()">✕ 回到完整会话</button></div>`:'';
-  const stream=slice.length?slice.map(evLine).join('')
+  // Batches without a node filter keep the tagged log rows; everything else reads like the chat view.
+  const logMode=j.kind==='parallel'&&!NODEFILTER;
+  const stream=slice.length?(logMode?slice.map(evLine).join(''):streamBlocks(slice))
     :(j.status==='running'?'<div class="ev t-status">等待 agent 输出…</div>':'<div class="ev t-status">（这一段没有事件）</div>');
   return `<div class="ccol">
     <div class="chead">

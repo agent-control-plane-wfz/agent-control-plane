@@ -543,9 +543,17 @@ body.hideR #expR{display:inline-flex}
 /* an agent with a live conversation reads as "open", not as just another list row */
 .agrow.chatting{color:var(--text)}
 .agrow.chatting .tval{font-weight:600}
-/* the status is ONE small pulse dot, not four rows of pink text */
+/* the live marker is ONE small pulse dot — and only when the agent is actually replying */
 .agrow.chatting .tsub{color:var(--faint)}
-.agrow.chatting .tsub::before{content:'●';font-size:7px;color:var(--acc1);margin-right:5px;vertical-align:2px}
+.agrow.busy .tsub{color:var(--dim)}
+.agrow.busy .tsub::before{content:'●';font-size:7px;color:var(--acc1);margin-right:5px;vertical-align:2px;animation:thinkpulse 1.6s ease-in-out infinite}
+/* per-row remove affordance: invisible until hover, so the rail stays quiet */
+.agrow .agx{opacity:0;color:var(--faint);cursor:pointer;font-size:11px;padding:2px 5px;border-radius:5px;flex-shrink:0;transition:opacity .12s ease}
+.agrow:hover .agx{opacity:1}
+.agrow .agx:hover{color:var(--err);background:var(--border)}
+.aghead{display:flex;align-items:center;justify-content:space-between;padding-right:2px}
+.agpop{position:fixed;z-index:80;width:250px;bottom:auto}
+.agpop.on{display:block;animation:popin .16s cubic-bezier(.4,0,.2,1)}
 
 /* ---------- chat: talk to one agent, multi-turn (standalone-agent mode) ---------- */
 .chat-agent,.live-text{font-size:13.5px;line-height:1.75;color:#dcdcdc;word-break:break-word}
@@ -814,9 +822,15 @@ body.hideL #asideL>.rail{animation:fadein .18s ease}
     <button class="panetgl" onclick="togglePane('r')" title="折叠右栏"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M6.2 4 10.2 8 6.2 12"/></svg></button>
   </div>
   <div id="tree" class="tree"></div>
-  <div class="side-title" style="margin-top:4px">Agents</div>
+  <div class="aghead"><span class="side-title" style="margin:4px 2px 0">Agents</span><span class="grow"></span><span class="hicon" onclick="toggleAgMenu(event)" title="选择显示的 agent · 或自动检测全部">管理</span></div>
   <div id="agpanel"></div>
   <div class="side-foot" style="margin-top:auto">树随选中的会话更新<br>点节点只看该 agent 的发言</div>
+  <div class="pop agpop" id="ag-pop">
+    <div class="pophead">快捷栏显示哪些 agent</div>
+    <div id="ag-pop-list"></div>
+    <div class="popsep"></div>
+    <button type="button" class="popitem" onclick="autoDetectAgents()" title="把本机全部已配置的 agent 加回快捷栏"><span>◎</span><span class="pnm">自动检测全部</span></button>
+  </div>
 </aside>
 
 <!-- 设置不再是主区里的第三个页面，而是盖在任意视图之上的模态；关闭后回到原来的视图。
@@ -2051,21 +2065,70 @@ function renderTree(){
 }
 function focusNode(key){NODEFILTER=key;CENTER_SIG='';renderCenter(true);renderTree()}
 function clearNode(){NODEFILTER=null;CENTER_SIG='';renderCenter(true);renderTree()}
+/* The quick-rail agent list: WHICH agents live here is the user's call. FAV_AGENTS (localStorage)
+   holds the choice; null means "not configured yet" and falls back to showing everything, so the
+   rail behaves exactly as before until the user prunes it. 状态语义: busy = 回复中 (pulsing),
+   an idle kept session = 会话 · N 条, nothing = the vendor note. */
+let FAV_AGENTS=null;
+try{const v=JSON.parse(localStorage.getItem('acp-fav-agents')||'null');if(Array.isArray(v))FAV_AGENTS=v}catch{}
+function saveFav(){try{localStorage.setItem('acp-fav-agents',JSON.stringify(FAV_AGENTS))}catch{}}
 function renderAgentPanel(){
   const el=$('agpanel');if(!el)return;
   const agents=(STATUS?.agents||[]);
   if(!agents.length){el.innerHTML='<div class="tempty">（agent 状态未加载）</div>';return}
-  el.innerHTML=agents.map(a=>{
+  const fav=FAV_AGENTS?FAV_AGENTS.filter(id=>agents.some(a=>a.agent===id)):null;
+  const shown=fav?agents.filter(a=>fav.includes(a.agent)):agents;
+  if(!shown.length){el.innerHTML='<div class="tempty">快捷栏没有 agent。<br>点上方「管理」添加，或用自动检测。</div>';return}
+  el.innerHTML=shown.map(a=>{
     const chat=CHATS.find(c=>c.agent===a.agent&&c.status!=='closed');
+    const busy=chat?.status==='busy';
     const n=JOBS.filter(j=>j.kind!=='parallel'&&(j.request.agent||j.result?.agent||'')===a.agent).length;
-    // Clicking an agent enters it (opens/starts its conversation) — the same gesture as
-    // opening a standalone agent tool. A live conversation is flagged right here.
-    const sub=chat?'对话中':(a.actualVendorNote||'');
-    return`<div class="agrow${chat?' chatting':''}" onclick="openAgentChat('${esc(a.agent)}')" title="进入与 ${esc(a.agent)} 的对话（多轮）">
-      <span class="dot ${a.authenticated===true?'ok':a.authenticated===false?'err':''}"></span>
+    const sub=busy?'回复中':(chat?`会话 · ${chat.messages.length} 条`:(a.actualVendorNote||''));
+    const dot=a.authenticated===true?'ok':a.authenticated===false?'err':'';
+    return`<div class="agrow${chat?' chatting':''}${busy?' busy':''}" onclick="openAgentChat('${esc(a.agent)}')" title="进入与 ${esc(a.agent)} 的对话（多轮）">
+      <span class="dot ${dot}"></span>
       <span class="tval">${esc(a.agent)}</span>
-      <span class="tsub">${esc(sub)}${n?' · '+n+' 会话':''}</span></div>`;
+      <span class="tsub">${esc(sub)}${n?' · '+n+' 会话':''}</span>
+      <span class="agx" title="从快捷栏移除" onclick="event.stopPropagation();removeFav('${esc(a.agent)}')">✕</span></div>`;
   }).join('');
+}
+function removeFav(id){
+  const all=(STATUS?.agents||[]).map(a=>a.agent);
+  FAV_AGENTS=(FAV_AGENTS??all).filter(x=>x!==id);
+  saveFav();renderAgentPanel();
+}
+function toggleFavAgent(id){
+  const all=(STATUS?.agents||[]).map(a=>a.agent);
+  const cur=FAV_AGENTS??all;
+  FAV_AGENTS=cur.includes(id)?cur.filter(x=>x!==id):[...cur,id];
+  saveFav();renderAgentPanel();renderAgPop();
+}
+function autoDetectAgents(){
+  FAV_AGENTS=(STATUS?.agents||[]).map(a=>a.agent);
+  saveFav();renderAgentPanel();renderAgPop();
+  toast('已把全部检测到的 agent 加入快捷栏');
+}
+function renderAgPop(){
+  const el=$('ag-pop-list');if(!el)return;
+  const agents=(STATUS?.agents||[]);
+  el.innerHTML=agents.length?agents.map(a=>{
+    const inFav=!FAV_AGENTS||FAV_AGENTS.includes(a.agent);
+    return`<button type="button" class="popitem" onclick="toggleFavAgent('${esc(a.agent)}')">
+      <span>${inFav?'✓':'＋'}</span><span class="pnm">${esc(a.agent)}</span><span class="pth">${esc(a.actualVendorNote||a.transport||'')}</span></button>`;
+  }).join(''):'<div class="empty">没有已配置的 agent</div>';
+}
+function toggleAgMenu(ev){
+  ev.stopPropagation();
+  const p=$('ag-pop');
+  const was=p.classList.contains('on');
+  closePops();
+  if(was)return;
+  renderAgPop();
+  p.classList.add('on');
+  const r=ev.currentTarget.getBoundingClientRect();
+  const w=p.offsetWidth,h=p.offsetHeight;
+  p.style.left=Math.max(8,Math.min(r.left,window.innerWidth-w-8))+'px';
+  p.style.top=Math.max(8,Math.min(window.innerHeight-h-8,r.bottom+6))+'px';
 }
 /* ---------- edited-files card (the reference's "已编辑 N 个文件" block) ---------- */
 // Honest edition of the reference card: this console has no diff counts and no undo, so it

@@ -5,393 +5,61 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agent Control Plane</title>
 <meta name="description" content="本地多 agent 控制台：把任务派给最合适的 coding harness，跨厂商评审，作业实时可见。">
-<meta name="theme-color" content="#1a1a1a">
+<meta name="theme-color" content="#101014">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23f077af'/%3E%3Cpath d='M16 6l2.7 7.3L26 16l-7.3 2.7L16 26l-2.7-7.3L6 16l7.3-2.7z' fill='%23fff'/%3E%3C/svg%3E">
 <style>
-:root{
-  --bg:#1a1a1a; --surface:#252525; --surface2:#252525; --surface3:#3a3a3a;
-  --border:#ffffff12; --border2:#ffffff20;
-  --text:#e8ebf4; --dim:#98a0b3; --faint:#5d6577;
-  --acc1:#f077af; --acc2:#f78fc0; --ok:#34d399; --warn:#fbbf24; --err:#f87171;
-  --mono:'Cascadia Code',Consolas,'Courier New',monospace;
-}
-*{box-sizing:border-box;margin:0}
-html,body{height:100%}
-body{background:var(--bg);color:var(--text);font:14px/1.6 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;display:flex}
-::-webkit-scrollbar{width:9px;height:9px}
-::-webkit-scrollbar-thumb{background:#333;border-radius:9px}
-::-webkit-scrollbar-thumb:hover{background:#444}
-::-webkit-scrollbar-track{background:transparent}
-::selection{background:rgba(240,119,175,.35)}
-/* Keyboard focus is a requirement, not decoration: buttons/chips previously had no ring. */
-:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
-
-/* ---------- sidebar ---------- */
-aside{width:252px;min-width:252px;height:100vh;overflow-y:auto;overflow-x:hidden;background:var(--surface);border-right:1px solid var(--border);padding:18px 14px;display:flex;flex-direction:column;gap:14px;position:sticky;top:0;transition:width .22s cubic-bezier(.4,0,.2,1),min-width .22s cubic-bezier(.4,0,.2,1),padding .22s cubic-bezier(.4,0,.2,1),gap .22s cubic-bezier(.4,0,.2,1),opacity .18s ease}
-.brand{font-size:15.5px;font-weight:500;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
-.brand .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--acc1),var(--acc2));display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#fff;box-shadow:0 2px 12px rgba(240,119,175,.35)}
-.side-title{font-size:10px;letter-spacing:1.6px;color:var(--faint);font-weight:700;margin:4px 2px 0}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--faint);display:inline-block;flex-shrink:0}
-.dot.ok{background:var(--ok);box-shadow:0 0 6px rgba(52,211,153,.7)}
-.dot.err{background:var(--err)}
-.dot.warn{background:var(--warn)}
-.dot.idle{background:var(--faint)}
-.dot.pulse{animation:pulse 1.2s infinite}
-@keyframes pulse{50%{opacity:.35}}
-.side-foot{margin-top:auto;font-size:10px;color:var(--faint);line-height:1.5;padding:0 2px}
-/* Section header tools (search / filter / count). The header itself stays a quiet label;
-   the controls only exist once asked for, which is what keeps the pane calm. */
-.htools{display:inline-flex;align-items:center;gap:2px;letter-spacing:0;font-weight:400}
-.hicon{cursor:pointer;font-size:10.5px;color:var(--faint);padding:1px 6px;border-radius:6px;letter-spacing:.3px}
-.hicon:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
-.hicon.on{color:var(--text);background:var(--dsw-alias-bg-layer-3)}
-.conv-tools{padding:1px 2px 3px}
-.side-grow{flex:1;min-height:8px}
-
-/* ---------- main ---------- */
-main{flex:1;height:100vh;overflow-y:auto;padding:0 26px 40px}
-header.main{display:flex;align-items:center;gap:12px;padding:16px 2px 6px;position:sticky;top:0;background:linear-gradient(var(--bg) 82%,transparent);z-index:5}
-header.main h1{font-size:17px;font-weight:700}
-header.main .conn{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim)}
-button.ghost{background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;transition:.15s}
-button.ghost:hover{color:var(--text);border-color:var(--border2)}
-
-.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
-.card+.card{margin-top:16px}
-h2.ct{font-size:11px;letter-spacing:1.6px;color:var(--faint);font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-h2.ct .n{background:var(--surface3);border-radius:99px;padding:0 8px;font-size:10px;color:var(--dim)}
-
-/* presets */
-.presets{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}
-.presets button{background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:99px;padding:4px 12px;font-size:12px;cursor:pointer;transition:.15s}
-.presets button:hover{color:var(--text);border-color:var(--acc1);background:var(--surface3)}
-
-label{display:block;font-size:11px;color:var(--dim);margin:11px 0 4px;font-weight:600;letter-spacing:.3px}
-textarea,input,select{width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font:13px var(--mono);transition:border-color .15s}
-textarea{resize:vertical;min-height:90px;line-height:1.55}
-textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc1);box-shadow:0 0 0 3px rgba(240,119,175,.15)}
-.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;user-select:none}
-.check input{width:15px;height:15px;accent-color:var(--acc1)}
-/* Primary action button. This used to be an id selector (`#btn-go`) from the pre-rebuild console,
-   where the only such button was the full-width "start" CTA. The rebuilt console kept the id for
-   the composer's round send button, so the old rule (specificity 100) silently beat `.sendbtn`
-   (10) and stretched the send button into a full-width bar. A class cannot collide like that. */
-.pbtn{width:auto;min-width:104px;margin-top:0;padding:8px 18px;border:0;border-radius:8px;background:var(--acc1);color:#fff;font-size:13px;font-weight:500;cursor:pointer;letter-spacing:0;box-shadow:none;transition:background .13s ease,transform .07s ease}
-.pbtn:hover{filter:brightness(1.12);transform:translateY(-1px)}
-.pbtn:disabled{opacity:.6;cursor:wait;transform:none}
-.form-err{color:var(--err);font-size:12px;margin-top:8px;font-family:var(--mono);min-height:16px}
-/* Transient notice. Replaces window.alert(): blocking, unstyled, and it would also pause the
-   polling timers while the user dismisses it. */
-#toast{position:fixed;top:16px;left:50%;z-index:80;max-width:72vw;padding:9px 15px;border-radius:10px;background:var(--surface3);color:var(--text);font-size:12.5px;box-shadow:0 10px 30px rgba(0,0,0,.45);opacity:0;pointer-events:none;transform:translateX(-50%) translateY(-6px);transition:opacity .18s,transform .18s}
-#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-#toast.err{color:var(--err)}
-
-/* ---------- console composer (dsh-style stage) ---------- */
-/* The console used to be one big parameter card. It is now a centred composer with the per-call
-   knobs tucked into two popovers — same information, but the stage reads as "say what you want"
-   instead of "fill this form in". */
-/* min-height is deliberately NOT 100vh: the jobs feed sits under the stage, and a full-viewport
-   stage would push every job below the fold — an empty screen that looks broken. */
-.stage{background:var(--surface);border:1px solid var(--border);border-radius:14px;min-height:clamp(340px,calc(100vh - 330px),600px);padding:32px 34px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;position:relative;box-shadow:0 16px 48px rgba(0,0,0,.28)}
-.welcome{text-align:center}
-.welcome .mark{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,var(--acc1),var(--acc2));display:inline-flex;align-items:center;justify-content:center;font-size:20px;color:#fff;margin-bottom:12px;box-shadow:0 4px 18px rgba(240,119,175,.3)}
-.welcome h3{font-size:17px;font-weight:700;text-wrap:balance}
-.welcome p{color:var(--dim);font-size:13px;margin-top:6px}
-.composer{width:100%;background:var(--dsw-alias-bg-layer-2);border:0;border-radius:var(--dsw-radius-xl);padding:12px 14px 10px;position:relative}
-.composer:focus-within{border-color:var(--acc1);box-shadow:0 0 0 3px rgba(240,119,175,.14)}
-.composer textarea{width:100%;background:transparent;border:0;padding:2px 2px 6px;min-height:92px;font:13.5px/1.7 'Segoe UI','Microsoft YaHei',system-ui,sans-serif;color:var(--text);resize:none;box-shadow:none}
-.composer textarea:focus{outline:none;border:0;box-shadow:none}
-.crow-top{display:flex;gap:7px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
-.crow-bottom{display:flex;align-items:center;gap:8px;margin-top:4px}
-.chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface3);border:0;color:var(--dim);border-radius:var(--dsw-radius-sm);padding:4px 12px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;max-width:270px;transition:.15s}
-.chip:hover{color:var(--text);filter:brightness(1.15)}
-.chip.on{color:#fff}
-.chip .cnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.caret{font-size:10px;opacity:.75;flex-shrink:0}
-.cbtn{background:transparent;border:0;color:var(--dim);width:28px;height:28px;border-radius:8px;font:inherit;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:.15s}
-.cbtn:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
-/* Round magenta send key — the reference's one saturated control, kept that way here. */
-.sendbtn{width:32px;height:32px;border-radius:50%;border:0;background:var(--acc1);color:#fff;font-size:15px;cursor:pointer;flex-shrink:0;padding:0;line-height:1;transition:filter .15s}
-.sendbtn:hover{filter:brightness(1.1)}
-.sendbtn:disabled{opacity:.5;cursor:wait}
-/* Press feedback: a 1px sink makes a click feel physical (hover already lifts .pbtn by 1px). */
-.pbtn:active,.sendbtn:active,.chip:active,.cbtn:active,.segb:active,.newbtn:active,.navrow:active,.navbtn:active,button.ghost:active{transform:translateY(1px)}
-.grow{flex:1}
-.pop{position:absolute;left:14px;bottom:52px;width:302px;background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:8px;display:none;z-index:20;box-shadow:0 12px 32px rgba(0,0,0,.45)}
-.pop.right{left:auto;right:14px}
-.pop.on{display:block}
-.pophead{font-size:10px;letter-spacing:1.4px;color:var(--faint);font-weight:700;padding:6px 10px 4px}
-.popnote{font-size:11.5px;color:var(--faint);padding:0 10px 6px;line-height:1.6}
-.poprow.off{opacity:.5}
-.poprow.off input,.poprow.off select{cursor:not-allowed}
-.poprow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 10px;border-radius:8px;font-size:12.5px;color:var(--dim)}
-.poprow:hover{background:var(--surface3)}
-.poprow>span{flex-shrink:0}
-.poprow input,.poprow select{width:168px;padding:5px 8px;font-size:12px;border-radius:7px;background:var(--surface2)}
-.popedit{padding:2px 10px 8px}
-.popedit input{width:100%;padding:7px 9px;font-size:12px}
-.popsep{height:1px;background:var(--border);margin:5px 2px}
-.popitem{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;font-size:12.5px;color:var(--dim);cursor:pointer}
-.popitem:hover{background:var(--surface3)}
-.popitem .pnm{flex-shrink:0}
-.popitem .pth{flex:1;min-width:0;font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* Independent toggles vs mutually exclusive modes are deliberately two shapes. A pill is one
-   switch that stands alone — several can be on at once. A segmented control is one choice among a
-   few, drawn as a tablist with a single sliding indicator. Making them look alike would imply the
-   wrong thing about what turning one on does to the others. */
-.chip.pill.on{background:rgba(240,119,175,.20);border-color:rgba(240,119,175,.55);color:var(--text)}
-.seg{position:relative;display:inline-flex;background:var(--surface3);border-radius:99px;padding:2px;flex-shrink:0}
-.seg-ind{position:absolute;top:2px;bottom:2px;left:2px;width:calc((100% - 4px) / 3);background:var(--surface);border-radius:99px;transition:transform .18s cubic-bezier(.4,0,.2,1)}
-.seg[data-i="1"] .seg-ind{transform:translateX(100%)}
-.seg[data-i="2"] .seg-ind{transform:translateX(200%)}
-.segb{position:relative;z-index:1;flex:1;border:0;background:transparent;color:var(--dim);font:inherit;font-size:12px;padding:4px 11px;border-radius:99px;cursor:pointer;white-space:nowrap;text-align:center;transition:color .15s}
-.segb:hover{color:var(--text)}
-.segb.on{color:var(--text)}
-
-/* Seats — one per role the current mode actually uses. The seat carries the whole selection
-   (agent + model + effort), which is the atomic unit: picking one half is meaningless alone. */
-.seats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
-.seats:empty{display:none}
-/* Inline seats double as the "model picker" at the composer's bottom-right: plain text,
-   caret, no chrome — the same shape as the reference's GPT selector. */
-.seats.inline{display:flex;align-items:center;gap:0;margin:0;flex-wrap:nowrap}
-.seats.inline:empty{display:none}
-.seats.inline .seat{background:transparent;border:0;padding:2px 4px;color:var(--dim);max-width:none}
-.seats.inline .seat:hover{border-color:transparent;color:var(--text)}
-.seats.inline .seat .role{color:var(--faint)}
-.seats.inline .seat .val{color:var(--dim);font-weight:400}
-.seats.inline .seat:hover .val{color:var(--text)}
-.ssep{color:var(--faint);opacity:.55;margin:0 5px;font-size:11px}
-.seat{display:inline-flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:var(--dsw-radius-sm);padding:3px 7px 3px 10px;font-size:12px;cursor:pointer;color:var(--dim);max-width:100%;transition:.15s}
-.seat:hover{border-color:var(--acc1);color:var(--text)}
-.seat .role{font-size:10px;letter-spacing:.7px;color:var(--faint);flex-shrink:0}
-.seat .val{color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.seat .sub{color:var(--faint);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.seat .caret{font-size:10px;opacity:.7;flex-shrink:0}
-.seat.s-implementer{border-color:rgba(240,119,175,.35)}
-.seat.s-reviewer,.seat.s-arbiter{border-color:rgba(62,207,142,.32)}
-.seathint{padding:7px 10px;margin:2px 0 5px;border-radius:8px;font-size:11.5px;line-height:1.6}
-.seathint:empty{display:none}
-.seathint.warn{background:rgba(245,166,35,.12);color:var(--warn)}
-.seathint.info{background:#ffffff0a;color:var(--dim)}
-
-/* ---------- sidebar: workspaces ---------- */
-.newbtn{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font:inherit;font-size:13px;font-weight:600;padding:9px 10px;border-radius:9px;cursor:pointer;text-align:left}
-.newbtn:hover{border-color:var(--acc1);color:#fff}
-.wshead{display:flex;align-items:center;justify-content:space-between;font-size:10px;letter-spacing:1.6px;color:var(--faint);font-weight:700;margin:4px 2px 2px}
-.wslist{display:flex;flex-direction:column;gap:1px}
-.wsrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;cursor:pointer;color:var(--dim);font-size:12px;border:1px solid transparent}
-.wsrow:hover{background:var(--surface3)}
-.wsrow.on{background:var(--dsw-alias-bg-layer-3);color:var(--text)}
-.wsrow .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wsrow .caret{padding:0 4px;color:var(--faint);pointer-events:none}
-.wsico{width:22px;height:22px;border-radius:6px;background:var(--surface3);color:var(--dim);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
-.sessions{display:flex;flex-direction:column;gap:1px;margin:1px 0 4px 12px;padding-left:9px;border-left:1px solid var(--border2)}
-/* One leaf = one session. The .on state is the SAME one the conversation pane is showing, so the
-   sidebar always tells you which job the middle is displaying. */
-.sess{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--dsw-radius-sm);font-size:12px;color:var(--dim);cursor:pointer;border:1px solid transparent}
-.sess:hover{background:var(--dsw-alias-bg-hover)}
-.sess.on{color:var(--text);background:var(--dsw-alias-bg-hover);box-shadow:inset 2px 0 0 var(--acc1)}
-.sess .st{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sess .t{margin-left:auto;font-size:10.5px;color:var(--faint);flex-shrink:0;font-variant-numeric:tabular-nums}
-.side-empty{color:var(--faint);font-size:11.5px;padding:10px 8px;line-height:1.7}
-
-/* ---------- first-run wizard (issue #7) ---------- */
-.wiz{display:flex;flex-direction:column;gap:10px;margin-top:12px}
-.wcard{border:1px solid var(--border);border-radius:var(--dsw-radius-sm);padding:12px;background:var(--surface2)}
-.wcard.off{opacity:.5}
-.whead{display:flex;align-items:center;gap:10px}
-.whead b{font-size:13.5px}
-.wdet{color:var(--faint);font-size:11.5px}
-.wprobe{font:11.5px/1.6 var(--mono);color:var(--dim);white-space:pre-wrap;margin-top:8px;display:none}
-.badge-unconf{background:#2b2b30;color:var(--dim);border-radius:99px;padding:1px 9px;font-size:11px;font-weight:700}
-.badge-ok{background:#14301f;color:var(--ok);border-radius:99px;padding:1px 9px;font-size:11px;font-weight:700}
-.wiznote{background:#ffffff0a;box-shadow:0 0 0 1px var(--border);border-radius:var(--dsw-radius-sm);padding:11px 13px;font-size:12.5px;color:var(--dim);margin-top:10px}
-.wizadd{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:12px}
-.wizadd-lb{color:var(--faint);font-size:12px;font-weight:700;letter-spacing:.3px}
-.wizadd .wcard-add{background:var(--surface3);color:var(--text);border-color:var(--border2)}
-.wizempty{border:1px dashed var(--border2);border-radius:var(--dsw-radius-sm);padding:16px;text-align:center;color:var(--faint);font-size:12.5px;margin-top:10px}
-
-/* ---------- jobs ---------- */
-.fchip{background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:var(--dsw-radius-sm);padding:3px 12px;font-size:12px;cursor:pointer;transition:.15s}
-.fchip.on{color:#fff;border-color:var(--acc1);background:var(--surface3)}
-.fsel{width:auto;background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:var(--dsw-radius-sm);padding:3px 10px;font-size:12px}
-.fsearch{width:150px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:var(--dsw-radius-sm);padding:4px 12px;font-size:12px}
-
-.pill{padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.3px;flex-shrink:0}
-.pill.running{background:rgba(240,119,175,.16);color:#f4a8cd}
-.pill.ok{background:rgba(52,211,153,.13);color:var(--ok)}
-.pill.err{background:rgba(248,113,113,.13);color:var(--err)}
-.pill.batch{background:rgba(255,255,255,.09);color:#cfcfcf}
-.pill.warn{background:rgba(245,166,35,.15);color:var(--warn)}
-/* Heterogeneous review: which seats ran, then one block per stage. The stages are the point of
-   this job kind, so they are laid out in order rather than collapsed into a single blob. */
-.rseats{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 2px}
-.rseat{background:var(--surface3);border-radius:99px;padding:3px 10px;font-size:11.5px;color:var(--dim)}
-.rseat b{color:var(--text);font-weight:500;margin-right:5px}
-.rseat.off{opacity:.45}
-.rstep{border-top:1px solid var(--border);padding-top:9px;margin-top:10px}
-.rstep .rh{font-size:12px;color:var(--dim);letter-spacing:.3px}
-.rstep .rh .muted{color:var(--faint);margin-left:8px}
-.rstep .reply{margin-top:6px}
-.jid{font-family:var(--mono);font-size:11px;color:var(--faint)}
-.jtask{flex:1;min-width:180px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.jmeta{color:var(--faint);font-size:11.5px;font-family:var(--mono);flex-shrink:0}
-
-/* Result text reads as plain running text on the page (no box) — the assistant answer in
-   the reference is unboxed body copy, not a terminal panel. Terminal-ish blocks (raw JSON,
-   probe output) keep their own framed look below. */
-.reply{background:transparent;border:0;border-radius:0;padding:2px 0;font-size:13.5px;color:#dcdcdc;white-space:pre-wrap;word-break:break-word;max-height:380px;overflow-y:auto;line-height:1.75}
-.reply.md{white-space:normal}   /* rendered markdown carries its own block structure */
-/* edited-files card: grey panel, mono file rows — the reference's diff summary, minus the
-   numbers we do not have */
-.fcard{background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-md);margin-bottom:12px;overflow:hidden}
-.fcard .fch{padding:10px 14px 8px;font-size:12.5px;color:var(--dim);display:flex;align-items:center;gap:7px}
-.fcard .fch b{color:var(--text);font-weight:600}
-.fcard .fic{color:var(--faint);font-size:12px}
-.fcard .fl{display:flex;align-items:center;gap:9px;padding:6.5px 14px;font-size:12.5px;color:#d7d7d7;font-family:var(--mono);border-top:1px solid var(--border)}
-.fcard .fl .fi{color:var(--faint);font-size:10px;width:10px;flex-shrink:0}
-.fcard .fl .fn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.verdict{background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.25);border-radius:9px;padding:11px 13px;margin-top:10px;font-size:12.5px}
-.verdict b{color:var(--ok)}
-.verdict ul{margin:6px 0 0 18px}
-.rrow{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--dim)}
-.rrow b{color:var(--text);font-family:var(--mono)}
-details.raw{margin-top:10px}
-details.raw summary{cursor:pointer;font-size:12px;color:var(--faint)}
-details.raw pre{margin-top:6px}
-pre.rawj{background:var(--dsw-alias-bg-layer-1);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm);padding:12px;font:11.5px var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow-y:auto;color:#ababab}
-.btn-copy{background:var(--surface3);border:1px solid var(--border);color:var(--dim);border-radius:7px;padding:3px 10px;font-size:11px;cursor:pointer;margin-top:8px}
-.btn-copy:hover{color:var(--text)}
-.pathrow{display:flex;gap:8px;align-items:center}
-.pathrow input{flex:1;min-width:0}
-.pathrow .ghost{width:auto;margin:0;white-space:nowrap;flex:0 0 auto}
-.dpov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:22px}
-.dp{background:var(--surface);border:1px solid var(--border2);border-radius:14px;width:min(580px,100%);max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
-.dp-head{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:5px}
-.dp-head b{font-size:13.5px}
-.dp-cur{font:12px var(--mono);color:var(--dim);word-break:break-all}
-.dpsec{padding:9px 14px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.dplab{font-size:11.5px;color:var(--faint)}
-.dpchip{background:var(--surface2);border:1px solid var(--border);color:var(--dim);border-radius:99px;padding:3px 10px;font:11.5px var(--mono);cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dpchip:hover{color:var(--text);border-color:var(--border2)}
-.dplist{flex:1;overflow:auto;padding:8px 10px;min-height:190px}
-.dprow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:0;color:var(--text);padding:7px 11px;border-radius:7px;cursor:pointer;font-size:13px;font-family:inherit}
-.dprow:hover{background:var(--surface3)}
-.dpico{color:var(--faint);font-size:11px;width:12px;flex:0 0 12px}
-.dpup{color:var(--dim)}
-.dpfoot{display:flex;align-items:center;gap:8px;padding:11px 16px;border-top:1px solid var(--border)}
-.dperr{color:var(--err);font-size:12px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dpfoot .ghost{width:auto;margin:0}
-.dpfoot #dp-ok{width:auto;margin:0;padding:7px 16px;border:0;border-radius:8px;background:linear-gradient(135deg,var(--acc1),var(--acc2));color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s}
-.dpfoot #dp-ok:hover{filter:brightness(1.08)}
-.subchips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
-.schip{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:4px 11px;font-size:12px;color:var(--dim);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.schip.ok{border-color:rgba(52,211,153,.4)}
-.schip.err{border-color:rgba(248,113,113,.4);color:var(--err)}
-.schip.run{border-color:rgba(240,119,175,.4);color:#f4a8cd}
-.empty{color:var(--faint);text-align:center;padding:44px 0;font-size:13px}
-.empty .emico{display:block;font-size:20px;opacity:.6;margin-bottom:9px}
-.empty b{display:block;color:var(--dim);font-weight:600;font-size:13.5px;margin-bottom:4px}
-/* ---- settings sheet: a centred modal with a vertical nav rail, mirroring dsh's Settings ----
-   Two layers: a scrim that owns the click-outside-to-close, and the sheet itself.
-   Floating surfaces carry NO border — the 0.5px hairline is the first shadow layer and
-   border + elevation must never be paired (dsh rule). z-index sits under .dpov (60) so the
-   directory picker, which the Workspace section opens, still lands on top of us. */
-.setmask{position:fixed;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;padding:24px;background:#000000a6;opacity:0;transition:opacity .16s ease}
-.setmask.on{opacity:1}
-.setmodal{display:flex;flex-direction:column;width:min(780px,100%);height:min(640px,86vh);background:var(--dsw-alias-settings-card-fill);border:0;border-radius:var(--dsw-radius-lg);box-shadow:0 0 0 .5px var(--dsw-alias-border-l3),0 28px 72px #000000b8;overflow:hidden;transform:translateY(8px) scale(.988);transition:transform .18s cubic-bezier(.4,0,.2,1)}
-.setmask.on .setmodal{transform:none}
-.sethead{display:flex;align-items:center;gap:10px;padding:16px 18px 12px}
-.sethead h2{margin:0;font-size:14px;font-weight:500;letter-spacing:.07em}
-.sethead .jid{color:var(--faint);font-size:11.5px}
-.setx{margin-left:auto;flex:0 0 auto;background:transparent;border:0;color:var(--faint);font:14px/1 inherit;padding:5px 8px;border-radius:var(--dsw-radius-xs);cursor:pointer}
-.setx:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
-.setcols{flex:1;min-height:0;display:grid;grid-template-columns:162px 1fr;gap:12px;padding:0 12px 12px}
-.setnav{display:flex;flex-direction:column;gap:2px;overflow-y:auto}
-.setpane{min-width:0;overflow-y:auto;padding-right:2px}
-/* the section renderers all return one .card; inside the sheet it is already the surface */
-.setpane>.card{box-shadow:none;background:transparent;border-radius:0;padding:2px 2px 4px}
-@media(max-width:720px){.setcols{grid-template-columns:1fr}.setnav{flex-direction:row;flex-wrap:wrap;overflow:visible}}
-.navbtn{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--dim);font:500 13px/1.25 Montserrat,'PingFang SC','Microsoft YaHei',sans-serif;padding:8px 10px;border-radius:var(--dsw-radius-sm);cursor:pointer;transition:background .12s}
-.navbtn:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
-.navbtn.on{background:var(--dsw-alias-bg-layer-2);color:var(--text)}
-.navbtn .navico{display:inline-block;width:15px;margin-right:7px;font-size:12px;opacity:.85;text-align:center}
-.credstrip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.credchip{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-size:12px;color:var(--dim);display:flex;gap:7px;align-items:center}
-.agentrow{border:1px solid var(--border);border-radius:11px;background:var(--surface2);margin-bottom:8px;overflow:hidden}
-.agentrow .arow{display:flex;align-items:center;gap:10px;padding:11px 13px;cursor:pointer;flex-wrap:wrap}
-.agentrow .arow:hover{background:var(--surface3)}
-.agentrow.open{border-color:var(--acc1)}
-.agentrow .aedit{display:none;border-top:1px solid var(--border);padding:13px}
-.agentrow.open .aedit{display:block}
-.badge-dis{background:#3a2f1c;color:var(--warn);border-radius:99px;padding:1px 9px;font-size:11px;font-weight:700}
-.probebox{background:#1a1a1a;border:1px solid var(--border);border-radius:9px;padding:9px 11px;font:12px var(--mono);margin-top:9px;white-space:pre-wrap;word-break:break-all}
-.switch{position:relative;width:34px;height:19px;flex-shrink:0}
-.switch input{opacity:0;width:0;height:0}
-.switch span{position:absolute;inset:0;background:var(--surface3);border:1px solid var(--border2);border-radius:99px;cursor:pointer;transition:.2s}
-.switch span::after{content:'';position:absolute;width:13px;height:13px;border-radius:50%;background:var(--dim);top:2px;left:2px;transition:.2s}
-.switch input:checked+span{background:rgba(52,211,153,.25);border-color:var(--ok)}
-.switch input:checked+span::after{background:var(--ok);transform:translateX(15px)}
-.rule-row{display:flex;gap:10px;align-items:center;margin-bottom:9px}
-.rule-row b{width:80px;flex-shrink:0}
-.rule-row select{flex:1.4}
-.rule-row input{flex:1}
-.chip-x{background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:4px 8px 4px 12px;font:12px var(--mono);color:var(--dim);display:inline-flex;gap:6px;align-items:center;margin:0 6px 6px 0}
-.chip-x button{background:none;border:0;color:var(--faint);cursor:pointer;font-size:12px;padding:0 2px}
-.chip-x button:hover{color:var(--err)}
-.usage-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--dim);padding:5px 0;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
-.usage-row b{color:var(--text);font-family:var(--mono)}
-.sidenav{display:flex;flex-direction:column;gap:2px;margin-top:-4px}
-.navrow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:transparent;border:0;color:var(--dim);font:500 13.5px/1 Montserrat,'PingFang SC','Microsoft YaHei',sans-serif;padding:9px 11px;border-radius:var(--dsw-radius-sm);cursor:pointer;transition:background .12s}
-.navrow:hover{background:#ffffff14;color:var(--text)}
-.navrow.on{background:var(--dsw-alias-bg-layer-2);color:var(--text)}
-.navico{font-size:13px;opacity:.85;width:15px;text-align:center}
-
 /* =====================================================================================
-   Design system — two sources, both from the real app (not invented):
-   · geometry, elevation rules and component patterns: @deepseek-ai/dsh (MIT)
-   · the greys and the magenta accent: pixel-sampled from the desktop GUI reference
-     (chrome #1a1a1a / content #1e1e1e / card #252525 / composer #323232 /
-      user bubble #873e60 / send #f077af).
+   Design system v5 — "Obsidian Studio"
+   翻新原则：同一套骨架（ID/类/JS 接线全部不动），换一整套气质——
+   · 深色蓝黑基底 + 双色环境光 + 细噪点，画面有空气感而非死黑
+   · 唯一强调色仍是品红 #f077af（品牌色），只用在"动作"上
+   · 玻璃浮层（header / 弹窗 / popover）带 backdrop-blur 与发丝描边
+   · 层级靠 tinted shadow + 0.5px stroke，不再靠 1px 硬边框
+   · 状态是"点+字"的药丸，不再用大色块喊叫
+   · 所有变量名保持不变（inline style 与渲染函数引用 var(--acc1) 等）
    ===================================================================================== */
-@font-face{font-family:'Montserrat';font-style:normal;font-weight:400;font-display:swap;src:url(./fonts/montserrat-regular.woff2) format('woff2')}
-@font-face{font-family:'Montserrat';font-style:normal;font-weight:300;font-display:swap;src:url(./fonts/montserrat-light.woff2) format('woff2')}
-@font-face{font-family:'Montserrat';font-style:normal;font-weight:500;font-display:swap;src:url(./fonts/montserrat-medium.woff2) format('woff2')}
-
 :root{
-  /* palette (pixel-sampled from the reference GUI) */
-  --dsw-neutral-bluish-950:#1e1e1e; --dsw-neutral-bluish-875:#252525;
-  --dsw-neutral-bluish-850:#323232; --dsw-neutral-bluish-800:#3a3a3a;
-  --dsw-neutral-bluish-400:#a3a3a3; --dsw-neutral-bluish-600:#7a7a7a; --dsw-neutral-bluish-700:#666666;
+  /* palette — blue-tinted obsidian family, one hue for every grey */
+  --bg:#101014;
+  --chrome:#131319;            /* window chrome: both sidebars, sits BELOW content */
+  --surface:#1a1a21;           /* cards */
+  --surface2:#1f1f28;          /* inputs / layer-1 */
+  --surface3:#272733;          /* hover / layer-3 */
+  --surface4:#30303e;          /* pressed / deepest layer */
+  --border:#ffffff0d; --border2:#ffffff17; --border3:#ffffff24;
+  --text:#f2f4fa; --dim:#a8afc2; --faint:#6b7285;
+  --acc1:#f077af; --acc2:#f78fc0;
+  --acc-soft:#f077af29; --acc-line:#f077af59;
+  --ok:#3ed598; --warn:#fbbf24; --err:#f87171;
+  --bubble:#8f4166;            /* user bubble base (gradient drawn in the rule) */
+  --mono:'Cascadia Code',Consolas,'Courier New',monospace;
+  /* dsw alias tokens kept alive: renderer markup + inline styles reference them */
+  --dsw-neutral-bluish-950:#16161d; --dsw-neutral-bluish-875:#1f1f28;
+  --dsw-neutral-bluish-850:#272733; --dsw-neutral-bluish-800:#30303e;
+  --dsw-neutral-bluish-400:#a8afc2; --dsw-neutral-bluish-600:#6b7285; --dsw-neutral-bluish-700:#585f72;
   --dsw-deepseek-500:#f077af; --dsw-deepseek-450:#f78fc0;
-  --dsw-red-400:#f25a5a; --dsw-amber:#f7ad31; --dsw-green-400:#4ed17e; --dsw-green-500:#22c55e;
-  /* the window chrome sits one step BELOW the content, exactly like the reference */
-  --chrome:#1a1a1a; --bubble:#873e60;
-  /* alias tokens (dsw-alias-*, dark theme) */
-  --dsw-alias-bg-base:var(--dsw-neutral-bluish-950);
-  --dsw-alias-bg-layer-1:var(--dsw-neutral-bluish-875);
-  --dsw-alias-bg-layer-2:var(--dsw-neutral-bluish-850);
-  --dsw-alias-bg-layer-3:var(--dsw-neutral-bluish-800);
-  --dsw-alias-settings-card-fill:var(--dsw-alias-bg-layer-2);
-  --dsw-alias-border-l1:#ffffff0f; --dsw-alias-border-l2:#ffffff1f;
-  --dsw-alias-border-l3:#ffffff29; --dsw-alias-border-l4:#ffffff33;
-  --dsw-alias-brand-text:#f9fafb;
-  --dsw-alias-brand-primary:var(--dsw-deepseek-500);      /* magenta, from the reference */
-  --dsw-alias-brand-primary-hover:var(--dsw-deepseek-450);/* magenta hover */
-  --dsw-alias-state-error-primary:var(--dsw-red-400);
-  --dsw-alias-state-success-primary:var(--dsw-green-500);
-  --dsw-alias-bg-hover:#ffffff14;
-  /* geometry (dsw-radius-*/ --dsw-shadow-*/ --dsw-elevation-*) */
-  --dsw-radius-xs:4px; --dsw-radius-sm:8px; --dsw-radius-md:12px;
-  --dsw-radius-lg:16px; --dsw-radius-xl:20px; --dsw-radius-panel:28px;
-  --dsw-elevation-stroke:0 0 0 .5px var(--dsw-alias-border-l3);
-  --dsw-shadow-lv1:0 2px 4px 0 #0000000d;
-  --dsw-shadow-lv2:0 4px 12px 0 #00000005, 0 2px 8px 0 #0000000a;
-  --dsw-elevation-panel:var(--dsw-elevation-stroke), 0 3px 8px 0 #00000008, 0 0 16px 0 #00000005;
-  /* re-map our palette vars onto dsh tokens */
+  --dsw-red-400:#f87171; --dsw-amber:#fbbf24; --dsw-green-400:#3ed598; --dsw-green-500:#3ed598;
+  --dsw-alias-bg-base:var(--bg);
+  --dsw-alias-bg-layer-1:var(--surface2);
+  --dsw-alias-bg-layer-2:var(--surface3);
+  --dsw-alias-bg-layer-3:var(--surface4);
+  --dsw-alias-settings-card-fill:var(--surface);
+  --dsw-alias-border-l1:var(--border); --dsw-alias-border-l2:var(--border2);
+  --dsw-alias-border-l3:var(--border3); --dsw-alias-border-l4:#ffffff2e;
+  --dsw-alias-brand-text:var(--text);
+  --dsw-alias-brand-primary:#f077af;      /* magenta — literal here: an acc1->brand->acc1 chain is a custom-property cycle */
+  --dsw-alias-brand-primary-hover:#f78fc0;/* magenta hover */
+  --dsw-alias-state-error-primary:var(--err);
+  --dsw-alias-state-success-primary:var(--ok);
+  --dsw-alias-bg-hover:#ffffff0f;
+  /* geometry */
+  --dsw-radius-xs:5px; --dsw-radius-sm:9px;
+  --dsw-radius-md:13px; --dsw-radius-lg:18px; --dsw-radius-xl:22px; --dsw-radius-panel:28px;
+  --dsw-elevation-stroke:0 0 0 .5px var(--border2);
+  --dsw-shadow-lv1:0 1px 2px #00000059;
+  --dsw-shadow-lv2:0 6px 20px -6px #00000073, 0 2px 6px #00000040;
+  --dsw-elevation-panel:var(--dsw-elevation-stroke), 0 8px 28px -8px #00000080;
+  /* re-map the working names onto the new family */
   --bg:var(--dsw-alias-bg-base);
   --surface:var(--dsw-alias-settings-card-fill);
   --surface2:var(--dsw-alias-bg-layer-1);
@@ -407,128 +75,408 @@ pre.rawj{background:var(--dsw-alias-bg-layer-1);border:0;box-shadow:var(--dsw-el
   --warn:var(--dsw-amber);
   --err:var(--dsw-alias-state-error-primary);
   --mono:'Cascadia Code',Consolas,'Courier New',monospace;
+  color-scheme:dark;
 }
-body{font-family:'Segoe UI','Microsoft YaHei',system-ui,sans-serif;letter-spacing:.01em}
-/* dsh signature: half-pixel stroke instead of solid 1px borders; real radii scale */
-.card{background:var(--dsw-alias-settings-card-fill);border:0;border-radius:var(--dsw-radius-lg);box-shadow:var(--dsw-elevation-stroke), var(--dsw-shadow-lv2)}
-/* The chrome (both sidebars) sits one step darker than the content — the reference's
-   strongest structural signal, and it is what the eye uses to read the three columns. */
-aside{background:var(--chrome);border-right:0;box-shadow:none}
-header.main{background:linear-gradient(var(--chrome) 82%,transparent)}
-.agentrow,.credchip,.chip-x,.schip,.usage-row{box-shadow:var(--dsw-elevation-stroke)}
-.agentrow{border:0;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1)}
-.agentrow.open{border-radius:var(--dsw-radius-md);box-shadow:0 0 0 1.5px var(--dsw-alias-brand-primary)}
-input,textarea,select{background:var(--dsw-alias-bg-layer-1);border:0;border-radius:var(--dsw-radius-sm);box-shadow:var(--dsw-elevation-stroke)}
-input:focus,textarea:focus,select:focus{box-shadow:0 0 0 1.5px var(--dsw-alias-brand-primary)}
-.pbtn,.brand .logo{background:var(--dsw-alias-brand-primary);background-image:none;box-shadow:none}
-.pbtn:hover{background:var(--dsw-alias-brand-primary-hover);filter:none;transform:none}
-.navbtn.on,.fchip.on{background:var(--dsw-alias-bg-layer-3);color:var(--text);box-shadow:none}
-.navbtn{border-radius:var(--dsw-radius-xs)}
-.navbtn:hover{background:var(--dsw-alias-bg-hover)}
-button.ghost{background:transparent;border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm)}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font:13.5px/1.65 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;display:flex;letter-spacing:.01em}
+
+/* ---------- ambient: two auroras + grain, behind everything ---------- */
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(52rem 34rem at 18% -6%, rgba(240,119,175,.09), transparent 62%),
+    radial-gradient(46rem 32rem at 88% 108%, rgba(110,120,255,.07), transparent 60%),
+    radial-gradient(30rem 22rem at 70% 18%, rgba(240,119,175,.045), transparent 65%);
+  animation:aurora 26s ease-in-out infinite alternate}
+body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E")}
+@keyframes aurora{from{opacity:.85}to{opacity:1;transform:translateY(-14px)}}
+
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#ffffff14;border-radius:999px;border:2.5px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:#ffffff2b;border:2.5px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-track{background:transparent}
+::selection{background:rgba(240,119,175,.35)}
+/* Keyboard focus is a requirement, not decoration. */
+:focus-visible{outline:2px solid var(--acc1);outline-offset:2px;border-radius:4px}
+input,textarea,select,button{font-family:inherit}
+::placeholder{color:var(--faint)}
+textarea{caret-color:var(--acc1)}
+
+/* ---------- sidebar (chrome) ---------- */
+aside{width:256px;min-width:256px;height:100vh;overflow-y:auto;overflow-x:hidden;background:var(--chrome);padding:16px 13px;display:flex;flex-direction:column;gap:13px;position:sticky;top:0;box-shadow:inset -1px 0 0 var(--border);transition:width .24s cubic-bezier(.4,0,.2,1),min-width .24s cubic-bezier(.4,0,.2,1),padding .24s cubic-bezier(.4,0,.2,1),gap .24s cubic-bezier(.4,0,.2,1)}
+.brand{font-size:14.5px;font-weight:600;letter-spacing:.2px;display:flex;align-items:center;gap:9px;font-family:Montserrat,'Segoe UI',sans-serif}
+.brand .logo{width:27px;height:27px;border-radius:9px;background:linear-gradient(135deg,var(--acc1),#c95d9b 60%,#8f5bd6);display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#fff;box-shadow:0 3px 14px rgba(240,119,175,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+.side-title{font-size:10px;letter-spacing:1.7px;color:var(--faint);font-weight:600;margin:4px 2px 0;text-transform:uppercase}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--faint);display:inline-block;flex-shrink:0}
+.dot.ok{background:var(--ok);box-shadow:0 0 8px rgba(62,213,152,.55)}
+.dot.err{background:var(--err);box-shadow:0 0 8px rgba(248,113,113,.5)}
+.dot.warn{background:var(--warn)}
+.dot.idle{background:var(--faint)}
+.dot.pulse{animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.side-foot{margin-top:auto;font-size:10.5px;color:var(--faint);line-height:1.6;padding:0 2px}
+.htools{display:inline-flex;align-items:center;gap:2px;letter-spacing:0;font-weight:400;text-transform:none}
+.hicon{cursor:pointer;font-size:10.5px;color:var(--faint);padding:2px 7px;border-radius:6px;letter-spacing:.3px}
+.hicon:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
+.hicon.on{color:var(--text);background:var(--acc-soft)}
+.conv-tools{padding:1px 2px 3px}
+.side-grow{flex:1;min-height:8px}
+
+/* ---------- main ---------- */
+main{flex:1;height:100vh;overflow:hidden;padding:0 24px;display:flex;flex-direction:column;min-width:0}
+header.main{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:13px 2px 11px;position:sticky;top:0;z-index:5;background:linear-gradient(var(--bg) 70%,transparent);border-bottom:1px solid var(--border)}
+header.main h1{font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:9px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:Montserrat,'Segoe UI',sans-serif}
+header.main h1:not(:empty)::before{content:'✎';color:var(--faint);font-size:13px;font-weight:400;flex-shrink:0}
+header.main h1:empty{display:none}
+header.main .conn{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim);
+  background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:4px 12px}
+button.ghost{background:transparent;border:0;box-shadow:var(--dsw-elevation-stroke);color:var(--dim);border-radius:var(--dsw-radius-sm);padding:5px 13px;font-size:12px;cursor:pointer;transition:background-color .13s ease,color .13s ease,box-shadow .13s ease,transform .07s ease}
 button.ghost:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
-.pill,.fchip,.credchip,.chip-x,.presets button,.schip,.seat,.nfilter{border-radius:var(--dsw-radius-sm)}
-.presets button{background:var(--dsw-alias-bg-layer-1);border:0;box-shadow:var(--dsw-elevation-stroke)}
-.presets button:hover{border-color:transparent;background:var(--dsw-alias-bg-layer-3)}
-pre.rawj,.probebox{background:var(--chrome);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm)}
-.verdict{background:#22c55e14;border:0;box-shadow:0 0 0 1px #22c55e1f;border-radius:var(--dsw-radius-sm)}
-.side-title,h2.ct{letter-spacing:.08em;font-weight:500}
-.arow:hover{background:var(--dsw-alias-bg-hover)}
-.setnav .navbtn.on{background:var(--dsw-alias-bg-layer-2);box-shadow:none}
-::-webkit-scrollbar-thumb{background:#ffffff1f;border-radius:999px}
-::-webkit-scrollbar-thumb:hover{background:#ffffff29}
-.dot.ok,.dot.err,.dot.warn{box-shadow:none}
+
+.card{background:var(--surface);border:0;border-radius:var(--dsw-radius-lg);padding:20px;box-shadow:var(--dsw-elevation-stroke),var(--dsw-shadow-lv2)}
+.card+.card{margin-top:16px}
+h2.ct{font-size:10.5px;letter-spacing:1.7px;color:var(--faint);font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;text-transform:uppercase}
+h2.ct .n{background:var(--surface3);border-radius:99px;padding:0 8px;font-size:10px;color:var(--dim)}
+
+/* presets */
+.presets{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px}
+.presets button{background:var(--surface2);border:0;box-shadow:var(--dsw-elevation-stroke);color:var(--dim);border-radius:99px;padding:5px 14px;font-size:12px;cursor:pointer;transition:background-color .13s ease,color .13s ease,box-shadow .13s ease,transform .07s ease}
+.presets button:hover{color:var(--text);background:var(--acc-soft);box-shadow:0 0 0 1px var(--acc-line)}
+
+label{display:block;font-size:11px;color:var(--dim);margin:11px 0 4px;font-weight:600;letter-spacing:.3px}
+textarea,input,select{width:100%;background:var(--surface2);color:var(--text);border:0;border-radius:var(--dsw-radius-sm);padding:9px 12px;font:13px var(--mono);box-shadow:var(--dsw-elevation-stroke);transition:box-shadow .15s ease,background-color .15s ease}
+textarea{resize:vertical;min-height:90px;line-height:1.6}
+textarea:hover,input:hover,select:hover{background:var(--surface3)}
+textarea:focus,input:focus,select:focus{outline:none;background:var(--surface3);box-shadow:0 0 0 1.5px var(--acc1),0 0 0 5px rgba(240,119,175,.12)}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;user-select:none}
+.check input{width:15px;height:15px;accent-color:var(--acc1)}
+/* Primary action button. Class, never id — an id rule (specificity 100) once silently beat .sendbtn. */
+.pbtn{width:auto;min-width:104px;margin-top:0;padding:8px 18px;border:0;border-radius:var(--dsw-radius-sm);background:linear-gradient(135deg,var(--acc1),#e26a9f);color:#fff;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 3px 14px rgba(240,119,175,.3),inset 0 1px 0 rgba(255,255,255,.25);transition:filter .13s ease,transform .07s ease,box-shadow .13s ease}
+.pbtn:hover{filter:brightness(1.1);transform:translateY(-1px);box-shadow:0 6px 20px rgba(240,119,175,.4),inset 0 1px 0 rgba(255,255,255,.25)}
+.pbtn:disabled{opacity:.6;cursor:wait;transform:none}
+.form-err{color:var(--err);font-size:12px;margin-top:8px;font-family:var(--mono);min-height:16px}
+/* Transient notice. Replaces window.alert(). */
+#toast{position:fixed;top:16px;left:50%;z-index:80;max-width:72vw;padding:10px 18px 10px 15px;border-radius:12px;background:rgba(30,30,39,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:var(--text);font-size:12.5px;box-shadow:0 0 0 .5px var(--border3),0 14px 40px rgba(0,0,0,.55);border-left:2px solid var(--acc1);opacity:0;pointer-events:none;transform:translateX(-50%) translateY(-6px);transition:opacity .18s,transform .18s}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.err{border-left-color:var(--err);color:#fda5a5}
+
+/* ---------- console composer (the stage) ---------- */
+/* min-height deliberately NOT 100vh: the jobs feed sits under the stage. */
+.stage{background:none;border:0;box-shadow:none;min-height:0;padding:12px 0 10px;flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.scenter{margin:auto;width:100%;max-width:680px;display:flex;flex-direction:column;gap:14px;padding:6px 0}
+.welcome{display:flex;flex-direction:column;align-items:center;gap:9px;text-align:center;padding-top:6px}
+.welcome .mark{width:52px;height:52px;border-radius:16px;font-size:22px;margin-bottom:2px;background:linear-gradient(135deg,var(--acc1),#c95d9b 55%,#8f5bd6);box-shadow:0 8px 32px rgba(240,119,175,.35),inset 0 1px 0 rgba(255,255,255,.35);display:inline-flex;align-items:center;justify-content:center;color:#fff;position:relative}
+.welcome .mark::after{content:'';position:absolute;inset:-7px;border-radius:21px;border:1px solid var(--acc-line);opacity:.6;animation:ring 3.2s ease-in-out infinite}
+@keyframes ring{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.08);opacity:.15}}
+.welcome h3{font-size:17px;font-weight:600;letter-spacing:.2px;text-wrap:balance;font-family:Montserrat,'Segoe UI','Microsoft YaHei',sans-serif;
+  background:linear-gradient(100deg,#fff 30%,#f4a8cd 75%,#c9a0ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.welcome p{font-size:12px;color:var(--dim);margin-top:1px}
+.stage .presets{justify-content:center}
+
+.composer{width:100%;background:linear-gradient(180deg,var(--surface3),var(--surface2));border:0;border-radius:var(--dsw-radius-lg);padding:12px 14px 10px;position:relative;box-shadow:var(--dsw-elevation-stroke),0 14px 44px -10px rgba(0,0,0,.6);transition:box-shadow .18s ease}
+.composer::before{content:'';position:absolute;top:0;left:18px;right:18px;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent);pointer-events:none}
+.composer:focus-within{box-shadow:0 0 0 1px var(--acc-line),0 0 34px rgba(240,119,175,.13),0 14px 44px -10px rgba(0,0,0,.6)}
+.composer textarea{width:100%;background:transparent;border:0;padding:4px 2px 8px;min-height:92px;font:13.5px/1.7 'Segoe UI','Microsoft YaHei',system-ui,sans-serif;color:var(--text);resize:none;box-shadow:none}
+.composer textarea:hover{background:transparent}
+.composer textarea:focus{outline:none;border:0;box-shadow:none;background:transparent}
+.crow-top{display:flex;gap:7px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.crow-bottom{display:flex;align-items:center;gap:8px;margin-top:4px}
+.chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface4);border:0;box-shadow:var(--dsw-elevation-stroke);color:var(--dim);border-radius:var(--dsw-radius-sm);padding:4.5px 12px;font:inherit;font-size:12px;cursor:pointer;white-space:nowrap;max-width:270px;transition:background-color .13s ease,color .13s ease,box-shadow .13s ease,transform .07s ease}
+.chip:hover{color:var(--text);background:#383848}
+.chip.on{color:#fff}
+.chip .cnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.caret{font-size:10px;opacity:.75;flex-shrink:0;display:inline-flex}
+.cbtn{background:transparent;border:0;box-shadow:var(--dsw-elevation-stroke);color:var(--dim);width:29px;height:29px;border-radius:var(--dsw-radius-sm);font:inherit;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:background-color .13s ease,color .13s ease,transform .07s ease}
+.cbtn:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
+/* Round magenta send key — the one saturated control, now with a glow to earn it. */
+.sendbtn{width:34px;height:34px;border-radius:50%;border:0;background:linear-gradient(135deg,var(--acc1),#e26a9f);color:#fff;font-size:15px;cursor:pointer;flex-shrink:0;padding:0;line-height:1;box-shadow:0 3px 16px rgba(240,119,175,.45),inset 0 1px 0 rgba(255,255,255,.3);transition:filter .15s ease,transform .12s cubic-bezier(.34,1.56,.64,1),box-shadow .15s ease}
+.sendbtn:hover{filter:brightness(1.1);transform:scale(1.08)}
+.sendbtn:active{transform:scale(.94)}
+.sendbtn:disabled{opacity:.45;cursor:wait;transform:none;box-shadow:none}
+/* press feedback: a 1px sink makes a click feel physical */
+.pbtn:active,.chip:active,.cbtn:active,.segb:active,.newbtn:active,.navrow:active,.navbtn:active,button.ghost:active{transform:translateY(1px)}
+.grow{flex:1}
+/* keyboard hint next to the send key */
+.kbd{font:11px var(--mono);color:var(--faint);background:var(--surface4);border-radius:6px;padding:2.5px 8px;box-shadow:var(--dsw-elevation-stroke);white-space:nowrap;user-select:none}
+.pop{position:absolute;left:14px;bottom:54px;width:308px;background:rgba(32,32,42,.94);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:0;border-radius:var(--dsw-radius-md);padding:8px;display:none;z-index:20;box-shadow:0 0 0 .5px var(--border3),0 18px 48px rgba(0,0,0,.6)}
+.pop.right{left:auto;right:14px}
+.pop.on{display:block}
+.pophead{font-size:10px;letter-spacing:1.5px;color:var(--faint);font-weight:600;padding:6px 10px 4px;text-transform:uppercase}
+.popnote{font-size:11.5px;color:var(--faint);padding:0 10px 6px;line-height:1.6}
+.poprow.off{opacity:.5}
+.poprow.off input,.poprow.off select{cursor:not-allowed}
+.poprow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 10px;border-radius:8px;font-size:12.5px;color:var(--dim)}
+.poprow:hover{background:var(--surface4)}
+.poprow>span{flex-shrink:0}
+.poprow input,.poprow select{width:168px;padding:5px 8px;font-size:12px;border-radius:7px;background:var(--surface2)}
+.popedit{padding:2px 10px 8px}
+.popedit input{width:100%;padding:7px 10px;font-size:12px}
+.popsep{height:1px;background:var(--border2);margin:5px 2px}
+.popitem{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:0;padding:6.5px 10px;border-radius:8px;font-size:12.5px;color:var(--dim);cursor:pointer;font-family:inherit;transition:background-color .12s ease,color .12s ease}
+.popitem:hover{background:var(--surface4);color:var(--text)}
+.popitem .pnm{flex-shrink:0}
+.popitem .pth{flex:1;min-width:0;font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Independent toggles vs mutually exclusive modes are two shapes on purpose. */
+.chip.pill.on{background:var(--acc-soft);box-shadow:0 0 0 1px var(--acc-line);color:var(--text)}
+.seg{position:relative;display:inline-flex;background:var(--surface4);border-radius:99px;padding:2.5px;flex-shrink:0;box-shadow:var(--dsw-elevation-stroke),inset 0 1px 3px rgba(0,0,0,.3)}
+.seg-ind{position:absolute;top:2.5px;bottom:2.5px;left:2.5px;width:calc((100% - 5px) / 3);background:linear-gradient(180deg,#3a3a4a,#32323f);border-radius:99px;box-shadow:0 1px 4px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.12);transition:transform .2s cubic-bezier(.4,0,.2,1)}
+.seg[data-i="1"] .seg-ind{transform:translateX(100%)}
+.seg[data-i="2"] .seg-ind{transform:translateX(200%)}
+.segb{position:relative;z-index:1;flex:1;border:0;background:transparent;color:var(--dim);font:inherit;font-size:12px;font-weight:500;padding:4px 12px;border-radius:99px;cursor:pointer;white-space:nowrap;text-align:center;transition:color .15s}
+.segb:hover{color:var(--text)}
+.segb.on{color:#fff}
+
+/* Seats — one per role the current mode actually uses. */
+.seats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.seats:empty{display:none}
+.seats.inline{display:flex;align-items:center;gap:0;margin:0;flex-wrap:nowrap}
+.seats.inline:empty{display:none}
+.seats.inline .seat{background:transparent;border:0;box-shadow:none;padding:2px 4px;color:var(--dim);max-width:none}
+.seats.inline .seat:hover{box-shadow:none;color:var(--text)}
+.seats.inline .seat .role{color:var(--faint)}
+.seats.inline .seat .val{color:var(--dim);font-weight:400}
+.seats.inline .seat:hover .val{color:var(--text)}
+.ssep{color:var(--faint);opacity:.55;margin:0 5px;font-size:11px}
+.seat{display:inline-flex;align-items:center;gap:6px;background:var(--surface4);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm);padding:3px 8px 3px 10px;font-size:12px;cursor:pointer;color:var(--dim);max-width:100%;transition:background-color .13s ease,color .13s ease,box-shadow .13s ease}
+.seat:hover{color:var(--text);background:#383848;box-shadow:0 0 0 1px var(--acc-line)}
+.seat .role{font-size:10px;letter-spacing:.7px;color:var(--faint);flex-shrink:0}
+.seat .val{color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat .sub{color:var(--faint);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat .caret{font-size:10px;opacity:.7;flex-shrink:0}
+.seat.s-implementer{box-shadow:0 0 0 1px rgba(240,119,175,.35)}
+.seat.s-reviewer,.seat.s-arbiter{box-shadow:0 0 0 1px rgba(62,213,152,.3)}
+.seathint{padding:8px 11px;margin:2px 0 5px;border-radius:var(--dsw-radius-sm);font-size:11.5px;line-height:1.65}
+.seathint:empty{display:none}
+.seathint.warn{background:rgba(251,191,36,.1);color:#f5cd6e;box-shadow:inset 0 0 0 1px rgba(251,191,36,.25)}
+.seathint.info{background:#ffffff08;color:var(--dim)}
+
+/* ---------- sidebar: workspaces ---------- */
+.newbtn{width:100%;background:var(--surface2);border:0;box-shadow:var(--dsw-elevation-stroke);color:var(--text);font:inherit;font-size:13px;font-weight:600;padding:9.5px 11px;border-radius:var(--dsw-radius-sm);cursor:pointer;text-align:left;transition:background-color .13s ease,box-shadow .13s ease,transform .07s ease}
+.newbtn:hover{box-shadow:0 0 0 1px var(--acc-line),0 4px 14px rgba(240,119,175,.15);background:var(--acc-soft)}
+.wshead{display:flex;align-items:center;justify-content:space-between;font-size:10px;letter-spacing:1.7px;color:var(--faint);font-weight:600;margin:4px 2px 2px;text-transform:uppercase}
+.wslist{display:flex;flex-direction:column;gap:1px}
+.wsrow{display:flex;align-items:center;gap:8px;padding:6.5px 8px;border-radius:8px;cursor:pointer;color:var(--dim);font-size:12px;border:1px solid transparent;transition:background-color .13s ease,color .13s ease}
+.wsrow:hover{background:var(--surface3);color:var(--text)}
+.wsrow.on{background:var(--surface3);color:var(--text);box-shadow:inset 2px 0 0 var(--acc1)}
+.wsrow .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wsrow .caret{padding:0 4px;color:var(--faint);pointer-events:none}
+.wsico{width:22px;height:22px;border-radius:7px;background:var(--surface4);color:var(--dim);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;font-family:var(--mono);letter-spacing:.5px}
+.sessions{display:flex;flex-direction:column;gap:1px;margin:1px 0 4px 12px;padding-left:9px;border-left:1px solid var(--border2)}
+.sess{display:flex;align-items:center;gap:8px;padding:5.5px 8px;border-radius:var(--dsw-radius-sm);font-size:12px;color:var(--dim);cursor:pointer;border:1px solid transparent;transition:background-color .13s ease,color .13s ease}
+.sess:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
+.sess.on{color:var(--text);background:var(--dsw-alias-bg-hover);box-shadow:inset 2px 0 0 var(--acc1)}
+.sess .st{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sess .t{margin-left:auto;font-size:10.5px;color:var(--faint);flex-shrink:0;font-variant-numeric:tabular-nums}
+.side-empty{color:var(--faint);font-size:11.5px;padding:10px 8px;line-height:1.7}
+
+/* ---------- first-run wizard ---------- */
+.wiz{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.wcard{border:0;border-radius:var(--dsw-radius-md);padding:13px;background:var(--surface2);box-shadow:var(--dsw-elevation-stroke)}
+.wcard.off{opacity:.5}
+.whead{display:flex;align-items:center;gap:10px}
+.whead b{font-size:13.5px}
+.wdet{color:var(--faint);font-size:11.5px}
+.wprobe{font:11.5px/1.6 var(--mono);color:var(--dim);white-space:pre-wrap;margin-top:8px;display:none}
+.badge-unconf{background:var(--surface4);color:var(--dim);border-radius:99px;padding:1.5px 9px;font-size:11px;font-weight:600;box-shadow:var(--dsw-elevation-stroke)}
+.badge-ok{background:rgba(62,213,152,.12);color:var(--ok);border-radius:99px;padding:1.5px 9px;font-size:11px;font-weight:600;box-shadow:inset 0 0 0 1px rgba(62,213,152,.3)}
+.wiznote{background:#ffffff08;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-md);padding:12px 14px;font-size:12.5px;color:var(--dim);margin-top:10px;line-height:1.7}
+.wiznote b{color:var(--text)}
+.wizadd{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:12px}
+.wizadd-lb{color:var(--faint);font-size:12px;font-weight:600;letter-spacing:.3px}
+.wizadd .wcard-add{background:var(--surface4);color:var(--text);box-shadow:var(--dsw-elevation-stroke)}
+.wizempty{border:1.5px dashed var(--border3);border-radius:var(--dsw-radius-md);padding:20px;text-align:center;color:var(--faint);font-size:12.5px;margin-top:10px;line-height:1.8}
+
+/* ---------- jobs / filters ---------- */
+.fchip{background:var(--surface2);border:0;box-shadow:var(--dsw-elevation-stroke);color:var(--dim);border-radius:99px;padding:3.5px 12px;font-size:12px;cursor:pointer;transition:background-color .13s ease,color .13s ease,box-shadow .13s ease}
+.fchip:hover{color:var(--text)}
+.fchip.on{color:#fff;background:var(--acc-soft);box-shadow:0 0 0 1px var(--acc-line)}
+.fsel{width:auto;background:var(--surface2);border:0;box-shadow:var(--dsw-elevation-stroke);color:var(--dim);border-radius:99px;padding:3.5px 10px;font-size:12px}
+.fsearch{width:150px;background:var(--surface2);border:0;box-shadow:var(--dsw-elevation-stroke);color:var(--text);border-radius:99px;padding:4.5px 13px;font-size:12px}
+.fsearch:focus{border-radius:var(--dsw-radius-sm)}
+
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2.5px 11px;border-radius:99px;font-size:11px;font-weight:600;letter-spacing:.3px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.pill.running{background:var(--acc-soft);color:#f6a9ce;box-shadow:inset 0 0 0 1px rgba(240,119,175,.3)}
+.pill.ok{background:rgba(62,213,152,.1);color:var(--ok);box-shadow:inset 0 0 0 1px rgba(62,213,152,.28)}
+.pill.err{background:rgba(248,113,113,.1);color:var(--err);box-shadow:inset 0 0 0 1px rgba(248,113,113,.28)}
+.pill.batch{background:#ffffff0d;color:#d5d5df;box-shadow:var(--dsw-elevation-stroke)}
+.pill.warn{background:rgba(251,191,36,.1);color:var(--warn);box-shadow:inset 0 0 0 1px rgba(251,191,36,.28)}
+/* Heterogeneous review seats + stages. */
+.rseats{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 2px}
+.rseat{background:var(--surface2);box-shadow:var(--dsw-elevation-stroke);border-radius:99px;padding:3.5px 11px;font-size:11.5px;color:var(--dim)}
+.rseat b{color:var(--text);font-weight:600;margin-right:5px}
+.rseat.off{opacity:.45}
+.rstep{background:var(--surface2);box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-md);padding:12px 14px;margin-top:10px}
+.rstep .rh{font-size:12.5px;color:var(--text);font-weight:600;letter-spacing:.3px}
+.rstep .rh .muted{color:var(--faint);margin-left:8px;font-weight:400}
+.rstep .reply{margin-top:7px}
+.jid{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.jtask{flex:1;min-width:180px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jmeta{color:var(--faint);font-size:11.5px;font-family:var(--mono);flex-shrink:0}
+
+/* Result text reads as plain running text; terminal-ish blocks keep their own frame. */
+.reply{background:transparent;border:0;border-radius:0;padding:2px 0;font-size:13.5px;color:#e3e6ef;white-space:pre-wrap;word-break:break-word;max-height:380px;overflow-y:auto;line-height:1.8}
+.reply.md{white-space:normal}
+/* edited-files card */
+.fcard{background:var(--surface2);border-radius:var(--dsw-radius-md);margin-bottom:12px;overflow:hidden;box-shadow:var(--dsw-elevation-stroke)}
+.fcard .fch{padding:10px 14px 8px;font-size:12.5px;color:var(--dim);display:flex;align-items:center;gap:7px}
+.fcard .fch b{color:var(--text);font-weight:600}
+.fcard .fic{color:var(--acc1);font-size:12px;display:inline-flex}
+.fcard .fl{display:flex;align-items:center;gap:9px;padding:7px 14px;font-size:12.5px;color:#d9dce6;font-family:var(--mono);transition:background-color .12s ease}
+.fcard .fl:hover{background:#ffffff06}
+.fcard .fl .fi{color:var(--faint);font-size:10px;width:10px;flex-shrink:0;display:inline-flex}
+.fcard .fl .fn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.verdict{background:rgba(62,213,152,.06);border:0;box-shadow:inset 0 0 0 1px rgba(62,213,152,.22),inset 2px 0 0 var(--ok);border-radius:var(--dsw-radius-sm);padding:11px 14px;margin-top:10px;font-size:12.5px;color:#c9ecd9}
+.verdict b{color:var(--ok)}
+.verdict ul{margin:6px 0 0 18px}
+.rrow{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--dim)}
+.rrow>span{background:var(--surface2);box-shadow:var(--dsw-elevation-stroke);border-radius:99px;padding:3px 11px;display:inline-flex;align-items:center;gap:5px}
+.rrow b{color:var(--text);font-family:var(--mono);font-variant-numeric:tabular-nums}
+details.raw{margin-top:10px}
+details.raw summary{cursor:pointer;font-size:12px;color:var(--faint);width:fit-content;padding:3px 8px;border-radius:6px;transition:background-color .12s ease,color .12s ease}
+details.raw summary:hover{color:var(--dim);background:var(--dsw-alias-bg-hover)}
+details.raw pre{margin-top:6px}
+pre.rawj{background:var(--chrome);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm);padding:13px;font:11.5px/1.6 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow-y:auto;color:#b9bdc9}
+.btn-copy{background:var(--surface4);border:0;box-shadow:var(--dsw-elevation-stroke);color:var(--dim);border-radius:7px;padding:3.5px 11px;font-size:11px;cursor:pointer;margin-top:8px;transition:background-color .12s ease,color .12s ease}
+.btn-copy:hover{color:var(--text);background:#383848}
+.pathrow{display:flex;gap:8px;align-items:center}
+.pathrow input{flex:1;min-width:0}
+.pathrow .ghost{width:auto;margin:0;white-space:nowrap;flex:0 0 auto}
+.dpov{position:fixed;inset:0;background:rgba(8,8,12,.62);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:60;display:flex;align-items:center;justify-content:center;padding:22px}
+.dp{background:var(--surface);border:0;border-radius:var(--dsw-radius-lg);width:min(600px,100%);max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 0 0 .5px var(--border3),0 30px 90px rgba(0,0,0,.7)}
+.dp-head{padding:15px 17px 11px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:5px}
+.dp-head b{font-size:13.5px}
+.dp-cur{font:12px var(--mono);color:var(--dim);word-break:break-all}
+.dpsec{padding:9px 14px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.dplab{font-size:11.5px;color:var(--faint)}
+.dpchip{background:var(--surface2);border:0;box-shadow:var(--dsw-elevation-stroke);color:var(--dim);border-radius:99px;padding:3.5px 11px;font:11.5px var(--mono);cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:background-color .12s ease,color .12s ease}
+.dpchip:hover{color:var(--text);background:var(--surface4)}
+.dplist{flex:1;overflow:auto;padding:8px 10px;min-height:190px}
+.dprow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:0;color:var(--text);padding:7.5px 11px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;transition:background-color .12s ease}
+.dprow:hover{background:var(--surface4)}
+.dpico{color:var(--faint);font-size:11px;width:12px;flex:0 0 12px}
+.dpup{color:var(--dim)}
+.dpfoot{display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--border)}
+.dperr{color:var(--err);font-size:12px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dpfoot .ghost{width:auto;margin:0}
+.dpfoot #dp-ok{width:auto;margin:0;padding:7.5px 17px;border:0;border-radius:var(--dsw-radius-sm);background:linear-gradient(135deg,var(--acc1),#e26a9f);color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:0 3px 14px rgba(240,119,175,.3);transition:filter .13s ease,transform .07s ease}
+.dpfoot #dp-ok:hover{filter:brightness(1.1)}
+.subchips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.schip{background:var(--surface2);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:99px;padding:4px 12px;font-size:12px;color:var(--dim);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.schip.ok{box-shadow:inset 0 0 0 1px rgba(62,213,152,.4)}
+.schip.err{box-shadow:inset 0 0 0 1px rgba(248,113,113,.4);color:var(--err)}
+.schip.run{box-shadow:inset 0 0 0 1px rgba(240,119,175,.4);color:#f6a9ce}
+.empty{color:var(--faint);text-align:center;padding:44px 0;font-size:13px}
+.empty .emico{display:block;font-size:20px;opacity:.6;margin-bottom:9px}
+.empty b{display:block;color:var(--dim);font-weight:600;font-size:13.5px;margin-bottom:4px}
+
+/* ---- settings sheet: centred modal + vertical nav rail ---- */
+.setmask{position:fixed;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(8,8,12,.66);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;transition:opacity .16s ease}
+.setmask.on{opacity:1}
+.setmodal{display:flex;flex-direction:column;width:min(820px,100%);height:min(680px,88vh);background:var(--surface);border:0;border-radius:var(--dsw-radius-lg);box-shadow:0 0 0 .5px var(--border3),0 34px 90px #000000c9;overflow:hidden;transform:translateY(8px) scale(.988);transition:transform .18s cubic-bezier(.4,0,.2,1)}
+.setmask.on .setmodal{transform:none}
+.sethead{display:flex;align-items:center;gap:10px;padding:17px 19px 13px;border-bottom:1px solid var(--border)}
+.sethead h2{margin:0;font-size:14.5px;font-weight:600;letter-spacing:.04em;font-family:Montserrat,'Segoe UI',sans-serif}
+.sethead .jid{color:var(--faint);font-size:11.5px}
+.setx{margin-left:auto;flex:0 0 auto;background:transparent;border:0;color:var(--faint);font:14px/1 inherit;padding:5px 9px;border-radius:var(--dsw-radius-xs);cursor:pointer;transition:background-color .12s ease,color .12s ease}
+.setx:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
+.setcols{flex:1;min-height:0;display:grid;grid-template-columns:168px 1fr;gap:12px;padding:12px 12px 12px 12px}
+.setnav{display:flex;flex-direction:column;gap:2px;overflow-y:auto;padding:2px}
+.setpane{min-width:0;overflow-y:auto;padding-right:2px}
+.setpane>.card{box-shadow:none;background:transparent;border-radius:0;padding:2px 2px 4px}
+@media(max-width:720px){.setcols{grid-template-columns:1fr}.setnav{flex-direction:row;flex-wrap:wrap;overflow:visible}}
+.navbtn{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--dim);font:500 13px/1.25 Montserrat,'PingFang SC','Microsoft YaHei',sans-serif;padding:8.5px 11px;border-radius:var(--dsw-radius-sm);cursor:pointer;transition:background-color .12s ease,color .12s ease,box-shadow .12s ease}
+.navbtn:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
+.navbtn.on{background:var(--acc-soft);color:#f6a9ce;box-shadow:inset 2px 0 0 var(--acc1)}
+.navbtn .navico{display:inline-block;width:15px;margin-right:7px;font-size:12px;opacity:.85;text-align:center}
+.credstrip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.credchip{background:var(--surface2);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:99px;padding:5px 12px;font-size:12px;color:var(--dim);display:flex;gap:7px;align-items:center}
+.agentrow{border:0;border-radius:var(--dsw-radius-md);background:var(--surface2);box-shadow:var(--dsw-elevation-stroke);margin-bottom:8px;overflow:hidden;transition:box-shadow .15s ease}
+.agentrow .arow{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;flex-wrap:wrap;transition:background-color .12s ease}
+.agentrow .arow:hover{background:#ffffff08}
+.agentrow.open{box-shadow:0 0 0 1.5px var(--acc1),0 6px 22px -6px rgba(240,119,175,.25)}
+.agentrow .aedit{display:none;border-top:1px solid var(--border);padding:14px}
+.agentrow.open .aedit{display:block}
+.badge-dis{background:rgba(251,191,36,.12);color:var(--warn);border-radius:99px;padding:1.5px 9px;font-size:11px;font-weight:600}
+.probebox{background:var(--chrome);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-sm);padding:10px 12px;font:12px/1.6 var(--mono);margin-top:10px;white-space:pre-wrap;word-break:break-all;color:#b9bdc9}
+.switch{position:relative;width:36px;height:20px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:var(--surface4);box-shadow:var(--dsw-elevation-stroke);border-radius:99px;cursor:pointer;transition:background-color .2s ease,box-shadow .2s ease}
+.switch span::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:var(--dim);top:2.6px;left:3px;transition:transform .2s cubic-bezier(.34,1.3,.64,1),background-color .2s ease}
+.switch input:checked+span{background:rgba(62,213,152,.22);box-shadow:inset 0 0 0 1px rgba(62,213,152,.55)}
+.switch input:checked+span::after{background:var(--ok);transform:translateX(16px)}
+.rule-row{display:flex;gap:10px;align-items:center;margin-bottom:9px}
+.rule-row b{width:80px;flex-shrink:0}
+.rule-row select{flex:1.4}
+.rule-row input{flex:1}
+.chip-x{background:var(--surface2);border:0;box-shadow:var(--dsw-elevation-stroke);border-radius:99px;padding:4px 8px 4px 12px;font:12px var(--mono);color:var(--dim);display:inline-flex;gap:6px;align-items:center;margin:0 6px 6px 0}
+.chip-x button{background:none;border:0;color:var(--faint);cursor:pointer;font-size:12px;padding:0 2px}
+.chip-x button:hover{color:var(--err)}
+.usage-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--dim);padding:6px 2px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+.usage-row b{color:var(--text);font-family:var(--mono)}
+.sidenav{display:flex;flex-direction:column;gap:2px;margin-top:-4px}
+.navrow{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:transparent;border:0;color:var(--dim);font:500 13.5px/1 Montserrat,'PingFang SC','Microsoft YaHei',sans-serif;padding:9.5px 11px;border-radius:var(--dsw-radius-sm);cursor:pointer;transition:background-color .12s ease,color .12s ease}
+.navrow:hover{background:#ffffff0f;color:var(--text)}
+.navrow.on{background:var(--acc-soft);color:#f6a9ce}
+.navico{font-size:13px;opacity:.85;width:15px;text-align:center}
 
 /* ---------- desktop shell: three panes, both sides collapsible ---------- */
-/* The console is used as a desktop app (start-desktop.cmd opens a chromeless window); each pane
-   scrolls on its own and the page itself never scrolls. */
-main{overflow:hidden;padding:0 20px;display:flex;flex-direction:column;min-width:0}
-/* stale-process banner: amber, unmissable, dismisses itself the moment the process matches */
-.stalebar{flex:0 0 auto;display:flex;gap:10px;align-items:baseline;background:rgba(247,173,49,.12);box-shadow:0 0 0 1px rgba(247,173,49,.35);color:#f0c070;border-radius:10px;padding:9px 14px;margin:2px 0 6px;font-size:12.5px;line-height:1.6}
-.stalebar b{color:var(--warn);flex-shrink:0}
-header.main{flex:0 0 auto;padding:12px 0 6px}
-header.main h1{font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:9px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* The ✎ flag before the title row mirrors the reference's toolbar; only drawn when there is
-   actually a title to flag. */
-header.main h1:not(:empty)::before{content:'✎';color:var(--faint);font-size:13px;font-weight:400;flex-shrink:0}
-/* The empty stage has no page label; an empty h1 must take no space and draw no separator. */
-header.main h1:empty{display:none}
 #view-console{flex:1;min-height:0;display:flex;flex-direction:column}
 #view-setup{flex:1;min-height:0;overflow-y:auto}
-aside#asideR{width:264px;min-width:264px;gap:12px}
+#view-setup .card{max-width:900px;margin:6px auto 26px}
+aside#asideR{width:268px;min-width:268px;gap:12px;box-shadow:inset 1px 0 0 var(--border)}
 .panerow{display:flex;align-items:center;gap:8px}
-.panetgl{margin-left:auto;background:transparent;border:0;color:var(--faint);font:14px/1 inherit;padding:4px 8px;border-radius:var(--dsw-radius-xs);cursor:pointer;flex-shrink:0}
+.panetgl{margin-left:auto;background:transparent;border:0;color:var(--faint);font:14px/1 inherit;padding:4.5px 8px;border-radius:var(--dsw-radius-xs);cursor:pointer;flex-shrink:0;transition:background-color .12s ease,color .12s ease}
 .panetgl:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
-.expbtn{display:none;background:transparent;border:0;color:var(--faint);font:15px/1 inherit;padding:4px 8px;border-radius:var(--dsw-radius-xs);cursor:pointer;flex-shrink:0}
+.expbtn{display:none;background:transparent;border:0;color:var(--faint);font:15px/1 inherit;padding:4.5px 8px;border-radius:var(--dsw-radius-xs);cursor:pointer;flex-shrink:0;transition:background-color .12s ease,color .12s ease}
 .expbtn:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
-/* Collapsing the left pane leaves a 56px icon rail behind, not an empty edge — the same
-   collapse behaviour the reference app has. Every icon stays a real action. */
+/* Collapsing the left pane leaves a 56px icon rail behind. */
 .rail{display:none;flex-direction:column;align-items:center;gap:8px;width:100%}
-.railbtn{width:100%;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font:17px/1 inherit;color:var(--dim);background:transparent;border:0;cursor:pointer;flex-shrink:0;transition:background .12s,color .12s,transform .06s}
+.railbtn{width:100%;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font:17px/1 inherit;color:var(--dim);background:transparent;border:0;cursor:pointer;flex-shrink:0;transition:background-color .12s ease,color .12s ease,transform .06s ease}
 .railbtn:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
 .railbtn:active{transform:scale(.92);background:var(--dsw-alias-bg-hover)}
 body.hideL #asideL{width:56px;min-width:56px;padding:12px 7px;gap:8px;align-items:center}
-/* flex:1 makes the rail FILL the sidebar — without it the spacer has nothing to grow into
-   and the settings key floats mid-air instead of sitting at the bottom where hands aim. */
 body.hideL #asideL>.rail{display:flex;flex:1}
 body.hideL #asideL>:not(.rail){display:none}
-/* collapse now SLIDES (width transition on aside) instead of vanishing; the shell clips the
-   content while the width travels — same feel as every native panel. */
 body.hideR #asideR{display:flex;width:0;min-width:0;opacity:0;gap:0;padding-left:0;padding-right:0;overflow:hidden;pointer-events:none}
-/* the rail already owns "reopen" — the header's › would just be a second copy of it */
 body.hideL #expL{display:none}
 body.hideR #expR{display:inline-flex}
 
 /* conversation list (left pane) */
 .cfilters{display:flex;gap:6px;flex-wrap:wrap}
-.cfilters .fchip{padding:2px 10px;font-size:11.5px}
+.cfilters .fchip{padding:2.5px 10px;font-size:11.5px}
 #asideL .fsel{width:100%}
 #asideL .fsearch{width:100%}
-
-/* center: composer view. The empty console is the "say what you want" moment, so it is composed
-   as ONE centred group (welcome + composer + presets), the way dsh centres its new-session
-   screen. margin:auto is what does the centring: unlike justify-content:center it never clips
-   the top of the group when the group is taller than the viewport. */
-.stage{background:none;border:0;box-shadow:none;min-height:0;padding:12px 0 10px;flex:1;overflow-y:auto;display:flex;flex-direction:column}
-.scenter{margin:auto;width:100%;max-width:680px;display:flex;flex-direction:column;gap:13px;padding:6px 0}
-.welcome{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
-.welcome .mark{width:34px;height:34px;border-radius:10px;font-size:17px;margin-bottom:0;background:var(--dsw-alias-brand-primary);box-shadow:none}
-.welcome h3{font-size:15px;font-weight:600}
-.welcome p{font-size:12px;color:var(--dim);margin-top:2px}
-.stage .presets{justify-content:center}
 
 /* center: conversation stream */
 .conv{flex:1;min-height:0;display:flex;flex-direction:column}
 .ccol{max-width:920px;width:100%;margin:0 auto;display:flex;flex-direction:column;min-height:0;flex:1}
-.chead{flex:0 0 auto;display:flex;flex-direction:column;gap:6px;padding:12px 2px 8px}
+.chead{flex:0 0 auto;display:flex;flex-direction:column;gap:6px;padding:12px 2px 9px}
 .chrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .chrow .spacer{flex:1}
 .chead .cmeta{font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums}
-.cstream{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:2px 2px 14px}
+.cstream{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px 16px}
 .cresult{flex:0 0 auto;padding:0 2px 16px}
 .msg{display:flex;gap:10px;align-items:flex-start}
-/* The user's message is a right-aligned magenta bubble (no avatar); the assistant answers
-   as plain running text, exactly like the reference conversation. The user bubble needs the
-   row flex to right-align; the assistant turn must NOT inherit it — its children (trail,
-   answer, meta) are a vertical stack, and as flex items they once sat side by side: the
-   thinking trail in a left column, the answer squeezed into the right one. */
 .msg.user{justify-content:flex-end}
 .msg.assistant{display:block}
-.msg .bubble{background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-md);padding:8px 12px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;min-width:0}
-.msg.user .bubble{background:var(--bubble);color:#fff;border-radius:15px 15px 4px 15px;padding:10px 15px;max-width:82%}
-.cstream .ev{font:12px/1.65 var(--mono);color:var(--dim);word-break:break-all;display:flex;gap:8px}
+.msg .bubble{background:var(--surface2);border-radius:var(--dsw-radius-md);padding:9px 13px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;min-width:0}
+.msg.user .bubble{background:linear-gradient(135deg,#9c4a70,var(--bubble) 60%,#773752);color:#fff;border-radius:16px 16px 5px 16px;padding:10px 15px;max-width:82%;box-shadow:0 4px 18px -4px rgba(143,65,102,.45)}
+.cstream .ev{font:12px/1.7 var(--mono);color:var(--dim);word-break:break-all;display:flex;gap:8px}
 .cstream .ev .k{opacity:.55;flex-shrink:0;user-select:none;font-variant-numeric:tabular-nums}
-.cstream .ev.t-text{color:#c9c9c9}
+.cstream .ev.t-text{color:#c9cdd8}
 .cstream .ev.t-tool{color:var(--warn)}
-.cstream .ev.t-status{color:var(--faint);font-style:italic}
+.cstream .ev.t-status{color:var(--faint)}
 .cstream .ev.t-done{color:var(--ok)}
-.nfilter{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;color:var(--dim);background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-sm);padding:3px 12px;width:fit-content}
-.nfilter button{background:none;border:0;color:var(--faint);cursor:pointer;font:inherit;padding:0}
-.nfilter button:hover{color:var(--text)}
+.nfilter{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;color:#f6a9ce;background:var(--acc-soft);border-radius:99px;padding:3.5px 13px;width:fit-content;box-shadow:inset 0 0 0 1px rgba(240,119,175,.25)}
+.nfilter button{background:none;border:0;color:#c97ba0;cursor:pointer;font:inherit;padding:0}
+.nfilter button:hover{color:#fff}
 
 /* right pane: the agent call tree */
 .tree{display:flex;flex-direction:column;gap:1px;font-size:12.5px}
-.tnode{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--dsw-radius-sm);cursor:pointer;color:var(--dim);border:1px solid transparent;min-width:0}
+.tnode{display:flex;align-items:center;gap:8px;padding:6.5px 9px;border-radius:var(--dsw-radius-sm);cursor:pointer;color:var(--dim);border:1px solid transparent;min-width:0;transition:background-color .12s ease,color .12s ease}
 .tnode:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
 .tnode.on{background:var(--dsw-alias-bg-hover);color:var(--text);box-shadow:inset 2px 0 0 var(--acc1)}
 .tnode .tdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
@@ -536,145 +484,137 @@ body.hideR #expR{display:inline-flex}
 .tnode .tval{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
 .tnode .tsub{color:var(--faint);font-size:10.5px;flex-shrink:0;margin-left:auto}
 .tkids{margin-left:12px;padding-left:9px;border-left:1px solid var(--border2);display:flex;flex-direction:column;gap:1px}
-.agrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--dsw-radius-sm);cursor:pointer;color:var(--dim);font-size:12.5px}
+.agrow{display:flex;align-items:center;gap:8px;padding:6.5px 8px;border-radius:var(--dsw-radius-sm);cursor:pointer;color:var(--dim);font-size:12.5px;transition:background-color .12s ease,color .12s ease}
 .agrow:hover{background:var(--dsw-alias-bg-hover);color:var(--text)}
 .agrow .tval{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .agrow .tsub{color:var(--faint);font-size:10.5px;flex-shrink:0}
-/* an agent with a live conversation reads as "open", not as just another list row */
 .agrow.chatting{color:var(--text)}
 .agrow.chatting .tval{font-weight:600}
-/* the live marker is ONE small pulse dot — and only when the agent is actually replying */
 .agrow.chatting .tsub{color:var(--faint)}
 .agrow.busy .tsub{color:var(--dim)}
 .agrow.busy .tsub::before{content:'●';font-size:7px;color:var(--acc1);margin-right:5px;vertical-align:2px;animation:thinkpulse 1.6s ease-in-out infinite}
-/* per-row remove affordance: invisible until hover, so the rail stays quiet */
-.agrow .agx{opacity:0;color:var(--faint);cursor:pointer;font-size:11px;padding:2px 5px;border-radius:5px;flex-shrink:0;transition:opacity .12s ease}
+.agrow .agx{opacity:0;color:var(--faint);cursor:pointer;font-size:11px;padding:2px 5px;border-radius:5px;flex-shrink:0;transition:opacity .12s ease,color .12s ease,background-color .12s ease}
 .agrow:hover .agx{opacity:1}
-.agrow .agx:hover{color:var(--err);background:var(--border)}
+.agrow .agx:hover{color:var(--err);background:var(--border2)}
 .aghead{display:flex;align-items:center;justify-content:space-between;padding-right:2px}
-.agpop{position:fixed;z-index:80;width:250px;bottom:auto}
-.agpop.on{display:block;animation:popin .16s cubic-bezier(.4,0,.2,1)}
+.agpop{position:fixed;z-index:80;width:256px;bottom:auto}
+.agpop.on{display:block}
 
-/* ---------- chat: talk to one agent, multi-turn (standalone-agent mode) ---------- */
-.chat-agent,.live-text{font-size:13.5px;line-height:1.75;color:#dcdcdc;word-break:break-word}
-/* markdown output (answers + job results): produced by mdToHtml, which escapes first —
-   these rules are presentation only. Blocks carry their own spacing; containers stay plain. */
+/* ---------- chat: talk to one agent, multi-turn ---------- */
+.chat-agent,.live-text{font-size:13.5px;line-height:1.8;color:#e3e6ef;word-break:break-word}
+/* markdown output: produced by mdToHtml (escapes first) — presentation only */
 .md p{margin:0 0 8px}
 .md p:last-child{margin-bottom:0}
-.md .mdh{font-weight:600;color:#eaeaea;margin:13px 0 6px}
+.md .mdh{font-weight:600;color:#f0f2f8;margin:14px 0 6px;letter-spacing:.1px}
 .md .mdh1{font-size:16px}
 .md .mdh2{font-size:14.5px}
 .md .mdh3,.md .mdh4{font-size:13.5px}
 .md ul,.md ol{margin:4px 0 10px;padding-left:20px}
 .md li{margin:2.5px 0}
-.md pre.mdpre{background:var(--chrome);border-radius:8px;padding:10px 13px;font:12px/1.6 var(--mono);overflow-x:auto;margin:6px 0 10px;white-space:pre}
-.md code{background:#ffffff12;border-radius:4px;padding:1px 5px;font-family:var(--mono);font-size:12px}
-.md pre.mdpre code{background:none;padding:0;font-size:11.5px}
+.md li::marker{color:var(--faint)}
+.md pre.mdpre{background:var(--chrome);border-radius:var(--dsw-radius-sm);padding:12px 14px;font:12px/1.65 var(--mono);overflow-x:auto;margin:7px 0 11px;white-space:pre;box-shadow:var(--dsw-elevation-stroke);position:relative}
+.md pre.mdpre[data-lang]::after{content:attr(data-lang);position:absolute;top:7px;right:9px;font:10px var(--mono);color:var(--faint);background:var(--surface4);border-radius:5px;padding:1px 7px;letter-spacing:.4px;pointer-events:none}
+.md code{background:#ffffff12;border-radius:5px;padding:1px 5px;font-family:var(--mono);font-size:12px;color:#f0c4da}
+.md pre.mdpre code{background:none;padding:0;font-size:11.5px;color:#cdd2de}
 .md table.mdt{border-collapse:collapse;margin:8px 0 10px;font-size:12.5px;display:block;overflow-x:auto;max-width:100%}
-.md table.mdt th,.md table.mdt td{border:1px solid var(--border2);padding:4px 11px;text-align:left;white-space:nowrap}
-.md table.mdt th{background:#ffffff0a;font-weight:600;color:#e6e6e6}
-.md blockquote{border-left:2px solid var(--border2);margin:6px 0 10px;padding:2px 0 2px 12px;color:var(--dim)}
-.md b{color:#f0f0f0}
+.md table.mdt th,.md table.mdt td{border:1px solid var(--border2);padding:5px 12px;text-align:left;white-space:nowrap}
+.md table.mdt th{background:#ffffff08;font-weight:600;color:#eef0f6}
+.md blockquote{border-left:2px solid var(--acc-line);margin:6px 0 10px;padding:2px 0 2px 12px;color:var(--dim)}
+.md b{color:#f4f6fb}
 .chat-err{color:var(--err);font-size:12.5px;margin-top:4px;font-family:var(--mono)}
 .chat-meta{font-size:11px;color:var(--faint);margin-top:5px;font-variant-numeric:tabular-nums}
-.chat-typing{color:var(--faint);font-size:12.5px;font-style:italic;display:flex;gap:8px;align-items:center}
-/* The agent's turn shows its WORK: thinking and tool calls as a compact trail above the
-   answer — a session with a tool, not just a chat. Long rows clamp and expand on click. */
-.trace{margin:0;padding:2px 0 2px 11px;border-left:2px solid var(--dsw-alias-border-l2);display:flex;flex-direction:column;gap:4px}
-.tracewrap{display:flex;flex-direction:column;gap:6px;margin:0 0 9px}
-.trow{display:flex;gap:8px;font-size:12px;line-height:1.6;color:var(--dim)}
+.chat-typing{color:var(--faint);font-size:12px;display:flex;gap:8px;align-items:center;animation:thinkpulse 1.6s ease-in-out infinite}
+/* the agent's turn shows its WORK: thinking and tool calls as a compact trail above the answer */
+.trace{margin:0;padding:2px 0 2px 12px;border-left:2px solid var(--border2);display:flex;flex-direction:column;gap:4px}
+.tracewrap{display:flex;flex-direction:column;gap:6px;margin:0 0 10px}
+.trow{display:flex;gap:8px;font-size:12px;line-height:1.65;color:var(--dim)}
 .trow .tico{flex:0 0 14px;text-align:center;color:var(--faint);font-size:11px;padding-top:1px}
 .trow .ttext{min-width:0;overflow-wrap:break-word}
 .trow.expandable{cursor:pointer}
-.trow.t-think{color:#8f8f8f;flex-wrap:wrap}
+.trow.t-think{color:#9aa0b2;flex-wrap:wrap}
 .trow.t-think .tlabel{font-size:12px;color:var(--faint);user-select:none}
-.trow.t-think:hover .tlabel{color:#c9c9c9}
-.trow.t-think .ttext{display:none;flex-basis:100%;white-space:pre-wrap;margin:2px 0 0 3px;color:#8f8f8f}
+.trow.t-think:hover .tlabel{color:#c9cdd8}
+.trow.t-think .ttext{display:none;flex-basis:100%;white-space:pre-wrap;margin:2px 0 0 3px;color:#9aa0b2}
 .trow.t-think.open .ttext{display:block}
-/* live thinking reads as one pulsing line — the way every agent GUI folds it */
 .live-zone .trow.t-think .tlabel{animation:thinkpulse 1.6s ease-in-out infinite}
 .live-zone .trow.t-think .tlabel::after{content:'…'}
 @keyframes thinkpulse{0%,100%{opacity:.5}50%{opacity:1}}
-.trow.t-tool{color:var(--warn)}
+.trow.t-tool{color:#f0c264}
+.trow.t-tool .tico{color:var(--warn)}
 .trow.t-tool .ttext{font-family:var(--mono);font-size:11.5px}
 .trow.t-res{color:var(--faint);font-size:11.5px}
 .trow.t-res .ttext{font-family:var(--mono);white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .trow.t-res.open .ttext{-webkit-line-clamp:unset}
 .trow.t-res.err{color:var(--err)}
 .trow.t-status{color:var(--faint);font-size:11px}
-/* Live zone: rows land here the moment they arrive (incremental append), so each one can
-   animate in on its own instead of a whole batch "jumping" into place on a poll tick. */
+.trow.t-done{color:var(--ok);font-size:11.5px}
 .live-zone{display:flex;flex-direction:column;gap:6px;margin-top:2px}
 @keyframes rowin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .trow.enter,.live-text.enter,.msg.enter{animation:rowin .24s ease both}
-.chat-inbar{display:flex;gap:8px;align-items:flex-end;background:var(--dsw-alias-bg-layer-2);border-radius:var(--dsw-radius-lg);padding:8px 10px 8px 12px}
-.chat-inbar textarea{flex:1;background:transparent;border:0;resize:none;min-height:40px;max-height:170px;font:13.5px/1.6 'Segoe UI','Microsoft YaHei',system-ui,sans-serif;color:var(--text);padding:6px 2px;box-shadow:none}
-.chat-inbar textarea:focus{outline:none;box-shadow:none}
+.chat-inbar{display:flex;gap:8px;align-items:flex-end;background:linear-gradient(180deg,var(--surface3),var(--surface2));border-radius:var(--dsw-radius-lg);padding:9px 11px 9px 13px;box-shadow:var(--dsw-elevation-stroke);transition:box-shadow .18s ease}
+.chat-inbar:focus-within{box-shadow:0 0 0 1px var(--acc-line),0 0 26px rgba(240,119,175,.12)}
+.chat-inbar textarea{flex:1;background:transparent;border:0;box-shadow:none;resize:none;min-height:40px;max-height:170px;font:13.5px/1.65 'Segoe UI','Microsoft YaHei',system-ui,sans-serif;color:var(--text);padding:7px 2px}
+.chat-inbar textarea:hover{background:transparent}
+.chat-inbar textarea:focus{outline:none;box-shadow:none;background:transparent}
 .chat-inbar textarea:disabled{color:var(--faint)}
-/* the model/effort picker in the composer: plain text + caret, like the reference's selector */
-.chatmodel{display:inline-flex;align-items:center;gap:5px;background:transparent;border:0;color:var(--dim);font:12px inherit;font-family:inherit;padding:6px 8px;border-radius:8px;cursor:pointer;max-width:190px;flex-shrink:0;align-self:center}
+.chatmodel{display:inline-flex;align-items:center;gap:5px;background:transparent;border:0;color:var(--dim);font:12px inherit;font-family:inherit;padding:6.5px 9px;border-radius:8px;cursor:pointer;max-width:190px;flex-shrink:0;align-self:center;transition:background-color .12s ease,color .12s ease}
 .chatmodel:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
 .chatmodel .cml{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chatmodel .caret{display:inline-flex;color:var(--faint);flex-shrink:0}
-#chat-pop{position:fixed;z-index:75;width:330px;max-height:56vh;overflow-y:auto;background:var(--dsw-alias-bg-layer-2);border-radius:14px;padding:6px;box-shadow:0 0 0 .5px var(--dsw-alias-border-l3),0 16px 44px rgba(0,0,0,.5)}
-#chat-pop .pophead{font-size:10px;letter-spacing:1.4px;color:var(--faint);font-weight:700;padding:8px 10px 4px}
+#chat-pop{position:fixed;z-index:75;width:334px;max-height:56vh;overflow-y:auto;background:rgba(32,32,42,.95);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:var(--dsw-radius-md);padding:6px;box-shadow:0 0 0 .5px var(--border3),0 20px 56px rgba(0,0,0,.6)}
+#chat-pop .pophead{font-size:10px;letter-spacing:1.5px;color:var(--faint);font-weight:600;padding:8px 10px 4px;text-transform:uppercase}
 #chat-pop .popnote{font-size:11.5px;color:var(--faint);padding:2px 10px 6px;line-height:1.6}
 .chipsets{display:flex;flex-wrap:wrap;gap:6px;padding:2px 10px 10px}
-.chipset{background:var(--surface3);border-radius:8px;padding:3.5px 11px;font-size:12px;color:var(--dim);cursor:pointer;font-family:var(--mono)}
+.chipset{background:var(--surface4);border-radius:99px;padding:4px 12px;font-size:12px;color:var(--dim);cursor:pointer;font-family:var(--mono);transition:background-color .12s ease,color .12s ease}
 .chipset:hover{color:var(--text)}
-.chipset.on{background:rgba(240,119,175,.28);color:#fff}
+.chipset.on{background:var(--acc-soft);color:#f6a9ce;box-shadow:inset 0 0 0 1px var(--acc-line)}
 .chat-hint{font-size:10.5px;color:var(--faint);padding:6px 4px 0;text-align:right}
-.tempty{color:var(--faint);font-size:11.5px;padding:10px 8px;line-height:1.7}
+.tempty{color:var(--faint);font-size:11.5px;padding:10px 8px;line-height:1.75}
 
-/* ---------- motion: states travel instead of snapping ----------
-   dsh-style restraint: fast (≤.22s), one easing family, open animated / close instant.
-   No panel, popover or view may switch display without SOME transition into place. */
-/* popovers: display:none->block replays the animation on every open; closing stays instant */
+/* ---------- stale banner ---------- */
+.stalebar{flex:0 0 auto;display:flex;gap:10px;align-items:baseline;background:rgba(251,191,36,.09);box-shadow:inset 0 0 0 1px rgba(251,191,36,.35);color:#f0c070;border-radius:var(--dsw-radius-md);padding:10px 15px;margin:2px 0 6px;font-size:12.5px;line-height:1.65;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.stalebar b{color:var(--warn);flex-shrink:0}
+
+/* ---------- settings surfaces: stat tiles and code cards ---------- */
+.statrow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--surface2);box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-md);padding:13px 15px;display:flex;flex-direction:column;gap:3px;min-width:0;transition:box-shadow .15s ease}
+.stat:hover{box-shadow:var(--dsw-elevation-stroke),0 4px 16px -4px rgba(0,0,0,.4)}
+.stat .sl{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.8px}
+.stat .sv{font-size:21px;font-weight:600;line-height:1.25;font-variant-numeric:tabular-nums;font-family:Montserrat,var(--mono)}
+.stat .sc{font-size:11px;color:var(--faint);letter-spacing:0}
+.codecard{background:var(--surface2);box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-md);overflow:hidden;margin:2px 0}
+.codehead{display:flex;align-items:center;gap:8px;padding:8.5px 13px;border-bottom:1px solid var(--border);font:12px var(--mono);color:var(--dim)}
+.codehead .btn-copy{margin:0 0 0 auto;padding:2px 9px}
+.codecard pre.rawj{box-shadow:none;background:transparent;border-radius:0;max-height:300px}
+
+/* ---------- motion: states travel instead of snapping ---------- */
 .pop.on{animation:popin .16s cubic-bezier(.4,0,.2,1)}
 #chat-pop{animation:popin .16s cubic-bezier(.4,0,.2,1)}
-/* modals: scrim fades, sheet rises (dirpicker has no JS close choreography — close stays instant) */
 .dpov{animation:fadein .16s ease}
 .dpov .dp{animation:dpin .2s cubic-bezier(.4,0,.2,1)}
 #stale{animation:fadein .25s ease}
-/* view hand-offs: one quiet fade so switching panes never blinks. Animation replays only when
-   display actually crosses none->visible; the 1.2s polls re-assign the SAME value and never
-   re-trigger it. */
 #view-setup>div,#conv,#chat,#batch-box{animation:viewin .2s ease}
 .scenter{animation:viewin .3s ease}
 .agentrow.open .aedit{animation:rowin .18s ease}
 body.hideL #asideL>.rail{animation:fadein .18s ease}
-/* one shared hover language: every interactive surface eases instead of snapping.
-   transform gets a shorter budget so :active press lands quickly. */
+/* one shared hover language */
 .wsrow,.wsrow .caret,.sess,.tnode,.agrow,.popitem,.poprow,.dprow,.navrow,.navbtn,.setx,.panetgl,.expbtn,.hicon,.chipset,.dpchip,.btn-copy,.fchip,.chip,.cbtn,.seat,.chatmodel,.railbtn,.newbtn,.segb,.presets button,button.ghost,.schip{
-  transition:background-color .13s ease,color .13s ease,border-color .13s ease,box-shadow .13s ease,opacity .13s ease,filter .13s ease,transform .07s ease}
-.composer{transition:box-shadow .15s ease,border-color .15s ease}
-/* press feedback for rows and small controls the original :active list missed */
+  transition:background-color .13s ease,color .13s ease,box-shadow .13s ease,opacity .13s ease,filter .13s ease,transform .07s ease}
+.composer{transition:box-shadow .18s ease}
 .fchip:active,.popitem:active,.dprow:active,.wsrow:active,.sess:active,.tnode:active,.agrow:active,.seat:active,.chipset:active,.dpchip:active,.setx:active,.panetgl:active,.expbtn:active,.btn-copy:active{transform:translateY(1px)}
 @keyframes fadein{from{opacity:0}}
 @keyframes popin{from{opacity:0;transform:translateY(-4px) scale(.985)}}
 @keyframes dpin{from{opacity:0;transform:translateY(12px) scale(.98)}}
 @keyframes viewin{from{opacity:0;transform:translateY(5px)}}
-/* ---------- settings surfaces: stat tiles and code cards, not a form on a field ---------- */
-.statrow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.stat{background:var(--dsw-alias-bg-layer-1);box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-md);padding:12px 14px;display:flex;flex-direction:column;gap:3px;min-width:0}
-.stat .sl{font-size:11px;color:var(--faint)}
-.stat .sv{font-size:20px;font-weight:600;line-height:1.25;font-variant-numeric:tabular-nums}
-.stat .sc{font-size:11px;color:var(--faint);letter-spacing:0}
-.codecard{background:var(--dsw-alias-bg-layer-1);box-shadow:var(--dsw-elevation-stroke);border-radius:var(--dsw-radius-md);overflow:hidden;margin:2px 0}
-.codehead{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);font:12px var(--mono);color:var(--dim)}
-.codehead .btn-copy{margin:0 0 0 auto;padding:2px 9px}
-.codecard pre.rawj{box-shadow:none;background:transparent;border-radius:0;max-height:300px}
+/* thinking blocks read as one quoted passage; fake-italic CJK is gone */
+.trow.t-think.solo{border-left:2px solid var(--border2);padding-left:12px}
+.trow .tcaret{display:inline-flex;justify-content:center;transition:transform .16s cubic-bezier(.4,0,.2,1)}
+.trow.open .tcaret{transform:rotate(90deg)}
+.trow.expandable:hover .ttext{color:#c9cdd8}
+
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
-/* thinking blocks read as one quoted passage: a trace-style left rail on the standalone rows
-   (rows inside .trace already sit behind the container's rail), and a caret that turns as
-   the block expands. Fake-italic is gone — CJK italics are synthesized and look cheap. */
-.trow.t-think.solo{border-left:2px solid var(--dsw-alias-border-l2);padding-left:11px}
-.trow.t-done{color:var(--ok);font-size:11.5px}
-.trow .tcaret{display:inline-flex;justify-content:center;transition:transform .16s cubic-bezier(.4,0,.2,1)}
-.trow.open .tcaret{transform:rotate(90deg)}
-.trow.expandable:hover .ttext{color:#c9c9c9}
 </style>
 </head>
 <body>
@@ -736,7 +676,7 @@ body.hideL #asideL>.rail{animation:fadein .18s ease}
     <div class="scenter">
     <div class="welcome">
       <div class="mark"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 3.5 20.5 12 12 20.5 3.5 12Z" fill="#fff"/><path d="M12 8.6 15.4 12 12 15.4 8.6 12Z" fill="rgba(0,0,0,.42)"/></svg></div>
-      <h3>新建任务</h3>
+      <h3>派个任务</h3>
       <p id="stage-hint">派发给最合适的 harness</p>
     </div>
 
@@ -766,6 +706,7 @@ body.hideL #asideL>.rail{animation:fadein .18s ease}
         <span class="grow"></span>
         <button type="button" class="chip pill" id="chip-verdict" onclick="toggleVerdict()" title="结构化 verdict：要求 JSON 结论 / 风险 / 建议，解析失败自动重试一次">✓ verdict</button>
         <div class="seats inline" id="seats-inline"></div>
+        <span class="kbd" title="按 Ctrl+Enter 直接派发">Ctrl ⏎</span>
         <button type="button" class="sendbtn" id="btn-go" title="派发任务"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto"><path d="M8 13V3.6M8 3.6 4.2 7.4M8 3.6l3.8 3.8"/></svg></button>
       </div>
 
@@ -1331,6 +1272,10 @@ $('presets').innerHTML=PRESETS.map((p,i)=>`<button data-i="${i}" title="${esc(p[
 $('presets').onclick=e=>{const b=e.target.closest('button');if(!b)return;const txt=PRESETS[+b.dataset.i][1];
   if(mode==='batch'){const t=$('f-batchtasks');t.value=(t.value.trim()?t.value.replace(/\s+$/,'')+'\n':'')+txt.trim()+'\n';t.focus();}
   else{$('f-task').value=txt;$('f-task').focus()}};
+/* Ctrl/Cmd+Enter dispatches from either task box — the send key stays the pointer target. */
+for(const id of ['f-task','f-batchtasks'])$(id).addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();$('btn-go').click()}
+});
 // Seat-level fields write through to the seat; task-level fields only need a redraw.
 $('f-agent').addEventListener('change',agentRouteChanged);
 for(const id of ['f-model','f-effort'])$(id).addEventListener('input',writeSeat);
@@ -1465,6 +1410,10 @@ $('btn-go').onclick=async()=>{
       $('f-batchtasks').value='';
     }
     saveForm();closePops();noteRecentLocal(base.cwd);await refreshJobs(true);
+    // Dispatch lands you IN the live conversation, not back on the stage: the newest job becomes
+    // the selected one and the center pane switches to its stream.
+    const nj=[...JOBS].sort((a,b)=>b.createdAt-a.createdAt)[0];
+    if(nj)selectJob(nj.id);
   }catch(e){$('form-err').textContent=String(e.message??e)}
   finally{btn.disabled=false}
 };

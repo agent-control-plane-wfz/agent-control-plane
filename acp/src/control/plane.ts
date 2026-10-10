@@ -241,7 +241,8 @@ export class ControlPlane {
   }
 
   async send(agent: AgentId, sessionId: string, task: string, timeoutMs?: number,
-    onEvent?: (e: { kind: 'text' | 'tool' | 'tool_result' | 'thinking' | 'status'; text?: string; status?: string }) => void): Promise<AgentResult> {
+    onEvent?: (e: { kind: 'text' | 'tool' | 'tool_result' | 'thinking' | 'status'; text?: string; status?: string }) => void,
+    opts?: { model?: string; effort?: string }): Promise<AgentResult> {
     const t0 = Date.now();
     this.budget.checkRequest();
     // dsh is a one-shot process — resume via --session-id instead of a live ACP session.
@@ -254,7 +255,8 @@ export class ControlPlane {
           toolCalls: 0, durationMs: Date.now() - t0,
         };
       }
-      const r = await DshDriver.run(task, { cwd, sessionId, timeoutMs: timeoutMs ?? 300_000, profile: dshProfileOf(), onEvent });
+      // effort applies per turn on dsh (the --patch overlay); model has no external channel.
+      const r = await DshDriver.run(task, { cwd, sessionId, timeoutMs: timeoutMs ?? 300_000, profile: dshProfileOf(), onEvent, effort: opts?.effort });
       const out: AgentResult = {
         agent, sessionId,
         ok: r.exitCode === 0, text: r.text || `(dsh exit=${r.exitCode}) ${r.stderr.slice(-500)}`,
@@ -272,6 +274,10 @@ export class ControlPlane {
         toolCalls: 0, durationMs: Date.now() - t0,
       };
     }
+    // A per-turn model/effort change on a live session (chat settings): apply before running.
+    if (opts?.model || opts?.effort) {
+      try { await this.applyConfigToSession(s, agent, opts); } catch { /* best-effort */ }
+    }
     const driver = this.acpDriver(agent);
     const outcome = await driver.run(s, task, { timeoutMs: timeoutMs ?? 300_000, onEvent });
     const r: AgentResult = {
@@ -284,6 +290,48 @@ export class ControlPlane {
     };
     this.budget.record(r.usage);
     return r;
+  }
+
+  /**
+   * Apply model/effort to a LIVE acp session (used when chat settings change mid-conversation).
+   * If the adapter died with the process, a fresh turn respawns it anyway.
+   */
+  async applySessionConfig(agent: AgentId, sessionId: string, cfg: { model?: string; effort?: string }): Promise<{ applied: ConfigApplyRecord[] }> {
+    const s = this.sessions.get(`${agent}:${sessionId}`);
+    if (!s) return { applied: [] };
+    return { applied: await this.applyConfigToSession(s, agent, cfg) };
+  }
+
+  /** dsh keeps its sessions in ITS own store; after a console restart the resume handle only
+   *  needs the cwd back to keep talking to the same conversation. */
+  adoptDshSession(sessionId: string, cwd: string): void {
+    this.dshSessions.set(sessionId, cwd);
+  }
+
+  /** Shared by runAcp/applySessionConfig — resolves the option id the way the adapter
+   *  advertises it (effort often lives under a `thought_level` category). */
+  private async applyConfigToSession(s: AcpSession, agent: AgentId,
+    cfg: { model?: string; effort?: string }): Promise<ConfigApplyRecord[]> {
+    const applied: ConfigApplyRecord[] = [];
+    const driver = this.acpDriver(agent);
+    const resolveOptionId = (kind: 'model' | 'effort'): string | undefined => {
+      if (s.configOptions.some((c) => c.id === kind)) return kind;
+      if (kind === 'effort') {
+        const byCategory = s.configOptions.find((c) => c.category === 'thought_level');
+        if (byCategory) return byCategory.id;
+      }
+      return undefined;
+    };
+    const pairs: Array<['model' | 'effort', string | undefined]> = [['model', cfg.model], ['effort', cfg.effort]];
+    for (const [kind, value] of pairs) {
+      if (!value) continue;
+      const id = resolveOptionId(kind);
+      if (!id) { applied.push({ id: kind, value, ok: false, via: 'option-not-offered', error: 'agent did not advertise this config option' }); continue; }
+      const cur = s.configOptions.find((c) => c.id === id)?.currentValue;
+      if (cur === value) { applied.push({ id, value, ok: true, via: 'already-set' }); continue; }
+      applied.push({ id, value, ...(await driver.setConfig(s, id, value)) });
+    }
+    return applied;
   }
 
   async stop(agent: AgentId, sessionId: string): Promise<{ stopped: boolean }> {

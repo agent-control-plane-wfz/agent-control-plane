@@ -16,7 +16,7 @@ import { detectAgent } from '../config/detect.ts';
 import { completeSetup, rerunSetup, setupView } from '../config/setup.ts';
 import { configuredAgent, setupState } from '../config/settings.ts';
 import { BUILTIN_RULES } from '../router/router.ts';
-import { HISTORY_FILE } from '../config/paths.ts';
+import { HISTORY_FILE, STATE_DIR } from '../config/paths.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.ACP_WEB_PORT ?? 7777);
@@ -24,6 +24,10 @@ const PORT = Number(process.env.ACP_WEB_PORT ?? 7777);
 // isolated state dir no longer appends to the real job history.
 const EVENT_CAP = 400;
 const HISTORY_LOAD = 60;
+// The console PAGE is served fresh on every request while the PROCESS only reloads on a
+// restart — so "I refreshed, why is it old?" is a real, recurring state. The page compares
+// this number with what it needs and warns loudly when the running process is stale.
+const API_VERSION = 3;
 
 interface JobEvent { kind: string; text?: string; at: number; status?: string }
 
@@ -77,6 +81,38 @@ const CHAT_MSG_CAP = 400;
 const TRACE_CAP = 250;   // events kept per turn; beyond this the trail is a wall, not a record
 const chats = new Map<string, Chat>();
 
+// Chats survive a console restart: the transcript is state, and losing a long conversation to
+// a process bounce is exactly the kind of papercut that makes a tool feel unreliable. What a
+// restart CANNOT keep is a live run — loaded chats come back idle, and a dsh resume handle is
+// re-adopted (dsh keeps its sessions in its own store); acp sessions respawn on the next turn.
+const CHATS_FILE = join(STATE_DIR, 'web-chats.json');
+const CHATS_KEEP = 50;
+function persistChats(): void {
+  try {
+    const data = [...chats.values()]
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, CHATS_KEEP)
+      .map((c) => ({
+        ...c,
+        events: [],   // the live buffer is per-process; finished turns live on message.trace
+        messages: c.messages.map((m) => ({ ...m, trace: m.trace?.slice(-60) })),   // transcripts, not archives
+      }));
+    writeFileSync(CHATS_FILE, JSON.stringify(data), 'utf8');
+  } catch { /* best-effort */ }
+}
+function loadChats(): void {
+  try {
+    if (existsSync(CHATS_FILE)) {
+      for (const c of JSON.parse(readFileSync(CHATS_FILE, 'utf8')) as Chat[]) {
+        c.events = [];
+        if (c.status === 'busy') c.status = 'idle';   // a restart cannot keep a turn running
+        chats.set(c.id, c);
+        if (c.agent === 'dsh' && c.sessionId) plane.adoptDshSession(c.sessionId, c.cwd);
+      }
+    }
+  } catch { /* a corrupt file must not take the console down */ }
+}
+
 async function runChatTurn(chat: Chat, text: string): Promise<void> {
   chat.status = 'busy';
   chat.events = [];
@@ -95,7 +131,8 @@ async function runChatTurn(chat: Chat, text: string): Promise<void> {
       });
       if (r.sessionId) chat.sessionId = r.sessionId;
     } else {
-      r = await plane.send(chat.agent as any, chat.sessionId, text, undefined, onEvent);
+      r = await plane.send(chat.agent as any, chat.sessionId, text, undefined, onEvent,
+        { model: chat.model, effort: chat.effort });
     }
     chat.messages.push({
       role: 'agent',
@@ -117,10 +154,13 @@ async function runChatTurn(chat: Chat, text: string): Promise<void> {
     chat.messages.push({ role: 'agent', text: '', at: Date.now(), error: msg, trace: chat.events.slice(-TRACE_CAP) });
     chat.status = 'failed';
     chat.error = msg;
+  } finally {
+    persistChats();
   }
 }
 
 const plane = new ControlPlane();
+loadChats();   // re-adopt persisted conversations (dsh resume handles included)
 const jobs = new Map<string, Job>();
 
 // Load recent finished jobs so history survives restarts (events are not persisted).
@@ -346,7 +386,7 @@ const server = createServer(async (req, res) => {
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/status') {
-      json(res, 200, { agents: plane.status(), openSessions: plane.listSessions(), budget: plane.budgetStats() });
+      json(res, 200, { agents: plane.status(), openSessions: plane.listSessions(), budget: plane.budgetStats(), apiVersion: API_VERSION });
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/jobs') {
@@ -383,6 +423,7 @@ const server = createServer(async (req, res) => {
       };
       chats.set(chat.id, chat);
       noteRecentCwd(cwd);
+      persistChats();
       json(res, 200, chat);
       return;
     }
@@ -396,8 +437,29 @@ const server = createServer(async (req, res) => {
       const text = String(body.text ?? '').trim();
       if (!text) { json(res, 400, { error: 'text is required' }); return; }
       c.messages.push({ role: 'user', text, at: Date.now() });
+      persistChats();
       void runChatTurn(c, text);   // streams into c.events; the UI polls c
       json(res, 200, c);
+      return;
+    }
+    const mChatSettings = url.pathname.match(/^\/api\/chats\/([\w-]+)\/settings$/);
+    if (req.method === 'POST' && mChatSettings) {
+      const c = chats.get(mChatSettings[1]);
+      if (!c) { json(res, 404, { error: 'no such chat' }); return; }
+      if (c.status === 'closed') { json(res, 400, { error: '对话已结束' }); return; }
+      if (c.status === 'busy') { json(res, 409, { error: '回复中，等这轮结束再改' }); return; }
+      const body = await readBody(req);
+      if (typeof body.model === 'string') c.model = body.model.trim() || undefined;
+      if (typeof body.effort === 'string') c.effort = body.effort.trim() || undefined;
+      // Apply to a live acp session right away; dsh picks the effort up on the next resume,
+      // and its model is fixed by the profile (no external channel).
+      let applied: unknown = [];
+      if (c.sessionId && c.agent !== 'dsh') {
+        try { applied = (await plane.applySessionConfig(c.agent as any, c.sessionId, { model: c.model, effort: c.effort })).applied; }
+        catch { /* best-effort — the next turn still gets the new values */ }
+      }
+      persistChats();
+      json(res, 200, { chat: c, applied });
       return;
     }
     const mChatStop = url.pathname.match(/^\/api\/chats\/([\w-]+)\/stop$/);
@@ -406,6 +468,7 @@ const server = createServer(async (req, res) => {
       if (!c) { json(res, 404, { error: 'no such chat' }); return; }
       if (c.sessionId) { try { await plane.stop(c.agent as any, c.sessionId); } catch { /* best-effort */ } }
       c.status = 'closed';
+      persistChats();
       json(res, 200, c);
       return;
     }

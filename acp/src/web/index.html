@@ -444,6 +444,9 @@ pre.rawj,.probebox{background:var(--chrome);border:0;box-shadow:var(--dsw-elevat
 /* The console is used as a desktop app (start-desktop.cmd opens a chromeless window); each pane
    scrolls on its own and the page itself never scrolls. */
 main{overflow:hidden;padding:0 20px;display:flex;flex-direction:column;min-width:0}
+/* stale-process banner: amber, unmissable, dismisses itself the moment the process matches */
+.stalebar{flex:0 0 auto;display:flex;gap:10px;align-items:baseline;background:rgba(247,173,49,.12);box-shadow:0 0 0 1px rgba(247,173,49,.35);color:#f0c070;border-radius:10px;padding:9px 14px;margin:2px 0 6px;font-size:12.5px;line-height:1.6}
+.stalebar b{color:var(--warn);flex-shrink:0}
 header.main{flex:0 0 auto;padding:12px 0 6px}
 header.main h1{font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:9px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* The ✎ flag before the title row mirrors the reference's toolbar; only drawn when there is
@@ -567,6 +570,18 @@ body.hideR #expR{display:inline-flex}
 .chat-inbar textarea{flex:1;background:transparent;border:0;resize:none;min-height:40px;max-height:170px;font:13.5px/1.6 'Segoe UI','Microsoft YaHei',system-ui,sans-serif;color:var(--text);padding:6px 2px;box-shadow:none}
 .chat-inbar textarea:focus{outline:none;box-shadow:none}
 .chat-inbar textarea:disabled{color:var(--faint)}
+/* the model/effort picker in the composer: plain text + caret, like the reference's selector */
+.chatmodel{display:inline-flex;align-items:center;gap:5px;background:transparent;border:0;color:var(--dim);font:12px inherit;font-family:inherit;padding:6px 8px;border-radius:8px;cursor:pointer;max-width:190px;flex-shrink:0;align-self:center}
+.chatmodel:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
+.chatmodel .cml{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chatmodel .caret{display:inline-flex;color:var(--faint);flex-shrink:0}
+#chat-pop{position:fixed;z-index:75;width:330px;max-height:56vh;overflow-y:auto;background:var(--dsw-alias-bg-layer-2);border-radius:14px;padding:6px;box-shadow:0 0 0 .5px var(--dsw-alias-border-l3),0 16px 44px rgba(0,0,0,.5)}
+#chat-pop .pophead{font-size:10px;letter-spacing:1.4px;color:var(--faint);font-weight:700;padding:8px 10px 4px}
+#chat-pop .popnote{font-size:11.5px;color:var(--faint);padding:2px 10px 6px;line-height:1.6}
+.chipsets{display:flex;flex-wrap:wrap;gap:6px;padding:2px 10px 10px}
+.chipset{background:var(--surface3);border-radius:8px;padding:3.5px 11px;font-size:12px;color:var(--dim);cursor:pointer;font-family:var(--mono)}
+.chipset:hover{color:var(--text)}
+.chipset.on{background:rgba(240,119,175,.28);color:#fff}
 .chat-hint{font-size:10.5px;color:var(--faint);padding:6px 4px 0;text-align:right}
 .tempty{color:var(--faint);font-size:11.5px;padding:10px 8px;line-height:1.7}
 </style>
@@ -575,22 +590,22 @@ body.hideR #expR{display:inline-flex}
 
 <aside id="asideL">
   <div class="rail">
-    <button class="railbtn" onclick="togglePane('l')" title="展开侧栏">◈</button>
-    <button class="railbtn" onclick="newTask()" title="新任务">＋</button>
+    <button class="railbtn" onclick="togglePane('l')" title="展开侧栏"><svg viewBox="0 0 18 18" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block"><rect x="2.4" y="3.4" width="13.2" height="11.2" rx="2"/><path d="M7.2 3.4v11.2"/></svg></button>
+    <button class="railbtn" onclick="newTask()" title="新任务"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="display:block"><path d="M8 3v10M3 8h10"/></svg></button>
     <div class="side-grow"></div>
-    <button class="railbtn" onclick="switchView('settings')" title="设置">⚙</button>
+    <button class="railbtn" onclick="switchView('settings')" title="设置"><svg viewBox="0 0 18 18" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block"><path d="M2.6 6h12.8M2.6 12h12.8"/><circle cx="7.2" cy="6" r="1.7"/><circle cx="11" cy="12" r="1.7"/></svg></button>
   </div>
   <div class="panerow">
-    <div class="brand"><span class="logo">◈</span> Control Plane</div>
-    <button class="panetgl" onclick="togglePane('l')" title="折叠左栏">‹</button>
+    <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 3.5 20.5 12 12 20.5 3.5 12Z" fill="#fff"/><path d="M12 8.6 15.4 12 12 15.4 8.6 12Z" fill="rgba(0,0,0,.42)"/></svg></span> Control Plane</div>
+    <button class="panetgl" onclick="togglePane('l')" title="折叠左栏"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M9.8 4 5.8 8 9.8 12"/></svg></button>
   </div>
-  <button class="newbtn" onclick="newTask()">＋ 新任务</button>
+  <button class="newbtn" onclick="newTask()"><span style="display:inline-flex;margin-right:7px"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="display:block"><path d="M8 3v10M3 8h10"/></svg></span>新任务</button>
   <div class="wshead">
     <span>工作区</span>
     <span class="htools">
       <span class="hicon" id="tgl-search" onclick="toggleConvTools('search')" title="搜索会话">搜索</span>
       <span class="hicon" id="tgl-filter" onclick="toggleConvTools('filter')" title="按状态或 agent 筛选">筛选</span>
-      <span class="hicon" onclick="openDirPicker('f-cwd')" title="选择工作目录">＋</span>
+      <span class="hicon" onclick="openDirPicker('f-cwd')" title="选择工作目录"><svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="display:inline-block;vertical-align:-1px"><path d="M8 3v10M3 8h10"/></svg></span>
       <span class="hicon stat" id="job-count" title="显示的会话 / 总数"></span>
     </span>
   </div>
@@ -607,23 +622,30 @@ body.hideR #expR{display:inline-flex}
   <div class="wslist" id="ws-list"></div>
   <div class="side-grow"></div>
   <button class="navrow" id="nav-setup" style="display:none" onclick="switchView('setup')"><span class="navico">✦</span>完成首启设置</button>
-  <button class="navrow" id="nav-settings" onclick="switchView('settings')"><span class="navico">⚙</span>设置</button>
+  <button class="navrow" id="nav-settings" onclick="switchView('settings')"><span class="navico"><svg viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:block"><path d="M2.6 6h12.8M2.6 12h12.8"/><circle cx="7.2" cy="6" r="1.7"/><circle cx="11" cy="12" r="1.7"/></svg></span>设置</button>
 </aside>
 
 <main>
   <header class="main">
-    <button class="expbtn" id="expL" onclick="togglePane('l')" title="展开左栏">›</button>
+    <button class="expbtn" id="expL" onclick="togglePane('l')" title="展开左栏"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M6.2 4 10.2 8 6.2 12"/></svg></button>
     <h1 id="view-title"></h1>
     <div class="conn"><span class="dot pulse" id="conn-dot"></span><span id="conn-text">连接中…</span></div>
     <button class="ghost" id="btn-clear">清空历史</button>
-    <button class="expbtn" id="expR" onclick="togglePane('r')" title="展开右栏">‹</button>
+    <button class="expbtn" id="expR" onclick="togglePane('r')" title="展开右栏"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M9.8 4 5.8 8 9.8 12"/></svg></button>
   </header>
+
+  <!-- The page is served fresh on every request but the PROCESS only reloads on a restart —
+       so "I refreshed, why is it old?" is a real, recurring state. Say it in the UI. -->
+  <div id="stale" class="stalebar" style="display:none">
+    <b>⚠ 服务进程是旧版本</b>
+    <span>页面已是最新，但后端进程还在跑旧代码——对话过程、模型切换等功能不完整。请关闭窗口后重新运行 start-desktop.cmd（或 stop-desktop.cmd → start-desktop.cmd）。</span>
+  </div>
 
   <div id="view-console">
   <div class="stage" id="stage-view">
     <div class="scenter">
     <div class="welcome">
-      <div class="mark">◈</div>
+      <div class="mark"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 3.5 20.5 12 12 20.5 3.5 12Z" fill="#fff"/><path d="M12 8.6 15.4 12 12 15.4 8.6 12Z" fill="rgba(0,0,0,.42)"/></svg></div>
       <h3>新建任务</h3>
       <p id="stage-hint">派发给最合适的 harness</p>
     </div>
@@ -631,7 +653,7 @@ body.hideR #expR{display:inline-flex}
     <div class="composer" id="composer">
       <div class="crow-top">
         <button type="button" class="chip" onclick="togglePop(event,'ws-pop')" title="工作目录（点开选择）">
-          <span>▣</span><span class="cnm" id="chip-ws-name">选择工作区</span><span class="caret">⌄</span></button>
+          <span style="display:inline-flex"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" style="display:block"><path d="M2.5 4.6h4l1.5 1.8h5.5v6.2h-11z"/></svg></span><span class="cnm" id="chip-ws-name">选择工作区</span><span class="caret"><svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M4 6.2 8 10.2 12 6.2"/></svg></span></button>
         <div class="seg" id="seg-mode" data-i="0" role="tablist" aria-label="派发模式">
           <span class="seg-ind" aria-hidden="true"></span>
           <button type="button" role="tab" class="segb" data-m="ask" onclick="setMode('ask')" title="一个 agent 独立完成">单任务</button>
@@ -648,13 +670,13 @@ body.hideR #expR{display:inline-flex}
       </div>
 
       <div class="crow-bottom">
-        <button type="button" class="cbtn" onclick="openDirPicker('f-cwd')" title="选择工作目录">＋</button>
+        <button type="button" class="cbtn" onclick="openDirPicker('f-cwd')" title="选择工作目录"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="display:block"><path d="M8 3v10M3 8h10"/></svg></button>
         <button type="button" class="chip" id="chip-wsmode" onclick="cycleWsMode()" title="共享当前目录 / 用 git worktree 隔离">
-          <span>▤</span><span class="cnm" id="chip-wsmode-name">工作区内修改</span></button>
+          <span style="display:inline-flex"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4" style="display:block"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/></svg></span><span class="cnm" id="chip-wsmode-name">工作区内修改</span></button>
         <span class="grow"></span>
         <button type="button" class="chip pill" id="chip-verdict" onclick="toggleVerdict()" title="结构化 verdict：要求 JSON 结论 / 风险 / 建议，解析失败自动重试一次">✓ verdict</button>
         <div class="seats inline" id="seats-inline"></div>
-        <button type="button" class="sendbtn" id="btn-go" title="派发任务">↑</button>
+        <button type="button" class="sendbtn" id="btn-go" title="派发任务"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto"><path d="M8 13V3.6M8 3.6 4.2 7.4M8 3.6l3.8 3.8"/></svg></button>
       </div>
 
       <div class="pop" id="ws-pop">
@@ -689,6 +711,9 @@ body.hideR #expR{display:inline-flex}
   </div>
   <section id="conv" class="conv" style="display:none"></section>
   <section id="chat" class="conv" style="display:none"></section>
+  <!-- composer model/effort picker: rendered at body level and positioned against the button,
+       so the 1.2s repaint of the chat column can never rip an open popover apart -->
+  <div id="chat-pop" style="display:none"></div>
   <datalist id="cwd-list"></datalist>
   <datalist id="model-list"></datalist>
   <datalist id="effort-list"></datalist>
@@ -704,12 +729,12 @@ body.hideR #expR{display:inline-flex}
 <aside id="asideR">
   <div class="panerow">
     <span class="side-title">调用关系</span>
-    <button class="panetgl" onclick="togglePane('r')" title="折叠右栏">›</button>
+    <button class="panetgl" onclick="togglePane('r')" title="折叠右栏"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M6.2 4 10.2 8 6.2 12"/></svg></button>
   </div>
   <div id="tree" class="tree"></div>
   <div class="side-title" style="margin-top:4px">Agents</div>
   <div id="agpanel"></div>
-  <div class="side-foot" style="margin-top:auto">◈ 树随选中的会话更新<br>点节点只看该 agent 的发言</div>
+  <div class="side-foot" style="margin-top:auto">树随选中的会话更新<br>点节点只看该 agent 的发言</div>
 </aside>
 
 <!-- 设置不再是主区里的第三个页面，而是盖在任意视图之上的模态；关闭后回到原来的视图。
@@ -723,10 +748,10 @@ body.hideR #expR{display:inline-flex}
     </div>
     <div class="setcols">
       <div class="setnav">
-        <button class="navbtn on" data-s="agents" onclick="setSection('agents')"><span class="navico">⚙</span>Agents</button>
+        <button class="navbtn on" data-s="agents" onclick="setSection('agents')"><span class="navico"><svg viewBox="0 0 18 18" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="display:inline-block;vertical-align:-3px"><path d="M2.6 6h12.8M2.6 12h12.8"/><circle cx="7.2" cy="6" r="1.7"/><circle cx="11" cy="12" r="1.7"/></svg></span>Agents</button>
         <button class="navbtn" data-s="routing" onclick="setSection('routing')"><span class="navico">⇄</span>Routing</button>
         <button class="navbtn" data-s="budget" onclick="setSection('budget')"><span class="navico">◱</span>Budget</button>
-        <button class="navbtn" data-s="workspace" onclick="setSection('workspace')"><span class="navico">▣</span>Workspace</button>
+        <button class="navbtn" data-s="workspace" onclick="setSection('workspace')"><span class="navico"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" style="display:inline-block;vertical-align:-3px"><path d="M2.5 4.6h4l1.5 1.8h5.5v6.2h-11z"/></svg></span>Workspace</button>
         <button class="navbtn" data-s="integr" onclick="setSection('integr')"><span class="navico">⧉</span>集成</button>
       </div>
       <div class="setpane" id="settings-body"></div>
@@ -756,6 +781,19 @@ const COPYBUF={};
    expectation — previously any non-empty value rendered as a warning, so all four agents
    showed a bogus "实际厂商不同", including perfectly normal ones. */
 const EXPECTED_VENDOR={claude:'anthropic',codex:'openai',dsh:'deepseek'};
+/* Inline vector icons. The console used to lean on Unicode glyphs (◈ ＋ ⚙ ‹ › ⌄ ▣), whose
+   rendering differs per font — on Windows they came out rough and inconsistent. These are
+   geometry, not typography: the same shape everywhere. */
+const ICO={
+  chevD:'<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M4 6.2 8 10.2 12 6.2"/></svg>',
+  chevR:'<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M6.2 4 10.2 8 6.2 12"/></svg>',
+  chevL:'<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M9.8 4 5.8 8 9.8 12"/></svg>',
+  plus:'<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="display:block"><path d="M8 3v10M3 8h10"/></svg>',
+  send:'<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M8 13V3.6M8 3.6 4.2 7.4M8 3.6l3.8 3.8"/></svg>',
+  folder:'<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" style="display:block"><path d="M2.5 4.6h4l1.5 1.8h5.5v6.2h-11z"/></svg>',
+  square:'<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4" style="display:block"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/></svg>',
+  file:'<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" style="display:block"><path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3"/></svg>',
+};
 const PRESETS=[
   ['代码审查','审查这段代码的风险与改进点（把代码贴到下面）：\n'],
   ['写测试','为下面的函数写单元测试，覆盖边界情况：\n'],
@@ -914,7 +952,7 @@ function renderWorkspaceList(){
     }).join('');
     const more=!filtering&&fj.length>6?`<div class="sess" style="color:var(--faint);cursor:default">还有 ${fj.length-6} 条…</div>`:'';
     const empty=!filtering&&!fj.length?`<div class="sess" style="color:var(--faint);cursor:default">此目录暂无作业</div>`:'';
-    const caret=open?'⌄':'›';
+    const caret=open?ICO.chevD:ICO.chevR;
     return`<div class="wsrow${on?' on':''}" data-cwd="${esc(g.cwd)}" title="${esc(g.cwd||'未指定目录 — 用默认目录派发')}">
         <span class="wsico">${g.cwd?esc(baseName(g.cwd).slice(0,2).toUpperCase()):'—'}</span>
         <span class="nm">${esc(name)}</span>
@@ -1004,7 +1042,7 @@ function renderSeats(){
     if(s.effort)parts.push(`<span class="sub">${esc(s.effort)}</span>`);
     const body=inline?parts.join('<span class="ssep">·</span>'):parts.join('');
     return`<button type="button" class="seat s-${slot}" onclick="openSeat(event,'${slot}')" title="${esc(SEAT_TITLE[slot])}">
-      ${body}<span class="caret">⌄</span></button>`;
+      ${body}<span class="caret">${ICO.chevD}</span></button>`;
   }).join('');
 }
 /** Push the target seat's values into the shared editor controls (one editor, N seats). */
@@ -1526,11 +1564,56 @@ function chatHtml(chat){
     <div class="cresult">
       <div class="chat-inbar">
         <textarea id="chat-input" rows="1" ${closed?'disabled':'placeholder="发消息给 '+esc(chat.agent)+'…（Enter 发送 / Shift+Enter 换行）"'} onkeydown="chatKey(event)"></textarea>
-        <button class="sendbtn" id="chat-send" onclick="sendChat()" ${st==='busy'||closed?'disabled':''} title="发送">↑</button>
+        <button type="button" class="chatmodel" id="chat-model-btn" onclick="toggleChatSettings(event)" title="模型与思考档位 · 对下一轮生效"><span class="cml">${esc(chatModelLabel(chat))}</span><span class="caret">${ICO.chevD}</span></button>
+        <button class="sendbtn" id="chat-send" onclick="sendChat()" ${st==='busy'||closed?'disabled':''} title="发送"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto"><path d="M8 13V3.6M8 3.6 4.2 7.4M8 3.6l3.8 3.8"/></svg></button>
       </div>
       <div class="chat-hint">多轮对话 · 会话在后台保持，结束时释放进程</div>
     </div>
   </div>`;
+}
+/** "model · effort" as the composer picker shows it — defaults stay quiet. */
+const chatModelLabel=chat=>[chat.model||'默认模型',chat.effort].filter(Boolean).join(' · ');
+function toggleChatSettings(ev){
+  ev.stopPropagation();
+  const p=$('chat-pop');
+  if(p.style.display==='block'){p.style.display='none';return}
+  const chat=CHATS.find(c=>c.id===OPEN_CHAT);if(!chat)return;
+  p.innerHTML=chatPopHtml(chat);
+  const btn=$('chat-model-btn');if(!btn)return;
+  p.style.display='block';
+  const r=btn.getBoundingClientRect();
+  const w=p.offsetWidth,h=p.offsetHeight;
+  p.style.left=Math.max(8,Math.min(window.innerWidth-w-8,r.right-w))+'px';
+  p.style.top=Math.max(8,r.top-h-8)+'px';
+}
+function chatPopHtml(chat){
+  const a=(STATUS?.agents||[]).find(x=>x.agent===chat.agent)||{};
+  const models=(a.models||[]).filter(Boolean);
+  const efforts=(a.effortLevels||[]).filter(Boolean);
+  const row=(kind,label,list,cur)=>{
+    const chips=[`<span class="chipset${!cur?' on':''}" data-k="${kind}" data-v="">默认</span>`]
+      .concat(list.map(v=>`<span class="chipset${cur===v?' on':''}" data-k="${kind}" data-v="${esc(v)}">${esc(v)}</span>`));
+    return `<div class="pophead">${label}</div><div class="chipsets">${chips.join('')}</div>`;
+  };
+  const notes=[];
+  if(chat.agent==='dsh')notes.push('dsh 的模型由它的 profile 决定，这里只切思考档位。');
+  if(!models.length&&chat.agent!=='dsh')notes.push('该 agent 未上报可选模型（设置 → Agents 里探测一次后可得列表）。');
+  if(!efforts.length)notes.push('该 agent 未上报思考档位。');
+  return row('model','模型',models,chat.model)
+    +(notes.length?`<div class="popnote">${notes.join('<br>')}</div>`:'')
+    +row('effort','思考档位',efforts,chat.effort);
+}
+async function pickChatSetting(k,v){
+  const chat=CHATS.find(c=>c.id===OPEN_CHAT);if(!chat)return;
+  $('chat-pop').style.display='none';
+  try{
+    const r=await api(`/api/chats/${chat.id}/settings`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({[k]:v})});
+    const i=CHATS.findIndex(c=>c.id===chat.id);
+    if(i>=0&&r.chat)CHATS[i]=r.chat;
+    CHAT_SIG='';   // rebuild so the picker label reflects the new value
+    renderChat(true);
+    toast(`已切换：${k==='model'?'模型':'思考档位'} → ${v||'默认'}`);
+  }catch(e){toast(String(e.message??e),true)}
 }
 function chatKey(ev){
   if(ev.key==='Enter'&&!ev.shiftKey){ev.preventDefault();sendChat()}
@@ -1731,7 +1814,7 @@ function fileCard(j){
   const more=files.length-shown.length;
   return `<div class="fcard">
     <div class="fch"><span class="fic">✎</span>本会话编辑了 <b>${files.length}</b> 个文件</div>
-    ${shown.map(f=>`<div class="fl"><span class="fi">▤</span><span class="fn">${esc(f)}</span></div>`).join('')}
+    ${shown.map(f=>`<div class="fl"><span class="fi" style="display:inline-flex">${ICO.file}</span><span class="fn">${esc(f)}</span></div>`).join('')}
     ${more>0?`<div class="fl" style="color:var(--faint)"><span class="fi"></span><span class="fn">还有 ${more} 个…</span></div>`:''}
   </div>`;
 }
@@ -2421,10 +2504,23 @@ function toast(msg,isErr){
 }
 
 /* ---------- polling ---------- */
+const NEED_API=3;   // the page speaks this protocol version; an older PROCESS cannot answer it
+$('chat-pop').onclick=e=>{const c=e.target.closest('.chipset');if(c)pickChatSetting(c.dataset.k,c.dataset.v)};
+document.addEventListener('click',e=>{
+  const p=$('chat-pop');
+  if(p&&p.style.display==='block'&&!e.target.closest('#chat-pop')&&!e.target.closest('#chat-model-btn'))p.style.display='none';
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const p=$('chat-pop');if(p)p.style.display='none'}});
 async function refreshStatus(){
-  try{renderStatus(await api('/api/status'));
-    $('conn-dot').className='dot ok';$('conn-text').textContent='已连接';}
-  catch{$('conn-dot').className='dot err';$('conn-text').textContent='断开';}
+  try{
+    const s=await api('/api/status');
+    renderStatus(s);
+    // The page knows what protocol it needs; the process reports what it implements. A gap
+    // means the process is older than the page — surface it instead of acting broken.
+    const st=$('stale');
+    if(st)st.style.display=((s.apiVersion??0)<NEED_API)?'':'none';
+    $('conn-dot').className='dot ok';$('conn-text').textContent='已连接';
+  }catch{$('conn-dot').className='dot err';$('conn-text').textContent='断开';}
 }
 async function refreshJobs(force){
   try{

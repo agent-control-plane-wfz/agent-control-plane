@@ -45,8 +45,6 @@ aside{width:252px;min-width:252px;height:100vh;overflow-y:auto;overflow-x:hidden
 .hicon{cursor:pointer;font-size:10.5px;color:var(--faint);padding:1px 6px;border-radius:6px;letter-spacing:.3px}
 .hicon:hover{color:var(--text);background:var(--dsw-alias-bg-hover)}
 .hicon.on{color:var(--text);background:var(--dsw-alias-bg-layer-3)}
-.hicon.stat{cursor:default;font-variant-numeric:tabular-nums}
-.hicon.stat:hover{color:var(--faint);background:none}
 .conv-tools{padding:1px 2px 3px}
 .side-grow{flex:1;min-height:8px}
 
@@ -691,7 +689,6 @@ body.hideL #asideL>.rail{animation:fadein .18s ease}
       <span class="hicon" id="tgl-search" onclick="toggleConvTools('search')" title="搜索会话">搜索</span>
       <span class="hicon" id="tgl-filter" onclick="toggleConvTools('filter')" title="按状态或 agent 筛选">筛选</span>
       <span class="hicon" onclick="openDirPicker('f-cwd')" title="选择工作目录"><svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="display:inline-block;vertical-align:-1px"><path d="M8 3v10M3 8h10"/></svg></span>
-      <span class="hicon stat" id="job-count" title="显示的会话 / 总数"></span>
     </span>
   </div>
   <div id="conv-search-row" class="conv-tools" style="display:none"><input class="fsearch" id="f-search" placeholder="搜索会话…" style="width:100%"></div>
@@ -1490,13 +1487,10 @@ function jobTitle(j){
 function jobAgent(j){
   return j.kind==='parallel'?'parallel':j.kind==='review'?'review':(j.request.agent||j.result?.agent||'auto');
 }
-/** Jobs moved (or filters changed): refresh the count and redraw the tree. The tree IS the
-    session list now — renderWorkspaceList is the only renderer, and it applies the filters
-    itself, so there is no second flat list to keep in sync. */
+/** Jobs moved (or filters changed): redraw the tree. The tree IS the session list — it applies
+    the filters itself, and each group row carries its own count, so there is no separate
+    total badge to keep in sync. */
 function renderJobs(list){
-  const filtered=list.filter(matchLeaf);
-  const jc=$('job-count');
-  if(jc)jc.textContent=list.length?(filtered.length===list.length?String(list.length):`${filtered.length}/${list.length}`):'';
   renderWorkspaceList();
 }
 
